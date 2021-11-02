@@ -1,0 +1,13 @@
+# This file contains values from Cookiecutter
+
+default_context:
+  project_name: "craco-postproc"
+  project_description: "Post-processing pipelines for CRACO"
+  organization: "askap-craco"
+  license: "MIT"
+  minimal_python_version: 3.9
+  github_name: "askap-craco"
+  email: "danica.scott@postgrad.curtin.edu.au"
+  version: "0.1.0"
+  line_length: "79"
+  create_example_template: "cli"
