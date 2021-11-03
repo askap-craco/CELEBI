@@ -9,8 +9,8 @@ __author__ = [
     "Keith Bannister, CSIRO <keith.bannister@csiro.au>",
     "Hyerin Cho, Curtin University/Swinburne University "
     + "<chyerin1996@gmail.com>",
-    "David Scott, Curtin University "
-    + "<david.r.scott@postgrad.curtin.edu.au",
+    "Danica Scott, Curtin University "
+    + "<danica.scott@postgrad.curtin.edu.au>",
 ]
 
 import logging
@@ -18,6 +18,7 @@ import multiprocessing
 import os
 import signal
 import time
+from typing import Tuple, TypeVar
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 import numpy as np
@@ -33,6 +34,9 @@ OS_NYQ_BWIDTH = 32.0  # Oversampled Nyquist bandwidth
 F_OS = OS_NYQ_BWIDTH / CHAN_BWIDTH  # Oversampling factor
 NUM_GUARD_CHAN = OS_NYQ_BWIDTH - CHAN_BWIDTH  # Number of guard channels
 
+# generic type
+T = TypeVar('T')
+
 
 # TODO: Cleanup (not in any particular order)
 #   IN GENERAL: MAKE THINGS CONSISTENT AND NICE!
@@ -45,30 +49,38 @@ NUM_GUARD_CHAN = OS_NYQ_BWIDTH - CHAN_BWIDTH  # Number of guard channels
 #   (5) Make as much as possible compatible with Python 3
 
 
-def process_chan(chan, corr, n_fine, chan_raw_data, geom_delays_us, i_ant):
+def process_chan(
+        chan: int, corr: Correlator, n_fine: int, 
+        chan_raw_data: np.ndarray, geom_delays_us: np.ndarray, 
+        i_ant: int) -> Tuple[np.ndarray, int, int]:
     """Process a particular channel of an Antenna.
 
     Processing includes:
         - Applying fringe rotation to account for the Earth's rotation
         - Trimming the edge of the spectral content of the raw data to
           remove the oversampled regions
-        - Applying geometric delay to the data
+        - Applying geometric delays to the data
         - Applying calibration solutions to the data
 
-    :param chan: Channel number as an integer.
-    :param corr: Correlator object.
-    :param n_fine: Number of fine channels as an integer.
-    :param chan_raw_data: The raw data for this channel. This data
-                          contains the edge regions that will be cut.
-    :param geom_delays_us: Geometric delays as a numpy array in units of
-                           microseconds.
-    :param i_ant: Antenna number (NOT name) as an integer.
-    :return: xfguard_f: Processed channel spectral data
-             fine_chan_start: Index of the first fine channel in the
-                              combined spectral array.
-             fine_chan_end: Index of the last fine channel in the
-                            combined spectral array.
+    :param chan: Channel index
+    :type chan: int
+    :param corr: Correlator object
+    :type corr: :class:`Correlator`
+    :param n_fine: Total number of fine channels
+    :type n_fine: int
+    :param chan_raw_data: Raw, oversampled fine spectrum for this
+        channel
+    :type chan_raw_data: :class:`numpy.ndarray`
+    :param geom_delays_us: Geometric delays as a function of frequency
+        in units of microseconds
+    :type geom_delays_us: :class:`numpy.ndarray`
+    :param i_ant: Antenna index
+    :type i_ant: int
+    :return: The processed fine spectrum of the channel, and the indexes
+        to be used to place the data in the full-band spectrum
+    :rtype: Tuple[:class:`np.ndarray`, int, int]
     """
+    
     # TODO: (5)
     # Channel frequency
     centre_freq = corr.freqs[chan]
@@ -149,6 +161,8 @@ def process_chan(chan, corr, n_fine, chan_raw_data, geom_delays_us, i_ant):
 
 class AntennaSource:
     # TODO: (1, 2, 4, 5)
+    # Possible refactor: include index and corr as fields
+
     def __init__(self, vfile):
         """Initialise the AntennaSource object.
 
@@ -187,14 +201,17 @@ class AntennaSource:
         self.pol = self.vfile.pol.lower()
         print(f"antenna {self.ant_name} {self.vfile.freqconfig}")
 
-    def do_f_tab(self, corr, i_ant):
-        """Perform the tied-array beamforming for this antenna.
+    def do_f_tab(self, corr: Correlator, i_ant: int) -> np.ndarray:
+        """Perform tied-array beamforming and PFB inversion
 
-        :param corr: Correlator object containing constants and
-                     functions required for beamforming
-        :param i_ant: Incremental antenna number
-        :return: beamformed complex voltage time series
-        """
+        :param corr: Correlator object with constants and functions for
+            this data set
+        :type corr: :class:`Correlator`
+        :param i_ant: Index of antenna
+        :type i_ant: int
+        :return: Beamformed, calibrated, PFB-inverted fine spectrum
+        :rtype: np.ndarray
+        """        
         # TODO: (2, 4, 5)
 
         self.all_mjd_mids.append(corr.curr_mjd_mid)
@@ -246,7 +263,18 @@ class AntennaSource:
 
         return data_out
 
-    def get_delays(self, corr, n_samp):
+    def get_delays(
+            self, corr: Correlator, n_samp: int) -> Tuple[int, np.ndarray]:
+        """Parse and calculate delay for this Antenna from Correlator
+
+        :param corr: Correlator object for this data set
+        :type corr: :class:`Correlator`
+        :param n_samp: Number of samples in this data set
+        :type n_samp: int
+        :return: Whole delay and frequency-dependent geometric delay in
+            units of microseconds
+        :rtype: Tuple[int, :class:`numpy.ndarray`]
+        """
         # TODO: (2, 5)
 
         geom_delay_us, geom_delay_rate_us = corr.get_delays(self)
@@ -510,7 +538,14 @@ class Correlator:
             return temp
 
 
-def parse_delays(values):
+def parse_delays(values: argparse.Namespace) -> dict:
+    """Parse hardware delays from hwdelays file inferred from imfile
+
+    :param values: Command line argument parameters
+    :type values: :class:`argparse.Namespace`
+    :return: Dictionary of hardware delays
+    :rtype: dict
+    """
     # TODO: (2, 4, 5)
     delay_file = values.calcfile.replace(".im", ".hwdelays")
 
@@ -538,15 +573,17 @@ def parse_delays(values):
     return delays
 
 
-def load_sources(calc_file):
-    """Loads the source in the given calc file
+def load_sources(imfile: str) -> list[dict]:
+    """Parse source from calcfile inferred from imfile name
 
-    :param calc_file: File containing source information
-    :return: List containing one source dict.
-             Source dict contains source name, RA, and DEC (in radians)
+    :param imfile: Interferometer model filename
+    :type imfile: str
+    :return: List containing one source dictionary with the keys 'name',
+        'ra', and 'dec'
+    :rtype: list[dict]
     """
     # TODO: (2, 5)
-    calc_input = calc_file.replace(".im", ".calc")
+    calc_input = imfile.replace(".im", ".calc")
 
     d = {}
     for line in open(calc_input):
@@ -572,12 +609,15 @@ def load_sources(calc_file):
     return sources
 
 
-def get_antennas(values):
-    """Calculate delays and return antennas
+def get_antennas(values: argparse.Namespace) -> list[AntennaSource]:
+    """Create AntennaSource objects for each antenna in data set
 
-    :param values: Command line input values
-    :return: list of AntennaSource objects representing the list of antennas
+    :param values: Command line argument parameters
+    :type values: :class:`argparse.Namespace`
+    :return: List of all AntennaSource objects for the data set
+    :rtype: list[AntennaSource]
     """
+
 
     delay_map = parse_delays(values)
     antennas = [
@@ -590,12 +630,15 @@ def get_antennas(values):
     return antennas
 
 
-def print_var(name, value):
-    """Print a variable name and value in a consistent way
+def print_var(name: str, value: T) -> None:
+    """Debugging function for output of variable content
 
-    :param name: Name of variable to be printed
-    :param value: Value of variable to be printed
+    :param name: Name of variable
+    :type name: str
+    :param value: Variable value
+    :type value: T
     """
+
     base_str = "{} : {}"
     print(base_str.format(name, value))
 
