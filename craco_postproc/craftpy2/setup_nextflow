@@ -1,0 +1,5 @@
+module use /fred/oz002/dscott/software/modulefiles/
+module load nextflow/20.04.1.5335
+export PATH=$PATH:/fred/oz002/dscott/software/modulefiles/nextflow
+
+module load python/2.7.14

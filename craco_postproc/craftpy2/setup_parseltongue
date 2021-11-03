@@ -1,0 +1,36 @@
+########################################################################
+# Convenience functions
+########################################################################
+AppendPath ()  { _pathvar=$1 ; path_remove $1 $2; export $1="${!_pathvar}:$2";}
+PrependPath () { _pathvar=$1 ; path_remove $1 $2; export $1="$2:${!_pathvar}"; }
+path_remove ()  { _pathvar=$1 ; export $1=`echo -n ${!_pathvar} | awk -v RS=: -v ORS=: '$0 != "'$2'"' | sed 's/:$//'`; }
+export -f AppendPath
+export -f PrependPath
+export -f path_remove
+
+########################################################################
+# Set up some paths, load some modules, etc
+########################################################################
+user=$1
+
+. /home/$user/packages/src/aips/LOGIN.SH
+module load gcc/6.4.0
+module load anaconda2/5.1.0
+module load git/2.18.0
+module load pgplot/5.2.2
+module load matplotlib/2.2.2-python-2.7.14
+module load scipy/1.0.0-python-2.7.14
+module load casa/5.6.2
+module load ephem/3.7.6.0-python-2.7.14
+AppendPath PATH /home/$user/packages/bin/
+AppendPath PATH /home/$user/packages/src/difx/sites/ASKAP/
+AppendPath PATH /home/$user/packages/src/psrvlbireduce/datareduction/
+AppendPath PATH /home/$user/packages/src/craft/parseltongue/
+
+export PYTHONPATH=$PYTHONPATH:/home/$user/psrvlbireduce/datareduction
+
+source activate parseltongueenv
+
+AIPSVER=31DEC21
+export PSRVLBAIPSVER=$AIPSVER
+export MPLCONFIGDIR="/tmp/"
