@@ -15,6 +15,7 @@ __author__ = [
 
 from typing import Tuple, TypeVar
 
+import argparse
 import logging
 import multiprocessing
 import os
@@ -57,7 +58,7 @@ def process_chan(
     chan_raw_data: np.ndarray,
     geom_delays_us: np.ndarray,
     i_ant: int,
-) -> tuple[np.ndarray, int, int]:
+) -> "tuple[np.ndarray, int, int]":
     """Process a particular channel of an Antenna.
 
     Processing includes:
@@ -270,7 +271,7 @@ class AntennaSource:
 
     def get_delays(
         self, corr: Correlator, n_samp: int
-    ) -> tuple[int, np.ndarray]:
+    ) -> "tuple[int, np.ndarray]":
         """Parse and calculate delay for this Antenna from Correlator
 
         :param corr: Correlator object for this data set
@@ -579,7 +580,7 @@ def parse_delays(values: argparse.Namespace) -> dict:
     return delays
 
 
-def load_sources(imfile: str) -> list[dict]:
+def load_sources(imfile: str) -> "list[dict]":
     """Parse source from calcfile inferred from imfile name
 
     :param imfile: Interferometer model filename
@@ -615,7 +616,7 @@ def load_sources(imfile: str) -> list[dict]:
     return sources
 
 
-def get_antennas(values: argparse.Namespace) -> list[AntennaSource]:
+def get_antennas(values: argparse.Namespace) -> "list[AntennaSource]":
     """Create AntennaSource objects for each antenna in data set
 
     :param values: Command line argument parameters
