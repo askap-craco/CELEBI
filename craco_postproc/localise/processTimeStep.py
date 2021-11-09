@@ -9,19 +9,14 @@ import sys
 
 def _main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-t", "--timestep", help="Timestep (the directory name to process)"
-    )
-    parser.add_argument(
-        "--name", default="CRAFT", help="Base name for the output fits files"
-    )
+    parser.add_argument("-t", "--timestep",
+                        help="Timestep (the directory name to process)")
+    parser.add_argument("--name",
+                        default="CRAFT", help="Base name for the output fits files")
     parser.add_argument("-r", "--ra", help="Force RA value")
-    parser.add_argument(
-        "-d",
-        "--dec",
-        help="Force Dec value: use no space if declination is negative, i.e., "
-             "-d-63:20:23.3",
-    )
+    parser.add_argument("-d", "--dec",
+                        help="Force Dec value: use no space if declination is negative, i.e., "
+                        "-d-63:20:23.3")
     parser.add_argument(
         "-b", "--bits", type=int, default=1, help="Number of bits. Default 1"
     )
@@ -206,12 +201,10 @@ def _main():
         print("Too many beams found! Aborting")
         sys.exit()
 
-
     if npol == 1:
         datadir = os.path.basename(beamdirs[0])
     else:
         datadir = args.o
-
 
     def runCommand(command, log):
         proc = subprocess.Popen(
@@ -225,7 +218,6 @@ def _main():
             log_file.write(outs)
             log_file.write(errs)
         return proc.returncode
-
 
     if not os.path.exists(datadir):
         os.mkdir(datadir)
@@ -246,7 +238,7 @@ def _main():
         os.system("cp ../../.bat0 .")
 
     torun = f"{args.dir}/vcraft2obs.py --dir={args.dir} " \
-             "--startmjd={str(args.startmjd)}"
+        "--startmjd={str(args.startmjd)}"
     if args.keep:
         torun += " -k"
     if args.ra is not None:
@@ -292,7 +284,6 @@ def _main():
     if ret != 0:
         print("vcraft2obs failed! (", ret, ")")
         sys.exit(ret)
-
 
     if not os.path.exists("eop.txt"):
         topEOP = f"{topDir}/eop.txt"
