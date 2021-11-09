@@ -8,9 +8,11 @@ import sys
 
 
 def _main():
+    # Get arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--timestep", 
         help="Timestep (the directory name to process)",
+        required=True,
     )
     parser.add_argument("--name", 
         default="CRAFT", 
@@ -115,9 +117,7 @@ def _main():
     )
     args = parser.parse_args()
 
-    if args.timestep is None:
-        parser.error("You must specify a timestep / target directory")
-
+    # Verify arguments
     # Check that sensible options were given for the queue destination
     if args.large and not args.gstar:
         parser.error(
