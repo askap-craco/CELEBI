@@ -9,111 +9,106 @@ import sys
 
 def _main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--timestep",
-                        help="Timestep (the directory name to process)")
-    parser.add_argument("--name",
-                        default="CRAFT", help="Base name for the output fits files")
+    parser.add_argument("-t", "--timestep", 
+        help="Timestep (the directory name to process)",
+    )
+    parser.add_argument("--name", 
+        default="CRAFT", 
+        help="Base name for the output fits files",
+    )
     parser.add_argument("-r", "--ra", help="Force RA value")
     parser.add_argument("-d", "--dec",
-                        help="Force Dec value: use no space if declination is negative, i.e., "
-                        "-d-63:20:23.3")
-    parser.add_argument(
-        "-b", "--bits", type=int, default=1, help="Number of bits. Default 1"
+        help="Force Dec value: use no space if declination is negative, i.e., "
+             "-d-63:20:23.3",
     )
-    parser.add_argument(
-        "-i", "--integration", type=float, help="Correlation integration time"
+    parser.add_argument("-b", "--bits", 
+        type=int, 
+        default=1, 
+        help="Number of bits. Default 1",
     )
-    parser.add_argument(
-        "-n", "--nchan", type=int, help="Number of spectral channels"
+    parser.add_argument("-i", "--integration", 
+        type=float, 
+        help="Correlation integration time",
     )
-    parser.add_argument(
-        "--forceFFT",
+    parser.add_argument("-n", "--nchan", 
+        type=int, 
+        help="Number of spectral channels",
+    )
+    parser.add_argument("--forceFFT",
         default=False,
         action="store_true",
         help="Force FFT size to equal number of channels (don't increase to "
              "128)",
     )
-    parser.add_argument(
-        "-f", "--fcm", default="fcm.txt", help="Name of the fcm file"
+    parser.add_argument("-f", "--fcm", 
+        default="fcm.txt", 
+        help="Name of the fcm file",
     )
-    parser.add_argument(
-        "-p", "--polyco", help="Bin config file for pulsar gating"
+    parser.add_argument("-p", "--polyco",
+        help="Bin config file for pulsar gating",
     )
-    parser.add_argument(
-        "-c",
-        "--correctfpgadelays",
+    parser.add_argument("-c", "--correctfpgadelays",
         default=False,
         action="store_true",
         help="Figure out and correct 7 microsec FPGA delays",
     )
-    parser.add_argument(
-        "-S",
-        "--suppress",
+    parser.add_argument("-S", "--suppress",
         default=False,
         action="store_true",
         help="Don't create FITS file",
     )
-    parser.add_argument(
-        "-B", "--beam", help="Correlate a specific beam: blank means both"
+    parser.add_argument("-B", "--beam", 
+        help="Correlate a specific beam: blank means both"
     )
-    parser.add_argument(
-        "--card",
+    parser.add_argument("--card",
         default="",
         help="Correlate only a specific card; blank means all",
     )
-    parser.add_argument(
-        "-k",
-        "--keep",
+    parser.add_argument("-k", "--keep",
         default=False,
         action="store_true",
         help="Keep existing codif files",
     )
-    parser.add_argument(
-        "-s",
-        "--snoopylog",
+    parser.add_argument("-s", "--snoopylog",
         help="Snoopy log file, default blank, if not default will use this to "
              "correlate on-pulse",
     )
-    parser.add_argument(
-        "--slurm",
+    parser.add_argument("--slurm",
         default=False,
         action="store_true",
         help="Use slurm batch jobs rather than running locally",
     )
-    parser.add_argument(
-        "--ts",
+    parser.add_argument("--ts",
         default=0,
         type=int,
         help="Use taskspooler to run CRAFTConverter, with N parallel tasks",
     )
-    parser.add_argument(
-        "--gstar",
+    parser.add_argument("--gstar",
         default=False,
         action="store_true",
         help="Set if using gstar for correlation",
     )
-    parser.add_argument(
-        "--large",
+    parser.add_argument("--large",
         default=False,
         action="store_true",
         help="Set if 32 nodes, 384 tasks are required (i.e., 23GB memory "
              "needed per task; else 16 nodes, 192 tasks will be used for "
              "11.5GB per task",
     )
-    parser.add_argument(
-        "--numskylakenodes", default=1, type=int, help="Use 32x this many CPUs"
+    parser.add_argument("--numskylakenodes", 
+        default=1, 
+        type=int, 
+        help="Use 32x this many CPUs",
     )
     parser.add_argument("-o", help="Output directory for data")
     parser.add_argument("--freqlabel", help="Freqlabel to process", type=str)
-    parser.add_argument(
-        "--calconly",
+    parser.add_argument("--calconly",
         default=False,
         action="store_true",
         help="Stop after creating .calc file",
     )
     parser.add_argument("--dir", help="Directory of local difx files")
-    parser.add_argument(
-        "--startmjd",
+    parser.add_argument("--startmjd",
         default=-1,
         type=float,
         help="Force a particular start MJD without searching files for one.",
