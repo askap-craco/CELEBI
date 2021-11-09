@@ -10,111 +10,113 @@ import sys
 def _main():
     # Get arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--timestep", 
-        help="Timestep (the directory name to process)",
-        required=True,
-    )
-    parser.add_argument("--name", 
-        default="CRAFT", 
-        help="Base name for the output fits files",
-    )
+    parser.add_argument("-t", "--timestep",
+                        help="Timestep (the directory name to process)",
+                        required=True,
+                        )
+    parser.add_argument("--name",
+                        default="CRAFT",
+                        help="Base name for the output fits files",
+                        )
     parser.add_argument("-r", "--ra", help="Force RA value")
     parser.add_argument("-d", "--dec",
-        help="Force Dec value: use no space if declination is negative, i.e., "
-             "-d-63:20:23.3",
-    )
-    parser.add_argument("-b", "--bits", 
-        type=int, 
-        default=1, 
-        help="Number of bits. Default 1",
-    )
-    parser.add_argument("-i", "--integration", 
-        type=float, 
-        help="Correlation integration time",
-    )
-    parser.add_argument("-n", "--nchan", 
-        type=int, 
-        help="Number of spectral channels",
-    )
+                        help="Force Dec value: use no space if declination is "
+                             "negative, i.e., -d-63:20:23.3",
+                        )
+    parser.add_argument("-b", "--bits",
+                        type=int,
+                        default=1,
+                        help="Number of bits. Default 1",
+                        )
+    parser.add_argument("-i", "--integration",
+                        type=float,
+                        help="Correlation integration time",
+                        )
+    parser.add_argument("-n", "--nchan",
+                        type=int,
+                        help="Number of spectral channels",
+                        )
     parser.add_argument("--forceFFT",
-        default=False,
-        action="store_true",
-        help="Force FFT size to equal number of channels (don't increase to "
-             "128)",
-    )
-    parser.add_argument("-f", "--fcm", 
-        default="fcm.txt", 
-        help="Name of the fcm file",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Force FFT size to equal number of channels (don't increase to "
+                        "128)",
+                        )
+    parser.add_argument("-f", "--fcm",
+                        default="fcm.txt",
+                        help="Name of the fcm file",
+                        )
     parser.add_argument("-p", "--polyco",
-        help="Bin config file for pulsar gating",
-    )
+                        help="Bin config file for pulsar gating",
+                        )
     parser.add_argument("-c", "--correctfpgadelays",
-        default=False,
-        action="store_true",
-        help="Figure out and correct 7 microsec FPGA delays",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Figure out and correct 7 microsec FPGA delays",
+                        )
     parser.add_argument("-S", "--suppress",
-        default=False,
-        action="store_true",
-        help="Don't create FITS file",
-    )
-    parser.add_argument("-B", "--beam", 
-        help="Correlate a specific beam: blank means both"
-    )
+                        default=False,
+                        action="store_true",
+                        help="Don't create FITS file",
+                        )
+    parser.add_argument("-B", "--beam",
+                        help="Correlate a specific beam: blank means both"
+                        )
     parser.add_argument("--card",
-        default="",
-        help="Correlate only a specific card; blank means all",
-    )
+                        default="",
+                        help="Correlate only a specific card; blank means all",
+                        )
     parser.add_argument("-k", "--keep",
-        default=False,
-        action="store_true",
-        help="Keep existing codif files",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Keep existing codif files",
+                        )
     parser.add_argument("-s", "--snoopylog",
-        help="Snoopy log file, default blank, if not default will use this to "
-             "correlate on-pulse",
-    )
+                        help="Snoopy log file, default blank, if not default "
+                             "will use this to correlate on-pulse",
+                        )
     parser.add_argument("--slurm",
-        default=False,
-        action="store_true",
-        help="Use slurm batch jobs rather than running locally",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Use slurm batch jobs rather than running locally",
+                        )
     parser.add_argument("--ts",
-        default=0,
-        type=int,
-        help="Use taskspooler to run CRAFTConverter, with N parallel tasks",
-    )
+                        default=0,
+                        type=int,
+                        help="Use taskspooler to run CRAFTConverter, with N "
+                             "parallel tasks",
+                        )
     parser.add_argument("--gstar",
-        default=False,
-        action="store_true",
-        help="Set if using gstar for correlation",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Set if using gstar for correlation",
+                        )
     parser.add_argument("--large",
-        default=False,
-        action="store_true",
-        help="Set if 32 nodes, 384 tasks are required (i.e., 23GB memory "
-             "needed per task; else 16 nodes, 192 tasks will be used for "
-             "11.5GB per task",
-    )
-    parser.add_argument("--numskylakenodes", 
-        default=1, 
-        type=int, 
-        help="Use 32x this many CPUs",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Set if 32 nodes, 384 tasks are required (i.e., "
+                             "23GB memory needed per task; else 16 nodes, 192 "
+                             "tasks will be used for 11.5GB per task",
+                        )
+    parser.add_argument("--numskylakenodes",
+                        default=1,
+                        type=int,
+                        help="Use 32x this many CPUs",
+                        )
     parser.add_argument("-o", help="Output directory for data")
     parser.add_argument("--freqlabel", help="Freqlabel to process", type=str)
     parser.add_argument("--calconly",
-        default=False,
-        action="store_true",
-        help="Stop after creating .calc file",
-    )
+                        default=False,
+                        action="store_true",
+                        help="Stop after creating .calc file",
+                        )
     parser.add_argument("--dir", help="Directory of local difx files")
     parser.add_argument("--startmjd",
-        default=-1,
-        type=float,
-        help="Force a particular start MJD without searching files for one.",
-    )
+                        default=-1,
+                        type=float,
+                        help="Force a particular start MJD without searching "
+                             "files for one.",
+                        )
     args = parser.parse_args()
 
     # Verify arguments
@@ -143,6 +145,7 @@ def _main():
     if not os.path.exists(args.fcm):
         parser.error(f"{args.fcm} doesn't exist")
 
+    # Parse bin config file for number of bins
     polyco = args.polyco
     nbins = 1
     if polyco is not None:
@@ -162,6 +165,7 @@ def _main():
 
     topDir = os.getcwd()
 
+    # find vcraft files
     examplefiles = []
     antennadirs = sorted(glob.glob(f"{timestep}/ak*"))
 
@@ -201,23 +205,11 @@ def _main():
     else:
         datadir = args.o
 
-    def runCommand(command, log):
-        proc = subprocess.Popen(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-        with open(log, "w") as log_file:
-            outs, errs = proc.communicate()
-            print(outs)
-            print(errs)
-            log_file.write(outs)
-            log_file.write(errs)
-        return proc.returncode
-
     if not os.path.exists(datadir):
         os.mkdir(datadir)
     os.chdir(datadir)
 
+    # select specific card/FPGA to process and process it
     freqlabels = []
     freqlabel = args.freqlabel
     freqlabels.append(freqlabel)
@@ -233,17 +225,17 @@ def _main():
         os.system("cp ../../.bat0 .")
 
     torun = f"{args.dir}/vcraft2obs.py --dir={args.dir} " \
-        "--startmjd={str(args.startmjd)}"
+             "--startmjd={str(args.startmjd)}"
     if args.keep:
         torun += " -k"
     if args.ra is not None:
-        torun = torun + " -r" + args.ra
+        torun = torun + f" -r{args.ra}"
     if args.dec is not None:
-        torun = torun + " -d" + args.dec
+        torun = torun + f" -d{args.dec}"
     if not args.bits == "":
-        torun = torun + " --bits=" + str(args.bits)
+        torun = torun + f" --bits={args.bits}"
     if polyco is not None:
-        torun += " --polyco " + polyco
+        torun += f" --polyco {polyco}"
     if args.integration is not None:
         torun += f" --integration={args.integration}"
     if args.ts is not None:
@@ -257,7 +249,7 @@ def _main():
     if args.large:
         torun += " --large"
     if args.numskylakenodes > 1:
-        torun += " --numskylakenodes=" + str(args.numskylakenodes)
+        torun += f" --numskylakenodes={args.numskylakenodes}"
     if args.slurm:
         torun += " --slurm"
         homedir = os.path.expanduser("~") + "/"
@@ -269,7 +261,8 @@ def _main():
     if args.calconly:
         torun += " --calconly"
     beamname = os.path.basename(beamdirs[0])
-    torun += f' --fpga {freqlabel} "{timestep}/ak*/{beamname}/*{freqlabel}*vcraft"'
+    torun += f" --fpga {freqlabel}"
+    torun += f'"{timestep}/ak*/{beamname}/*{freqlabel}*vcraft"'
     if npol == 2:
         beamname = os.path.basename(beamdirs[1])
         torun += f' "{timestep}/ak*/{beamname}/*{freqlabel}*vcraft"'
@@ -280,6 +273,7 @@ def _main():
         print("vcraft2obs failed! (", ret, ")")
         sys.exit(ret)
 
+    # Find and, if necessary, create EOP file
     if not os.path.exists("eop.txt"):
         topEOP = f"{topDir}/eop.txt"
         if not os.path.exists(topEOP):
@@ -306,7 +300,7 @@ def _main():
         print(f"cp {topEOP} eop.txt")
         os.system(f"cp {topEOP} eop.txt")
 
-    # ret = os.system("./runaskap2difx | tee askap2difx.log")
+    # Convert CODIF data to difx format
     ret = runCommand("./runaskap2difx", "askap2difx.log")
     if ret != 0:
         print("askap2difx failed! (", ret, ")")
@@ -315,6 +309,7 @@ def _main():
     if not os.path.exists("../../.bat0") and os.path.exists(".bat0"):
         os.system("cp .bat0 ../..")
 
+    # If we only need to calculate the interferometer model, quit now
     if args.calconly:
         sys.exit()
 
@@ -330,6 +325,29 @@ def _main():
             os.system("./runmergedifx")
     os.chdir("../")
 
+
+def runCommand(command: str, log: str) -> int:
+    """Run a command, save output in a log file, and return exit code
+
+    :param command: Command to be executed (including arguments)
+    :type command: str
+    :param log: File to write command STDOUT + STDERR to
+    :type log: str
+    :return: Exit code of the commmand
+    :rtype: int
+    """
+    proc = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+
+    with open(log, "w") as log_file:
+        outs, errs = proc.communicate()
+        print(outs)
+        print(errs)
+        log_file.write(outs)
+        log_file.write(errs)
+
+    return proc.returncode
 
 if __name__ == "__main__":
     _main()
