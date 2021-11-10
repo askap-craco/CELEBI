@@ -40,10 +40,10 @@ def _main():
     if os.path.exists("../../.bat0"):
         os.system("cp ../../.bat0 .")
 
-    v2oargs = create_v2oargs(args, polyco)
+    v2oargs = create_v2oargs(args, polyco, datadir, beamdirs)
     v2ocmd = f"{args.dir}/vcraft2obs.py {v2oargs}"
 
-    ret = runCommand(torun, "vcraft2obs.log")
+    ret = runCommand(v2ocmd, "vcraft2obs.log")
     if ret != 0:
         print("vcraft2obs failed! (", ret, ")")
         sys.exit(ret)
@@ -232,8 +232,8 @@ def get_args() -> argparse.Namespace:
 
 
 def verify_args(
-        args: argparse.Namespace,
-        parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
 ) -> None:
     """Verify that provided command line arguments are valid
 
@@ -355,9 +355,10 @@ def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
 
 
 def create_v2oargs(
-        args: argparse.Namespace,
-        polyco: str,
-        beamdirs: list[str],
+    args: argparse.Namespace,
+    polyco: str,
+    datadir: str,
+    beamdirs: "list[str]",
 ) -> str:
     """Determine arguments to be passed to vcraft2obs based on command
     line arguments.
@@ -366,6 +367,8 @@ def create_v2oargs(
     :type args: :class:`argparse.Namespace`
     :param polyco: Absolute path to polyco
     :type polyco: str
+    :param datadir: Absolute path to data directory
+    :type datadir: str
     :param beamdirs: List of paths to directories for each beam being
         processed
     :type beamdirs: list[str]
@@ -408,11 +411,11 @@ def create_v2oargs(
     if args.calconly:
         v2oargs += " --calconly"
 
-    v2oargs += f" --fpga {freqlabel}"
+    v2oargs += f" --fpga {args.freqlabel}"
 
     for beamdir in beamdirs:
         beamname = os.path.basename(beamdir)
-        v2oargs += f'"{datadir}/ak*/{beamname}/*{freqlabel}*vcraft"'
+        v2oargs += f'"{datadir}/ak*/{beamname}/*{args.freqlabel}*vcraft"'
 
     return v2oargs
 
