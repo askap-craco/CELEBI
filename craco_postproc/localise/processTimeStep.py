@@ -15,117 +15,47 @@ def _main():
     datadir = os.path.abspath(args.timestep)
     polyco = os.path.abspath(args.polyco)
     fcm = os.path.abspath(args.fcm)
-    topDir = os.getcwd()
-
-    bins = get_nbins(polyco)
+    topdir = os.getcwd()
 
     outdir = args.o
-
     if not os.path.exists(outdir):
         os.mkdir(outdir)
     os.chdir(outdir)
 
-    beamdirs = find_vcraft(datadir, beam=args.beam)
+    bins = get_nbins(polyco)
+
+    beamdirs = find_vcraft(datadir, beam=args.beam, card=args.card)
     npol = len(beamdirs)
 
     # select specific card/FPGA to process and process it
-    freqlabels = []
     freqlabel = args.freqlabel
-    freqlabels.append(freqlabel)
     print(f"Going to process {freqlabel}")
     if not os.path.exists(freqlabel):
         os.mkdir(freqlabel)
     os.chdir(freqlabel)
-    os.system("cp %s fcm.txt" % fcm)
+    os.system(f"cp {fcm} fcm.txt")
     if os.path.exists("../../eopjunk.txt"):
         os.system("cp ../../eopjunk.txt .")
     # Copy .bat0 file if it exists
     if os.path.exists("../../.bat0"):
         os.system("cp ../../.bat0 .")
 
-    torun = (
-        f"{args.dir}/vcraft2obs.py --dir={args.dir} "
-        "--startmjd={str(args.startmjd)}"
-    )
-    if args.keep:
-        torun += " -k"
-    if args.ra is not None:
-        torun = torun + f" -r{args.ra}"
-    if args.dec is not None:
-        torun = torun + f" -d{args.dec}"
-    if not args.bits == "":
-        torun = torun + f" --bits={args.bits}"
-    if polyco is not None:
-        torun += f" --polyco {polyco}"
-    if args.integration is not None:
-        torun += f" --integration={args.integration}"
-    if args.ts is not None:
-        torun += f" --ts={args.ts}"
-    if args.nchan is not None:
-        torun += f" --nchan={args.nchan}"
-    if args.forceFFT:
-        torun += " --forceFFT"
-    if args.gstar:
-        torun += " --gstar"
-    if args.large:
-        torun += " --large"
-    if args.numskylakenodes > 1:
-        torun += f" --numskylakenodes={args.numskylakenodes}"
-    if args.slurm:
-        torun += " --slurm"
-        homedir = os.path.expanduser("~") + "/"
-        if (
-            os.path.exists(homedir + ".eops.new")
-            and os.path.getsize(homedir + ".eops.new") > 0
-        ):
-            os.system("mv -f " + homedir + ".eops.new " + homedir + ".eops")
-    if args.calconly:
-        torun += " --calconly"
-    beamname = os.path.basename(beamdirs[0])
-    torun += f" --fpga {freqlabel}"
-    torun += f'"{datadir}/ak*/{beamname}/*{freqlabel}*vcraft"'
-    if npol == 2:
-        beamname = os.path.basename(beamdirs[1])
-        torun += f' "{datadir}/ak*/{beamname}/*{freqlabel}*vcraft"'
+    v2oargs = create_v2oargs(args, polyco)
+    v2ocmd = f"{args.dir}/vcraft2obs.py {v2oargs}"
 
-    print(torun)
     ret = runCommand(torun, "vcraft2obs.log")
     if ret != 0:
         print("vcraft2obs failed! (", ret, ")")
         sys.exit(ret)
 
-    # Find and, if necessary, create EOP file
-    if not os.path.exists("eop.txt"):
-        topEOP = f"{topDir}/eop.txt"
-        if not os.path.exists(topEOP):
-            mjd = None
-            with open("obs.txt") as f:
-                for line in f:
-                    match = re.search(r"startmjd\s*=\s*(\S+)", line)
-                    if match:
-                        mjd = match.group(1)
-                        break
-            if mjd is not None:
-                print(f"getEOP.py -l {mjd} > {topEOP}")
-                ret = os.system(f"getEOP.py -l {mjd} > {topEOP}")
-                if ret != 0:
-                    print(
-                        "WARNING: getEOP.py call not successful. Your eop.txt file is probably empty"
-                    )
-                    sys.exit(ret)
-            else:
-                print("Could not find MJD in obs.txt")
-                sys.exit()
-
-        print("Copying EOP from top dir")
-        print(f"cp {topEOP} eop.txt")
-        os.system(f"cp {topEOP} eop.txt")
+    find_eop(topdir)
 
     # Convert CODIF data to difx format
     ret = runCommand("./runaskap2difx", "askap2difx.log")
     if ret != 0:
         print("askap2difx failed! (", ret, ")")
         sys.exit(ret)
+
     # if .bat0 does not exist in upper directory, copy back
     if not os.path.exists("../../.bat0") and os.path.exists(".bat0"):
         os.system("cp .bat0 ../..")
@@ -134,6 +64,7 @@ def _main():
     if args.calconly:
         sys.exit()
 
+    # Launch/process final job
     if args.slurm:
         os.system("./launchjob")
     else:
@@ -301,8 +232,8 @@ def get_args() -> argparse.Namespace:
 
 
 def verify_args(
-    args: argparse.Namespace,
-    parser: argparse.ArgumentParser,
+        args: argparse.Namespace,
+        parser: argparse.ArgumentParser,
 ) -> None:
     """Verify that provided command line arguments are valid
 
@@ -423,6 +354,69 @@ def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
     return beamdirs
 
 
+def create_v2oargs(
+        args: argparse.Namespace,
+        polyco: str,
+        beamdirs: list[str],
+) -> str:
+    """Determine arguments to be passed to vcraft2obs based on command
+    line arguments.
+
+    :param args: Command line arguments
+    :type args: :class:`argparse.Namespace`
+    :param polyco: Absolute path to polyco
+    :type polyco: str
+    :param beamdirs: List of paths to directories for each beam being
+        processed
+    :type beamdirs: list[str]
+    :return: String containing arguments to be passed to vcraft2obs.py
+    :rtype: str
+    """
+    v2oargs = f"--dir={args.dir} --startmjd={args.startmjd}"
+    if args.keep:
+        v2oargs += " -k"
+    if args.ra is not None:
+        v2oargs += f" -r{args.ra}"
+    if args.dec is not None:
+        v2oargs += f" -d{args.dec}"
+    if not args.bits == "":
+        v2oargs += f" --bits={args.bits}"
+    if polyco is not None:
+        v2oargs += f" --polyco {polyco}"
+    if args.integration is not None:
+        v2oargs += f" --integration={args.integration}"
+    if args.ts is not None:
+        v2oargs += f" --ts={args.ts}"
+    if args.nchan is not None:
+        v2oargs += f" --nchan={args.nchan}"
+    if args.forceFFT:
+        v2oargs += " --forceFFT"
+    if args.gstar:
+        v2oargs += " --gstar"
+    if args.large:
+        v2oargs += " --large"
+    if args.numskylakenodes > 1:
+        v2oargs += f" --numskylakenodes={args.numskylakenodes}"
+    if args.slurm:
+        v2oargs += " --slurm"
+        homedir = f"{os.path.expanduser('~')}/"
+        if (
+            os.path.exists(f"{homedir}.eops.new")
+            and os.path.getsize(f"{homedir}.eops.new") > 0
+        ):
+            os.system(f"mv -f {homedir}.eops.new {homedir}.eops")
+    if args.calconly:
+        v2oargs += " --calconly"
+
+    v2oargs += f" --fpga {freqlabel}"
+
+    for beamdir in beamdirs:
+        beamname = os.path.basename(beamdir)
+        v2oargs += f'"{datadir}/ak*/{beamname}/*{freqlabel}*vcraft"'
+
+    return v2oargs
+
+
 def runCommand(command: str, log: str) -> int:
     """Run a command, save output in a log file, and return exit code
 
@@ -433,6 +427,7 @@ def runCommand(command: str, log: str) -> int:
     :return: Exit code of the commmand
     :rtype: int
     """
+    print(command)
     proc = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -445,6 +440,40 @@ def runCommand(command: str, log: str) -> int:
         log_file.write(errs)
 
     return proc.returncode
+
+
+def find_eop(topdir: str) -> None:
+    """Find and, if necessary, create Earth Orientation Parameters file
+
+    :param topdir: Directory this script was run from
+    :type topdir: str
+    """
+    if not os.path.exists("eop.txt"):
+        topEOP = f"{topdir}/eop.txt"
+        if not os.path.exists(topEOP):
+            mjd = None
+            with open("obs.txt") as f:
+                for line in f:
+                    match = re.search(r"startmjd\s*=\s*(\S+)", line)
+                    if match:
+                        mjd = match.group(1)
+                        break
+            if mjd is not None:
+                print(f"getEOP.py -l {mjd} > {topEOP}")
+                ret = os.system(f"getEOP.py -l {mjd} > {topEOP}")
+                if ret != 0:
+                    print(
+                        "WARNING: getEOP.py call not successful. Your eop.txt "
+                        "file is probably empty"
+                    )
+                    sys.exit(ret)
+            else:
+                print("Could not find MJD in obs.txt")
+                sys.exit()
+
+        print("Copying EOP from top dir")
+        print(f"cp {topEOP} eop.txt")
+        os.system(f"cp {topEOP} eop.txt")
 
 
 if __name__ == "__main__":
