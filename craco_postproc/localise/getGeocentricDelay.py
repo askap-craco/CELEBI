@@ -15,94 +15,231 @@ askap_height = 361
 askap_radius = 6374217  # distance from geocentre
 c = 299792458.0
 
-if not len(sys.argv) == 3:
-    print("Usage: %s <rawdata directory> <snoopy file>" % sys.argv[0])
-    print("Raw data directory should contain akXX/beamXX/*.vcraft.hdr files")
-    sys.exit()
+
+def _main():
+    rawdata, snoopy_file = get_args()
+    cand = parse_snoopy(snoopy_file)
+    hdrfiles = find_hdrs(rawdata)
+
+    minfreq, frbpos, triggermjd, samprate, nsamps = parse_hdrs(hdrfiles)
+
+    geocentricdelay = calc_geocentric_delay(triggermjd, frbpos)
+    corrstartmjd = calc_corr_start(triggermjd, nsamps, samprate)
+
+    print(f"Geocentric delay is {geocentricdelay}")
+    print(f"Lowest frequency is {minfreq}")
+
+    # Determine and print snoopylog2frbgate.py command to be run
+    print(get_sl2fg_cmd(minfreq, geocentricdelay, corrstartmjd, snoopy_file))
 
 
-rawdata = sys.argv[1]
-snoopy_file = sys.argv[2]
+def get_args() -> "tuple[str, str]":
+    """Parse command line arguments and check there's the right amount.
 
-if not os.path.exists(snoopy_file):
-    print((snoopy_file, "doesn't exist"))
-    sys.exit()
+    Also verifies that the provided snoopy_file exists, and exits if it
+    doesn't.
+
+    :return: rawdata, snoopy_file paths as given in command line
+        arguments
+    :rtype: tuple[str, str]
+    """
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <rawdata directory> <snoopy file>")
+        print(
+            "Raw data directory should contain akXX/beamXX/*.vcraft.hdr files"
+        )
+        sys.exit()
+
+    rawdata = sys.argv[1]
+    snoopy_file = sys.argv[2]
+
+    if not os.path.exists(snoopy_file):
+        print(f"{snoopy_file} doesn't exist")
+        sys.exit()
+
+    return rawdata, snoopy_file
 
 
-# Parse the snoopy file
-with open(snoopy_file) as snoopyin:
-    snoopylines = snoopyin.readlines()
+def parse_snoopy(snoopy_file: str) -> "list[str]":
+    """Parse snoopy file, returning a candidate as a list of strings.
 
-nocommentlines = []
-for line in snoopylines:
-    print(line)
-    if len(line) > 1 and not line[0] == "#":
-        nocommentlines.append(line)
-        print(("Snoopy info", nocommentlines))
-if len(nocommentlines) != 1:
-    print("ERROR: No information found")
-    sys.exit()
+    We expect this file to only contain one candidate (the triggering
+    candidate), so we only return one line.
 
-splitline = nocommentlines[0].split()
-mjd = float(splitline[7])
+    :param snoopy_file: Path to snoopy candidate file
+    :type snoopy_file: str
+    :return: Candidate information as a list of strings. Each string is
+        a whitespace-separated value in the candidate file.
+    :rtype: list[str]
+    """
+    nocommentlines = []
+    for line in open(snoopy_file):
+        print(line)
+        if len(line) > 1 and not line[0] == "#":
+            nocommentlines.append(line)
+            print(f"Snoopy info {nocommentlines}")
+    if len(nocommentlines) != 1:
+        print("ERROR: No information found")
+        sys.exit()
+
+    return nocommentlines[0].split()
 
 
-# Grab all the headers and find the lowest frequency and the rough FRB direction
-antennas = sorted(glob.glob(sys.argv[1] + "/ak??/"))
-if len(antennas) == 0:
-    print("No antennas found!")
-    sys.exit()
-beams = glob.glob(antennas[0] + "/beam??/")
-if len(beams) == 0:
-    print(("No beams found in", antennas[0], "(in /beam??/)"))
-    sys.exit()
-hdrfiles = glob.glob(beams[0] + "/*hdr")
-if len(hdrfiles) == 0:
-    print("No vcraft header files found!")
-    sys.exit()
-lowestfreq = 99999999
-for hf in hdrfiles:
-    with open(hf) as headerin:
-        lines = headerin.readlines()
-        for line in lines:
-            if "FREQ" in line:
-                freqs = line.split()[1].split(",")
-                for f in freqs:
-                    if float(f) < lowestfreq:
-                        lowestfreq = float(f)
-            if "BEAM_RA" in line:
-                beamra = float(line.split()[1])
-            if "BEAM_DEC" in line:
-                beamdec = float(line.split()[1])
-            if "TRIGGER_MJD" in line:
-                triggermjd = float(line.split()[1])
-            if "SAMP_RATE" in line:
-                samprate = float(line.split()[1])
-            if "NSAMPS_REQUEST" in line:
-                nsamps = int(line.split()[1])
+def find_hdrs(rawdata: str) -> "list[str]":
+    """Search the rawdata directory for all the data header files (for a
+    single polarisation in an antenna).
 
-            # if "ANT_EL" in line:
-            #    ant_el_rad = float(line.split()[1])*math.pi/180.0
+    While searching, check that we have antenna directories, and then
+    at least one polarisation subdirectory within each of those antenna 
+    directories.
 
-frb = SkyCoord(beamra, beamdec, unit="deg")
-askap = EarthLocation(
-    lon=askap_lon * u.deg, lat=askap_lat * u.deg, height=askap_height * u.m
-)
-t = Time(triggermjd, format="mjd")
-altaz = frb.transform_to(AltAz(obstime=t, location=askap))
-geocentricdelay = math.sin(altaz.alt.radian) * askap_radius / c
+    The information required from the header files (lowest frequency and
+    approximate FRB direction) aren't antenna or polarisation-dependent,
+    so we only need the headers for a single polarisation of a single
+    antenna.
 
-# Would be much simpler to just get the elevation from the vcraft file!!
-# But this is for the centre of the PAF, so could be a bit off vs the elevation of the actual beam
-# (which is itself already a bit off vs the actual FRB, but within half a degree which is good enough)
-# geocentricdelay = math.sin(ant_el_rad) * askap_radius / c
+    :param rawdata: Path to the base of the raw data directory (i.e. the
+        directory containing the ak?? antenna sub-directories)
+    :type rawdata: str
+    :return: List of paths to all header files found
+    :rtype: list[str]
+    """
+    antennas = sorted(glob.glob(f"{rawdata}/ak??/"))
+    if len(antennas) == 0:
+        print("No antennas found!")
+        sys.exit()
 
-# Now figure out what the correlation start time will be:
-corrstartmjd = math.floor(triggermjd * 86400 - nsamps / samprate) / 86400.0
+    beams = glob.glob(f"{antennas[0]}/beam??/")
+    if len(beams) == 0:
+        print(f"No beams found in {antennas[0]} (in /beam??/)")
+        sys.exit()
 
-print(("Geocentric delay is", geocentricdelay))
-print(("Lowest frequency is", lowestfreq))
+    hdrfiles = glob.glob(beams[0] + "/*hdr")
+    if len(hdrfiles) == 0:
+        print("No vcraft header files found!")
+        sys.exit()
 
-print(
-    f"snoopylog2frbgate.py -f {lowestfreq:.3f} --timediff {geocentricdelay * 1e3:.3f} --corrstartmjd {corrstartmjd:.9f} {snoopy_file}"
-)
+    return hdrfiles
+
+
+def parse_hdrs(
+    hdrfiles: "list[str]"
+) -> "tuple[float, SkyCoord, float, float, int]":
+    """Parse vcraft headers to determine the lowest frequency, 
+    approximate FRB position, MJD of trigger, sample rate, and number of
+    samples.
+
+    :param hdrfiles: List of paths to all header files for a single
+        polarisation of a single antenna
+    :type hdrfiles: list[str]
+    :return: minfreq, frbpos, triggermjd, samprate, nsamps
+        minfreq: the minimum frequency found (in MHz)
+        frbpos: the approximate position of the FRB as determined by the 
+            central RA and Dec of the beam.
+        triggermjd: MJD of the trigger for the voltage dump
+        samprate: sample rate per second
+        nsamps: number of samples in data
+    :rtype: tuple[float, :class:`SkyCoord`, float, float, int]
+    """
+    minfreq = 99999999
+    for hf in hdrfiles:
+        with open(hf) as headerin:
+            lines = headerin.readlines()
+            for line in lines:
+                if "FREQ" in line:
+                    freqs = line.split()[1].split(",")
+                    for f in freqs:
+                        if float(f) < minfreq:
+                            minfreq = float(f)
+                if "BEAM_RA" in line:
+                    beamra = float(line.split()[1])
+                if "BEAM_DEC" in line:
+                    beamdec = float(line.split()[1])
+                if "TRIGGER_MJD" in line:
+                    triggermjd = float(line.split()[1])
+                if "SAMP_RATE" in line:
+                    samprate = float(line.split()[1])
+                if "NSAMPS_REQUEST" in line:
+                    nsamps = int(line.split()[1])
+
+    frbpos = SkyCoord(beamra, beamdec, unit="deg")
+
+    return minfreq, frbpos, triggermjd, samprate, nsamps
+
+
+def calc_geocentric_delay(triggermjd: float, frbpos: SkyCoord) -> float:
+    """Calculate the geocentric delay based on the time of the trigger
+    and approximate position of the FRB.
+
+    :param triggermjd: MJD of the trigger for the voltage dump
+    :type triggermjd: float
+    :param frbpos: Approximate position of the FRB (the central RA and
+        Dec of the beam)
+    :type frbpos: :class:`SkyCoord`
+    :return: Geocentric delay in seconds
+    :rtype: float
+    """
+    askap = EarthLocation(
+        lon=askap_lon * u.deg, lat=askap_lat * u.deg, height=askap_height * u.m
+    )
+    t = Time(triggermjd, format="mjd")
+    altaz = frbpos.transform_to(AltAz(obstime=t, location=askap))
+    geocentricdelay = math.sin(altaz.alt.radian) * askap_radius / c
+
+    """
+    Would be much simpler to just get the elevation from the vcraft 
+    file!! But this is for the centre of the PAF, so could be a bit off 
+    vs the elevation of the actual beam (which is itself already a bit 
+    off vs the actual FRB, but within half a degree which is good 
+    enough)
+    geocentricdelay = math.sin(ant_el_rad) * askap_radius / c
+    """
+
+    return geocentricdelay
+
+
+def calc_corr_start(triggermjd: float, nsamps: int, samprate: float) -> float:
+    """Calculate the start time to use for the correlation in MJD.
+
+    This is calculated as the latest whole second before the start of
+    the dumped data, i.e.
+        `t_start = t_trigger - n_samps/samprate`
+    rounded down to the nearest whole second.
+
+    :param triggermjd: MJD of the time of the trigger
+    :type triggermjd: float
+    :param nsamps: Number of samples in the data
+    :type nsamps: int
+    :param samprate: Sample rate of the data in samples per second
+    :type samprate: float
+    :return: MJD of the calculated correlation start time
+    :rtype: float
+    """
+    corrstartmjd = math.floor(triggermjd * 86400 - nsamps / samprate) / 86400.0
+    return corrstartmjd
+
+
+def get_sl2fg_cmd(minfreq: float, geocentricdelay: float, corrstartmjd: float, snoopy_file: str) -> str:
+    """Determine the snoopylog2frbgate.py command to be run next.
+
+    :param minfreq: Minimum frequency of data (in MHz)
+    :type minfreq: float
+    :param geocentricdelay: Geocentric delay (in s)
+    :type geocentricdelay: float
+    :param corrstartmjd: Correlation start time (in MJD)
+    :type corrstartmjd: float
+    :param snoopy_file: Snoopy candidate file
+    :type snoopy_file: str
+    :return: snoopylog2frbgate.py command call
+    :rtype: str
+    """
+    sl2fgcmd = "snoopylog2frbgate.py"
+    sl2fgcmd += f" -f {minfreq:.3f}"
+    sl2fgcmd += f" --timediff {geocentricdelay * 1e3:.3f}"
+    sl2fgcmd += f" --corrstartmjd {corrstartmjd:.9f}"
+    sl2fgcmd += f" {snoopy_file}"
+    return sl2fgcmd
+
+
+if __name__ == "__main__":
+    _main()
