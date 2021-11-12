@@ -18,7 +18,6 @@ c = 299792458.0
 
 def _main():
     rawdata, snoopy_file = get_args()
-    cand = parse_snoopy(snoopy_file)
     hdrfiles = find_hdrs(rawdata)
 
     minfreq, frbpos, triggermjd, samprate, nsamps = parse_hdrs(hdrfiles)
@@ -60,37 +59,12 @@ def get_args() -> "tuple[str, str]":
     return rawdata, snoopy_file
 
 
-def parse_snoopy(snoopy_file: str) -> "list[str]":
-    """Parse snoopy file, returning a candidate as a list of strings.
-
-    We expect this file to only contain one candidate (the triggering
-    candidate), so we only return one line.
-
-    :param snoopy_file: Path to snoopy candidate file
-    :type snoopy_file: str
-    :return: Candidate information as a list of strings. Each string is
-        a whitespace-separated value in the candidate file.
-    :rtype: list[str]
-    """
-    nocommentlines = []
-    for line in open(snoopy_file):
-        print(line)
-        if len(line) > 1 and not line[0] == "#":
-            nocommentlines.append(line)
-            print(f"Snoopy info {nocommentlines}")
-    if len(nocommentlines) != 1:
-        print("ERROR: No information found")
-        sys.exit()
-
-    return nocommentlines[0].split()
-
-
 def find_hdrs(rawdata: str) -> "list[str]":
     """Search the rawdata directory for all the data header files (for a
     single polarisation in an antenna).
 
     While searching, check that we have antenna directories, and then
-    at least one polarisation subdirectory within each of those antenna 
+    at least one polarisation subdirectory within each of those antenna
     directories.
 
     The information required from the header files (lowest frequency and
@@ -123,9 +97,9 @@ def find_hdrs(rawdata: str) -> "list[str]":
 
 
 def parse_hdrs(
-    hdrfiles: "list[str]"
+    hdrfiles: "list[str]",
 ) -> "tuple[float, SkyCoord, float, float, int]":
-    """Parse vcraft headers to determine the lowest frequency, 
+    """Parse vcraft headers to determine the lowest frequency,
     approximate FRB position, MJD of trigger, sample rate, and number of
     samples.
 
@@ -134,7 +108,7 @@ def parse_hdrs(
     :type hdrfiles: list[str]
     :return: minfreq, frbpos, triggermjd, samprate, nsamps
         minfreq: the minimum frequency found (in MHz)
-        frbpos: the approximate position of the FRB as determined by the 
+        frbpos: the approximate position of the FRB as determined by the
             central RA and Dec of the beam.
         triggermjd: MJD of the trigger for the voltage dump
         samprate: sample rate per second
@@ -219,7 +193,12 @@ def calc_corr_start(triggermjd: float, nsamps: int, samprate: float) -> float:
     return corrstartmjd
 
 
-def get_sl2fg_cmd(minfreq: float, geocentricdelay: float, corrstartmjd: float, snoopy_file: str) -> str:
+def get_sl2fg_cmd(
+    minfreq: float,
+    geocentricdelay: float,
+    corrstartmjd: float,
+    snoopy_file: str,
+) -> str:
     """Determine the snoopylog2frbgate.py command to be run next.
 
     :param minfreq: Minimum frequency of data (in MHz)
