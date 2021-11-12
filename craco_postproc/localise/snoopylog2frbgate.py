@@ -3,12 +3,13 @@ import argparse
 import os
 import sys
 
+fakepulsarperiod = 10  # seconds
+
 
 def _main():
     args = get_args()
     validate_args(args)
 
-    fakepulsarperiod = 10  # seconds
     timediffsec = args.timediff / 1000.0
 
     cand = parse_snoopy(args.snoopylog)
@@ -30,60 +31,13 @@ def _main():
     bestinttime = calc_best_int_time(args.corrstartmjd, midmjd)
     print(bestinttime)
 
-    # Figure out when to start the polyco (go back by somewhere in the range 1-2 seconds, to an integer second boundary)
-    # Make the polyco reference time the same as the start of the file
-    polycorefmjdint = int(args.corrstartmjd)
-    polycorefseconds = int(
-        (args.corrstartmjd - int(args.corrstartmjd)) * 86400
-    )
-    # if polycorefseconds < 0:
-    #    polycorefseconds += 86400
-    #    polycorefmjdint -= 1
-    hh = polycorefseconds / 3600
-    mm = (polycorefseconds - hh * 3600) / 60
-    ss = polycorefseconds - (hh * 3600 + mm * 60)
-    polycorefmjdfloat = polycorefmjdint + float(polycorefseconds) / 86400.0
+    polycorefmjd, hh, mm, ss = calc_polyco_ref_mjd(args.corrstartmjd)
 
     # Write out the polyco file
-    with open("craftfrb.polyco", "w") as polycoout:
-        polycoout.write(
-            "fake+fake DD-MMM-YY %02d%02d%05.2f %.15f %.4f 0.0 0.0\n"
-            % (hh, mm, ss, polycorefmjdfloat, dm)
-        )
-        polycoout.write(
-            f"0.0 {1.0/float(fakepulsarperiod):.3f} 0 100 3 {args.freq:.3f}\n"
-        )
-        polycoout.write(
-            "0.00000000000000000E-99 0.00000000000000000E-99 0.00000000000000000E-99\n"
-        )
-        polycoout.close()
+    write_polyco(polycorefmjd, hh, mm, ss)
 
     # Now write out a binconfig for the gate
-    gatestartmjd = mjd - (pulsewidthms + 1000) / (
-        2 * 86400000.0
-    )  # pulse width is in ms at this point
-    gateendmjd = (
-        gatestartmjd + (pulsewidthms + 2000) / 86400000.0
-    )  # pulse width is in ms at this point
-    gatestartphase = (
-        86400.0 * (gatestartmjd - polycorefmjdfloat) + timediffsec
-    ) / fakepulsarperiod
-    gateendphase = (
-        86400.0 * (gateendmjd - polycorefmjdfloat) + timediffsec
-    ) / fakepulsarperiod
-
-    with open("craftfrb.gate.binconfig", "w") as binconfout:
-        binconfout.write("NUM POLYCO FILES:   1\n")
-        binconfout.write(
-            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
-        )
-        binconfout.write("NUM PULSAR BINS:    2\n")
-        binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
-        binconfout.write("BIN PHASE END 0:    %.9f\n" % gatestartphase)
-        binconfout.write("BIN WEIGHT 0:       0.0\n")
-        binconfout.write("BIN PHASE END 1:    %.9f\n" % gateendphase)
-        binconfout.write("BIN WEIGHT 1:       1.0\n")
-        binconfout.close()
+    write_gate(mjd, pulsewidthms)
 
     # Make an RFI binconfig
     rfistartphase1 = (
@@ -302,6 +256,115 @@ def calc_best_int_time(corrstartmjd: float, midmjd: float) -> float:
     nsubints = int(round(bestinttime / subintsec))
     bestinttime = nsubints * subintsec
     return bestinttime
+
+
+def calc_polyco_ref_mjd(corrstartmjd: float) -> "tuple[float, int, int, int]":
+    """Calculate the start time for the polyco by going back to the
+    integer second boundary immediately before the correlation start
+    time.
+
+    :param corrstartmjd: Start time of correlation (in MJD)
+    :type corrstartmjd: float
+    :return: Polyco reference time (in MJD) and the hour, minute, and
+        seconds of that time as integers
+    :rtype: tuple[float, int, int, int]
+    """
+    polycorefmjdint = int(args.corrstartmjd)
+    polycorefseconds = int(
+        (args.corrstartmjd - int(args.corrstartmjd)) * 86400
+    )
+
+    hh = polycorefseconds // 3600
+    mm = (polycorefseconds - hh * 3600) // 60
+    ss = polycorefseconds - (hh * 3600 + mm * 60)
+
+    polycorefmjd = polycorefmjdint + float(polycorefseconds) / 86400.0
+
+    return polycorefmjd, hh, mm, ss
+
+
+def write_polyco(
+    polycorefmjd: float,
+    hh: int,
+    mm: int,
+    ss: int,
+    dm: float
+) -> None:
+    """Write out the polyco file
+
+    :param polycorefmjd: Polyco reference time (in MJD)
+    :type polycorefmjd: float
+    :param hh: Hour of the reference time
+    :type hh: int
+    :param mm: Minute of the reference time
+    :type mm: int
+    :param ss: Second of the reference time
+    :type ss: int
+    :param dm: Dispersion measure of the triggering FRB candidate
+    :type dm: float
+    """
+    with open("craftfrb.polyco", "w") as polycoout:
+        polycoout.write(
+            f"fake+fake DD-MMM-YY %02d%02d%05.2f %.15f %.4f 0.0 0.0\n"
+            % (hh, mm, ss, polycorefmjd, dm)
+        )
+        polycoout.write(
+            f"0.0 {1.0/float(fakepulsarperiod):.3f} 0 100 3 {args.freq:.3f}\n"
+        )
+        polycoout.write(
+            "0.00000000000000000E-99 "
+            "0.00000000000000000E-99 "
+            "0.00000000000000000E-99\n"
+        )
+        polycoout.close()
+
+
+def write_gate(
+    cand: "list[str]", 
+    timediff: float, 
+    polycorefmjd: float,
+) -> None:
+    """Write the gate binconfig file.
+
+    The gate mode has two bins: 
+        > On-pulse (from 0.5 seconds before to 1.5 seconds after the
+          burst)
+        > Off-pulse (everything else)
+    
+    :param cand: Fields of the snoopy candidate
+    :type cand: list[str]
+    :param timediff: The time difference between the VCRAFT and snoopy 
+        log arrival times for the pulse, including geometric delay, in 
+        ms
+    :type timediff: float
+    :param polycorefmjd: Polyco reference time in MJD
+    :type polycorefmjd: float
+    """
+    gatestartmjd = mjd - (pulsewidthms + 1000) / (
+        2 * 86400000.0
+    )  # pulse width is in ms at this point
+    gateendmjd = (
+        gatestartmjd + (pulsewidthms + 2000) / 86400000.0
+    )  # pulse width is in ms at this point
+    gatestartphase = (
+        86400.0 * (gatestartmjd - polycorefmjd) + timediffsec
+    ) / fakepulsarperiod
+    gateendphase = (
+        86400.0 * (gateendmjd - polycorefmjd) + timediffsec
+    ) / fakepulsarperiod
+
+    with open("craftfrb.gate.binconfig", "w") as binconfout:
+        binconfout.write("NUM POLYCO FILES:   1\n")
+        binconfout.write(
+            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
+        )
+        binconfout.write("NUM PULSAR BINS:    2\n")
+        binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
+        binconfout.write("BIN PHASE END 0:    %.9f\n" % gatestartphase)
+        binconfout.write("BIN WEIGHT 0:       0.0\n")
+        binconfout.write("BIN PHASE END 1:    %.9f\n" % gateendphase)
+        binconfout.write("BIN WEIGHT 1:       1.0\n")
+        binconfout.close()
 
 
 if __name__ == "__main__":
