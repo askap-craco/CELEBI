@@ -34,73 +34,22 @@ def _main():
     polycorefmjd, hh, mm, ss = calc_polyco_ref_mjd(args.corrstartmjd)
 
     # Write out the polyco file
-    write_polyco(polycorefmjd, hh, mm, ss)
+    polycopath = write_polyco(polycorefmjd, hh, mm, ss)
 
-    # Now write out a binconfig for the gate
-    write_gate(mjd, pulsewidthms)
+    # Gate binconfig
+    gatebinedges, gateweights = calc_gate_bins(cand, args.timediff, polycorefmjd)
+    write_binconfig("craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights)
 
-    # Make an RFI binconfig
-    rfistartphase1 = (
-        gatestartphase - 0.02 / fakepulsarperiod
-    )  # RFI gate (early side) starts 20ms before the start of the pulse
-    rfiendphase1 = (
-        gatestartphase - 0.004 / fakepulsarperiod
-    )  # RFI gate (early side) ends 4ms before the start of the pulse
-    rfistartphase2 = (
-        gateendphase + 0.004 / fakepulsarperiod
-    )  # RFI gate (late side) starts 4ms after the end of the pulse
-    rfiendphase2 = (
-        gateendphase + 0.02 / fakepulsarperiod
-    )  # RFI gate (early side) ends 20ms after the end of the pulse
+    # RFI binconfig
+    rfibinedges, rfiweights = calc_rfi_bins(gatebinedges)
+    write_binconfig("craftfrb.rfi.binconfig", polycopath, rfibinedges, rfiweights)
 
-    with open("craftfrb.rfi.binconfig", "w") as binconfout:
-        binconfout.write("NUM POLYCO FILES:   1\n")
-        binconfout.write(
-            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
-        )
-        binconfout.write("NUM PULSAR BINS:    4\n")
-        binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
-        binconfout.write("BIN PHASE END 0:    %.9f\n" % rfistartphase1)
-        binconfout.write("BIN WEIGHT 0:       0.0\n")
-        binconfout.write("BIN PHASE END 1:    %.9f\n" % rfiendphase1)
-        binconfout.write("BIN WEIGHT 1:       1.0\n")
-        binconfout.write("BIN PHASE END 2:    %.9f\n" % rfistartphase2)
-        binconfout.write("BIN WEIGHT 2:       0.0\n")
-        binconfout.write("BIN PHASE END 3:    %.9f\n" % rfiendphase2)
-        binconfout.write("BIN WEIGHT 3:       1.0\n")
-        binconfout.close()
+    # High time resolution binconfig
+    htrbinedges, htrweights, binscale = calc_htr_bins(cand)
+    write_binconfig("craftfrb.bin.binconfig", polycopath, htrbinedges, htrweights, scrunch=False)
 
-    # And make a high time resolution binconfig (216 microsec x bin width + 2ms either side)
-    binstartmjd = mjd - fakepulsarperiod * pulsewidthms / (
-        2 * 86400000.0
-    )  # pulse width is in ms at this point
-    gateendmjd = (
-        gatestartmjd + pulsewidthms / 86400000.0
-    )  # pulse width is in ms at this point
-    binmicrosec = 216
-    extrawidth = 2  # ms on either side of the snoopy detected pulse
-    binstartphase = gatestartphase - float(extrawidth) / (
-        1000.0 * fakepulsarperiod
-    )
-    bindeltaphase = binmicrosec / (fakepulsarperiod * 1e6)
-    numbins = int((pulsewidthms + 2 * extrawidth) / (binmicrosec / 1000.0))
-    with open("craftfrb.bin.binconfig", "w") as binconfout:
-        binconfout.write("NUM POLYCO FILES:   1\n")
-        binconfout.write(
-            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
-        )
-        binconfout.write("NUM PULSAR BINS:    %d\n" % (numbins + 1))
-        binconfout.write("SCRUNCH OUTPUT:     FALSE\n")
-        for i in range(numbins + 1):
-            phasestr = ("BIN PHASE END %d:" % i).ljust(20)
-            weightstr = ("BIN WEIGHT %d:" % i).ljust(20)
-            binconfout.write(
-                f"{phasestr}{binstartphase + i*bindeltaphase:.9f}\n"
-            )
-            binconfout.write("%s1.0\n" % (weightstr))
-        binconfout.close()
-    binscale = bindeltaphase / (
-        rfiendphase2 + rfiendphase1 - rfistartphase2 - rfistartphase1
+    binscale = (htrbinedges[1] - htrbinedges[0]) / (
+        rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
     )
 
     # And also make a "finders" binconfig, with just 5 bins spanning from the end of RFI window 1
@@ -289,7 +238,7 @@ def write_polyco(
     mm: int,
     ss: int,
     dm: float
-) -> None:
+) -> str:
     """Write out the polyco file
 
     :param polycorefmjd: Polyco reference time (in MJD)
@@ -302,6 +251,8 @@ def write_polyco(
     :type ss: int
     :param dm: Dispersion measure of the triggering FRB candidate
     :type dm: float
+    :return: Full path to written polyco file
+    :rtype: str
     """
     with open("craftfrb.polyco", "w") as polycoout:
         polycoout.write(
@@ -318,19 +269,63 @@ def write_polyco(
         )
         polycoout.close()
 
+    return f"{os.cwd}/craftfrb.polyco"
 
-def write_gate(
-    cand: "list[str]", 
-    timediff: float, 
-    polycorefmjd: float,
+
+def write_binconfig(
+    fname: str,
+    polycopath: str,
+    binedges: "list[float]",
+    weights: "list[float]",
+    scrunch: bool = True,
 ) -> None:
-    """Write the gate binconfig file.
+    """Write a binconfig file.
+
+    :param fname: File name to save binconfig in
+    :type fname: str
+    :param polycopath: Path to the polyco file associated with the bin
+        config
+    :param binedges: Phase ends of each bin (i.e. bin edges in units
+        of pulse phase)
+    :type phaseends: list[float]
+    :param scrunch: Set the SCRUNCH OUTPUT parameter of the bin config
+        to True or False [Default = True]
+    :type scrunch: bool
+    :param weights: Bin weights as floats between 0 and 1.
+    :type weights: list[float]
+    """
+    assert len(binedges) == len(weights), \
+        f"{fname}: Must provide same number of bin edges as weights"
+
+    nbins = len(binedges)
+
+    with open(fname, "w") as binconfout:
+        binconfout.write(f"NUM POLYCO FILES:   1\n")
+        binconfout.write(f"POLYCO FILE 0:      {polycopath}\n")
+        binconfout.write(f"NUM PULSAR BINS:    {nbins}\n")
+
+        if scrunch:
+            binconfout.write(f"SCRUNCH OUTPUT:     TRUE\n")
+        else:
+            binconfout.write(f"SCRUNCH OUTPUT:     FALSE\n")
+
+        for i in range(nbins):
+            binconfout.write(f"BIN PHASE END {i}:    {binedges[i]:.9f}\n")
+            binconfout.write(f"BIN WEIGHT {i}:       {weights[i]}\n")
+
+
+def calc_gate_bins(
+    cand: "list[str]",
+    timediff: float,
+    polycorefmjd: float,
+) -> "tuple[list[float], list[float]]":
+    """Determine the bins for the gate binconfig
 
     The gate mode has two bins: 
         > On-pulse (from 0.5 seconds before to 1.5 seconds after the
           burst)
-        > Off-pulse (everything else)
-    
+        > Off-pulse (everything else) - weighted 0
+
     :param cand: Fields of the snoopy candidate
     :type cand: list[str]
     :param timediff: The time difference between the VCRAFT and snoopy 
@@ -339,7 +334,12 @@ def write_gate(
     :type timediff: float
     :param polycorefmjd: Polyco reference time in MJD
     :type polycorefmjd: float
+    :return: List of bin edges and list of weights
+    :rtype: tuple[list[float], list[float]]
     """
+    pulsewidthms = float(cand[3]) * 1.7
+    mjd = float(cand[7])
+
     gatestartmjd = mjd - (pulsewidthms + 1000) / (
         2 * 86400000.0
     )  # pulse width is in ms at this point
@@ -353,18 +353,86 @@ def write_gate(
         86400.0 * (gateendmjd - polycorefmjd) + timediffsec
     ) / fakepulsarperiod
 
-    with open("craftfrb.gate.binconfig", "w") as binconfout:
-        binconfout.write("NUM POLYCO FILES:   1\n")
-        binconfout.write(
-            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
-        )
-        binconfout.write("NUM PULSAR BINS:    2\n")
-        binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
-        binconfout.write("BIN PHASE END 0:    %.9f\n" % gatestartphase)
-        binconfout.write("BIN WEIGHT 0:       0.0\n")
-        binconfout.write("BIN PHASE END 1:    %.9f\n" % gateendphase)
-        binconfout.write("BIN WEIGHT 1:       1.0\n")
-        binconfout.close()
+    binedges = [gatestartphase, gateendphase]
+    weights = [0.0, 1.0]
+
+    return binedges, weights
+
+
+def calc_rfi_bins(
+    gatebinedges: "list[float]"
+) -> "tuple[list[float], list[float]]":
+    """Determine the bins for the RFI binconfig
+
+    The RFI mode creates a bin before and after the expected position of
+    the FRB based on the bin edges from the gate mode. This is to give
+    data that should contain only RFI that can then be subtracted from
+    the on-signal data to give relatively RFI-free data.
+
+    :param gatebinedges: Bin edges of the gate binconfig
+    :type gatebinedges: list[float]
+    :return: List of bin edges and list of weights
+    :rtype: tuple[list[float], list[float]]
+    """
+    gatestartphase = gatebinedges[0]
+    gateendphase = gatebinedges[1]
+
+    rfistartphase1 = (
+        gatestartphase - 0.02 / fakepulsarperiod
+    )  # RFI gate (early side) starts 20ms before the start of the pulse
+    rfiendphase1 = (
+        gatestartphase - 0.004 / fakepulsarperiod
+    )  # RFI gate (early side) ends 4ms before the start of the pulse
+    rfistartphase2 = (
+        gateendphase + 0.004 / fakepulsarperiod
+    )  # RFI gate (late side) starts 4ms after the end of the pulse
+    rfiendphase2 = (
+        gateendphase + 0.02 / fakepulsarperiod
+    )  # RFI gate (early side) ends 20ms after the end of the pulse
+
+    gateedges = [rfistartphase1, rfiendphase1, rfistartphase2, rfiendphase2]
+    binedges = [0.0, 1.0, 0.0, 1.0]
+
+    return gateedges, binedges
+
+
+def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
+    """Determine the bins for the high time resolution binconfig
+
+    The high time resolution mode creates bins 216 us wide in the range
+    2 ms before and after the expected FRB position (as determined by
+    the gate bin edges).
+
+    :param cand: Fields of the snoopy candidate
+    :type cand: list[str]
+    :return: List of bin edges and list of weights
+    :rtype: tuple[list[float], list[float]]
+    """
+    pulsewidthms = float(cand[3]) * 1.7
+    mjd = float(cand[7])
+
+    gatestartmjd = mjd - (pulsewidthms + 1000) / (
+        2 * 86400000.0
+    )  # pulse width is in ms at this point
+
+    binstartmjd = mjd - fakepulsarperiod * pulsewidthms / (
+        2 * 86400000.0
+    )  # pulse width is in ms at this point
+    gateendmjd = (
+        gatestartmjd + pulsewidthms / 86400000.0
+    )  # pulse width is in ms at this point
+    binmicrosec = 216
+    extrawidth = 2  # ms on either side of the snoopy detected pulse
+    binstartphase = gatestartphase - float(extrawidth) / (
+        1000.0 * fakepulsarperiod
+    )
+    bindeltaphase = binmicrosec / (fakepulsarperiod * 1e6)
+    numbins = int((pulsewidthms + 2 * extrawidth) / (binmicrosec / 1000.0))
+
+    binedges = [binstartphase + i * bindeltaphase for i in range(numbins + 1)]
+    binweights = [1 for i in range(numbins + 1)]
+
+    return binedges, binweights
 
 
 if __name__ == "__main__":
