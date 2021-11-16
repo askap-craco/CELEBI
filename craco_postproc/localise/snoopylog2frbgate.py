@@ -46,7 +46,8 @@ def _main():
 
     # High time resolution binconfig
     htrbinedges, htrweights = calc_htr_bins(cand)
-    write_binconfig("craftfrb.bin.binconfig", polycopath, htrbinedges, htrweights, scrunch=False)
+    write_binconfig("craftfrb.bin.binconfig", polycopath, htrbinedges, 
+        htrweights, scrunch=False)
 
     # Finder binconfig
     finderbinedges, finderweights = calc_finder_bins(rfibinedges)
