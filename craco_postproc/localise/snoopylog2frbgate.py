@@ -37,24 +37,43 @@ def _main():
     polycopath = write_polyco(polycorefmjd, hh, mm, ss)
 
     # Gate binconfig
-    gatebinedges, gateweights = calc_gate_bins(cand, args.timediff, polycorefmjd)
-    write_binconfig("craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights)
+    gatebinedges, gateweights = calc_gate_bins(
+        cand, args.timediff, polycorefmjd
+    )
+    write_binconfig(
+        "craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights
+    )
 
     # RFI binconfig
     rfibinedges, rfiweights = calc_rfi_bins(gatebinedges)
-    write_binconfig("craftfrb.rfi.binconfig", polycopath, rfibinedges, rfiweights)
+    write_binconfig(
+        "craftfrb.rfi.binconfig", polycopath, rfibinedges, rfiweights
+    )
 
     # High time resolution binconfig
     htrbinedges, htrweights = calc_htr_bins(cand)
-    write_binconfig("craftfrb.bin.binconfig", polycopath, htrbinedges, 
-        htrweights, scrunch=False)
+    write_binconfig(
+        "craftfrb.bin.binconfig",
+        polycopath,
+        htrbinedges,
+        htrweights,
+        scrunch=False,
+    )
 
     # Finder binconfig
     finderbinedges, finderweights = calc_finder_bins(rfibinedges)
-    write_binconfig("craftfrb.finder.binconfig", polycopath, finderbinedges, finderweights, scrunch=False)
+    write_binconfig(
+        "craftfrb.finder.binconfig",
+        polycopath,
+        finderbinedges,
+        finderweights,
+        scrunch=False,
+    )
 
     # And write out a little script ready to do the various subtractions
-    write_subtractions_script(gatebinedges, rfibinedges, finderbinedges, htrbinedges)
+    write_subtractions_script(
+        gatebinedges, rfibinedges, finderbinedges, htrbinedges
+    )
 
 
 def get_args() -> argparse.Namespace:
@@ -191,11 +210,7 @@ def calc_polyco_ref_mjd(corrstartmjd: float) -> "tuple[float, int, int, int]":
 
 
 def write_polyco(
-    polycorefmjd: float,
-    hh: int,
-    mm: int,
-    ss: int,
-    dm: float
+    polycorefmjd: float, hh: int, mm: int, ss: int, dm: float
 ) -> str:
     """Write out the polyco file
 
@@ -252,8 +267,9 @@ def write_binconfig(
     :param weights: Bin weights as floats between 0 and 1.
     :type weights: list[float]
     """
-    assert len(binedges) == len(weights), \
-        f"{fname}: Must provide same number of bin edges as weights"
+    assert len(binedges) == len(
+        weights
+    ), f"{fname}: Must provide same number of bin edges as weights"
 
     nbins = len(binedges)
 
@@ -279,15 +295,15 @@ def calc_gate_bins(
 ) -> "tuple[list[float], list[float]]":
     """Determine the bins for the gate binconfig
 
-    The gate mode has two bins: 
-        > On-pulse (from 50 milliseconds before to 150 milliseconds 
+    The gate mode has two bins:
+        > On-pulse (from 50 milliseconds before to 150 milliseconds
             after the burst)
         > Off-pulse (everything else) - weighted 0
 
     :param cand: Fields of the snoopy candidate
     :type cand: list[str]
-    :param timediff: The time difference between the VCRAFT and snoopy 
-        log arrival times for the pulse, including geometric delay, in 
+    :param timediff: The time difference between the VCRAFT and snoopy
+        log arrival times for the pulse, including geometric delay, in
         ms
     :type timediff: float
     :param polycorefmjd: Polyco reference time in MJD
@@ -318,7 +334,7 @@ def calc_gate_bins(
 
 
 def calc_rfi_bins(
-    gatebinedges: "list[float]"
+    gatebinedges: "list[float]",
 ) -> "tuple[list[float], list[float]]":
     """Determine the bins for the RFI binconfig
 
@@ -393,7 +409,9 @@ def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
     return binedges, binweights
 
 
-def calc_finder_bins(rfibinedges: "list[float]", numfinderbins: int = 20) -> "tuple[list[float], list[float]]":
+def calc_finder_bins(
+    rfibinedges: "list[float]", numfinderbins: int = 20
+) -> "tuple[list[float], list[float]]":
     """Determine the bins for the finder binconfig
 
     The finder mode creates (by default) 20 bins over the same range as
@@ -415,7 +433,9 @@ def calc_finder_bins(rfibinedges: "list[float]", numfinderbins: int = 20) -> "tu
     bindeltaphase = (rfistartphase2 - rfiendphase1) / numfinderbins
     binstartphase = rfiendphase1
 
-    binedges = [binstartphase + i * bindeltaphase for i in range(numfinderbins + 1)]
+    binedges = [
+        binstartphase + i * bindeltaphase for i in range(numfinderbins + 1)
+    ]
     binweights = [1 for i in range(numfinderbins + 1)]
 
     return binedges, binweights
