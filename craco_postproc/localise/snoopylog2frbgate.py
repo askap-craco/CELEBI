@@ -45,58 +45,15 @@ def _main():
     write_binconfig("craftfrb.rfi.binconfig", polycopath, rfibinedges, rfiweights)
 
     # High time resolution binconfig
-    htrbinedges, htrweights, binscale = calc_htr_bins(cand)
+    htrbinedges, htrweights = calc_htr_bins(cand)
     write_binconfig("craftfrb.bin.binconfig", polycopath, htrbinedges, htrweights, scrunch=False)
 
-    binscale = (htrbinedges[1] - htrbinedges[0]) / (
-        rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
-    )
-
-    # And also make a "finders" binconfig, with just 5 bins spanning from the end of RFI window 1
-    # through to the start of RFI window 2 (which will then normally be 2-3 ms wide each
-    numfinderbins = 19
-    # bindeltaphase = (rfistartphase2 - rfiendphase1)/numfinderbins
-    # TEMP: force 100 ms bins to get 2.5s of data
-    binstartphase = gatestartphase
-    bindeltaphase = 0.01
-    with open("craftfrb.finder.binconfig", "w") as binconfout:
-        binconfout.write("NUM POLYCO FILES:   1\n")
-        binconfout.write(
-            "POLYCO FILE 0:      %s/craftfrb.polyco\n" % os.getcwd()
-        )
-        binconfout.write("NUM PULSAR BINS:    %d\n" % (numfinderbins + 1))
-        binconfout.write("SCRUNCH OUTPUT:     FALSE\n")
-        for i in range(numfinderbins + 1):
-            phasestr = ("BIN PHASE END %d:" % i).ljust(20)
-            weightstr = ("BIN WEIGHT %d:" % i).ljust(20)
-            binconfout.write(
-                f"{phasestr}{binstartphase + i*bindeltaphase:.9f}\n"
-            )
-            binconfout.write("%s1.0\n" % (weightstr))
-        binconfout.close()
-    finderbinscale = bindeltaphase / (
-        rfiendphase2 + rfiendphase1 - rfistartphase2 - rfistartphase1
-    )
+    # Finder binconfig
+    finderbinedges, finderweights = calc_finder_bins(rfibinedges)
+    write_binconfig("craftfrb.finder.binconfig", polycopath, finderbinedges, finderweights, scrunch=False)
 
     # And write out a little script ready to do the various subtractions
-    gatescale = (gateendphase - gatestartphase) / (
-        rfiendphase2 + rfiendphase1 - rfistartphase2 - rfistartphase1
-    )
-    with open("dosubtractions.sh", "w") as subout:
-        subout.write(
-            "uvsubScaled.py FRB_GATE.FITS FRB_RFI.FITS %.9f\n" % (gatescale)
-        )
-        for i in range(numbins):
-            subout.write(
-                "uvsubScaled.py FRB_BIN%02d.FITS FRB_RFI.FITS %.9f\n"
-                % (i, binscale)
-            )
-        for i in range(numfinderbins):
-            subout.write(
-                "uvsubScaled.py FRB_FINDERBIN%02d.FITS FRB_RFI.FITS %.9f\n"
-                % (i, finderbinscale)
-            )
-        subout.close()
+    write_subtractions_script(gatebinedges, rfibinedges, finderbinedges, htrbinedges)
 
 
 def get_args() -> argparse.Namespace:
@@ -290,7 +247,7 @@ def write_binconfig(
     :type phaseends: list[float]
     :param scrunch: Set the SCRUNCH OUTPUT parameter of the bin config
         to True or False [Default = True]
-    :type scrunch: bool
+    :type scrunch: bool, optional
     :param weights: Bin weights as floats between 0 and 1.
     :type weights: list[float]
     """
@@ -322,8 +279,8 @@ def calc_gate_bins(
     """Determine the bins for the gate binconfig
 
     The gate mode has two bins: 
-        > On-pulse (from 0.5 seconds before to 1.5 seconds after the
-          burst)
+        > On-pulse (from 50 milliseconds before to 150 milliseconds 
+            after the burst)
         > Off-pulse (everything else) - weighted 0
 
     :param cand: Fields of the snoopy candidate
@@ -340,11 +297,11 @@ def calc_gate_bins(
     pulsewidthms = float(cand[3]) * 1.7
     mjd = float(cand[7])
 
-    gatestartmjd = mjd - (pulsewidthms + 1000) / (
+    gatestartmjd = mjd - (pulsewidthms + 100) / (
         2 * 86400000.0
     )  # pulse width is in ms at this point
     gateendmjd = (
-        gatestartmjd + (pulsewidthms + 2000) / 86400000.0
+        gatestartmjd + (pulsewidthms + 200) / 86400000.0
     )  # pulse width is in ms at this point
     gatestartphase = (
         86400.0 * (gatestartmjd - polycorefmjd) + timediffsec
@@ -433,6 +390,81 @@ def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
     binweights = [1 for i in range(numbins + 1)]
 
     return binedges, binweights
+
+
+def calc_finder_bins(rfibinedges: "list[float]", numfinderbins: int = 20) -> "tuple[list[float], list[float]]":
+    """Determine the bins for the finder binconfig
+
+    The finder mode creates (by default) 20 bins over the same range as
+    the single on-pulse bin in the RFI mode. These will normally be
+    around 10 milliseconds wide each.
+
+    :param rfibinedges: Bin edges of the rfi binconfig
+    :type rfibinedges: list[float]
+    :param numfinderbins: Number of finder bins [Default = 20]
+    :type numfinderbins: int, optional
+    :return: List of bin edges and list of weights
+    :rtype: tuple[list[float], list[float]]
+    """
+    rfistartphase1 = rfibinedges[0]
+    rfiendphase1 = rfibinedges[1]
+    rfistartphase2 = rfibinedges[2]
+    rfiendphase2 = rfibinedges[3]
+
+    bindeltaphase = (rfistartphase2 - rfiendphase1) / numfinderbins
+    binstartphase = rfiendphase1
+
+    binedges = [binstartphase + i * bindeltaphase for i in range(numfinderbins + 1)]
+    binweights = [1 for i in range(numfinderbins + 1)]
+
+    return binedges, binweights
+
+
+def write_subtractions_script(
+    gatebinedges: "list[float]",
+    rfibinedges: "list[float]",
+    finderbinedges: "list[float]",
+    htrbinedges: "list[float]",
+) -> None:
+    """Write the bash script that performs the RFI subtractions.
+
+    TODO: understand this function - what are the scales?
+
+    :param gatebinedges: Bin edges for the gate mode
+    :type gatebinedges: list[float]
+    :param rfibinedges: Bin edges for the RFI mode
+    :type rfibinedges: list[float]
+    :param finderbinedges: Bin edges for the finder mode
+    :type finderbinedges: list[float]
+    :param htrbinedges: Bin edges for the high time resolution mode
+    :type htrbinedges: list[float]
+    """
+    binscale = (htrbinedges[1] - htrbinedges[0]) / (
+        rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
+    )
+
+    finderbinscale = (finderbinedges[1] - finderbinedges[0]) / (
+        rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
+    )
+
+    gatescale = (gatebinedges[1] - gatebinedges[0]) / (
+        rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
+    )
+    with open("dosubtractions.sh", "w") as subout:
+        subout.write(
+            "uvsubScaled.py FRB_GATE.FITS FRB_RFI.FITS %.9f\n" % (gatescale)
+        )
+        for i in range(numbins):
+            subout.write(
+                "uvsubScaled.py FRB_BIN%02d.FITS FRB_RFI.FITS %.9f\n"
+                % (i, binscale)
+            )
+        for i in range(numfinderbins):
+            subout.write(
+                "uvsubScaled.py FRB_FINDERBIN%02d.FITS FRB_RFI.FITS %.9f\n"
+                % (i, finderbinscale)
+            )
+        subout.close()
 
 
 if __name__ == "__main__":
