@@ -14,23 +14,41 @@ from AIPSData import AIPSImage, AIPSUVData
 from AIPSTask import AIPSTask
 from astropy.time import Time
 
-# Global variables and option parsing
+# Global variables
 try:
-    aipsver = os.environ["PSRVLBAIPSVER"]
+    AIPSVER = os.environ["PSRVLBAIPSVER"]
 except KeyError:
-    aipsver = "31DEC18"
+    AIPSVER = "31DEC18"
+
+AIPSDISK = 1
+DELAYWINDOW = 0  # Search everything
+RATEWINDOW = -1  # Don't search rates
+PLOTSPERPAGE = 4
+OUTKLASS = "SPLIT"
+SOLINTMINS = 1  # Long enough that we just get one solutions
+SUMIFS = False
+SEQNO = 1
 
 
 def _main():
     args = get_args()
 
     AIPS.userno = args.userno
-    refant = args.refant
     xpolmodelfile = args.xpoldelaymodelfile
-    xcorplotsmooth = args.xcorplotsmooth
+
+    # TODO: reformat with these as global variables
     snversion = 1
     clversion = 1
-    aipsdisk = 1
+    bpversion = 1
+
+    if xpolmodelfile != "":
+        xpol_prefix = "_xpol"
+    else:
+        xpol_prefix = "_noxpol"
+    if args.src != "":
+        src = "_" + args.src
+    else:
+        src = args.src
 
     # Make path names absolute if needed
     targetpath = os.path.abspath(args.target)
@@ -49,73 +67,28 @@ def _main():
     if args.targetonly:
         validate_soln_files(calsolnfnames)
 
-    # Load up the target data if needed
+    bpfname = calsolnfnames[0]
+    fringsnfname = calsolnfnames[1]
+    selfcalsnfname = calsolnfnames[2]
+    xpolsnfname = calsolnfnames[3]
+    bptableplotfname = calsolnfnames[4]
+    uncalxcorplotfname = calsolnfnames[5]
+    allcalxcorplotfname = calsolnfnames[6]
+
+    # Load and flag the target data if needed
     if not args.calibrateonly:
-        targetdata = vlbatasks.zapAndCreateUVData(
-            "CRAFTTARG", "UVDATA", aipsdisk, 1
-        )
-        vlbatasks.fitld_corr(args.target, targetdata, [], "", 0.0001)
-        if args.uvsrt:
-            sortedtargetdata = vlbatasks.zapAndCreateUVData(
-                "CRAFTTARG", "UVSRT", aipsdisk, 1
-            )
-            vlbatasks.uvsrt(targetdata, sortedtargetdata)
-            targetdata.zap()
-            targetdata = sortedtargetdata
+        targetdata = load_data(args.target, args.uvsrt)
+        if args.tarflagfile != "":
+            flag_data(targetdata, args.tarflagfile, args.shadow)
 
-        # Get the number of channels in the dataset
-        numchannels = vlbatasks.getNumChannels(targetdata)
-
-    # Load up the calibrator data
+    # Load and flag the calibrator data if needed
     if not args.targetonly:
-        caldata = vlbatasks.zapAndCreateUVData(
-            "CRAFTCAL", "UVDATA", aipsdisk, 1
-        )
-        vlbatasks.fitld_corr(args.calibrator, caldata, [], "", 0.0001)
-        if args.uvsrt:
-            sortedcaldata = vlbatasks.zapAndCreateUVData(
-                "CRAFTCAL", "UVSRT", aipsdisk, 1
-            )
-            vlbatasks.uvsrt(caldata, sortedcaldata)
-            caldata.zap()
-            caldata = sortedcaldata
+        caldata = load_data(args.calibrator, args.uvsrt)
+        if args.flagfile != "":
+            flag_data(caldata, args.flagfile, args.shadow)
 
         # Get the reference frequency of the dataset
-        reffreqs = []
-        fqtable = caldata.table("FQ", 1)
-        for row in fqtable:
-            try:
-                for iffreq in row.if_freq:
-                    freqentry = float(iffreq) + float(caldata.header.crval[2])
-                    reffreqs.append(
-                        float(iffreq) + float(caldata.header.crval[2])
-                    )
-            except (AttributeError, TypeError):
-                freqentry = float(row.if_freq) + float(caldata.header.crval[2])
-                reffreqs.append(
-                    float(row.if_freq) + float(caldata.header.crval[2])
-                )
-
-        # Flag the calibrator data, if desired
-        if args.flagfile != "":
-            vlbatasks.userflag(caldata, 1, args.flagfile)
-        if args.shadow:
-            shadowdiameter = float(args.shadow[0])
-            xtalkbl = float(args.shadow[1])
-            vlbatasks.shadowflag(caldata, 1, shadowdiameter, xtalkbl)
-            print("Shadowing diameter: " + str(shadowdiameter))
-            print("Cross-talk baseline: " + str(xtalkbl))
-
-    # Flag the target data, if desired
-    if not args.calibrateonly:
-        if args.tarflagfile != "":
-            vlbatasks.userflag(targetdata, 1, args.tarflagfile)
-        if args.shadow:
-            shadowdiameter = float(args.shadow[0])
-            xtalkbl = float(args.shadow[1])
-            vlbatasks.shadowflag(targetdata, 1, shadowdiameter, xtalkbl)
-            print("Shadowing diameter: " + str(shadowdiameter))
-            print("Cross-talk baseline: " + str(xtalkbl))
+        reffreqs = get_ref_freqs(caldata)
 
     # Run CLCOR to correct PANG if needed
     if xpolmodelfile != "":
@@ -127,40 +100,14 @@ def _main():
 
     # Run FRING
     if not args.targetonly:
-        solintmins = 1  # Long enough that we just get one solutions
-        inttimesecs = 0.5  # Doesn't really matter if this is wrong
-        applybandpasscal = False
-        snrlimit = 6
-        sumifs = False
-        modeldata = None
-        sumpols = False
-        uvrange = [0, 0]
-        zerorates = True
-        delaywindow = 0  # Search everything
-        ratewindow = -1  # Don't search rates
-        vlbatasks.fring(
+        run_FRING(
             caldata,
             snversion,
             clversion,
-            solintmins,
-            inttimesecs,
             args.sourcename,
-            refant,
-            applybandpasscal,
-            snrlimit,
-            sumifs,
-            modeldata,
-            sumpols,
-            uvrange,
-            zerorates,
-            delaywindow,
-            ratewindow,
+            args.refant,
+            fringsnfname,
         )
-
-        # Write SN table to disk
-        if os.path.exists(fringsnfname):
-            os.system("rm -f " + fringsnfname)
-        vlbatasks.writetable(caldata, "SN", snversion, fringsnfname)
 
     # Load FRING SN table into the target
     if not args.calibrateonly:
@@ -168,156 +115,67 @@ def _main():
 
     # Calibrate
     if not args.targetonly:
-        vlbatasks.applysntable(caldata, snversion, "SELN", clversion, refant)
+        vlbatasks.applysntable(
+            caldata, snversion, "SELN", clversion, args.refant
+        )
     if not args.calibrateonly:
         vlbatasks.applysntable(
-            targetdata, snversion, "SELN", clversion, refant
+            targetdata, snversion, "SELN", clversion, args.refant
         )
+
     snversion += 1
     clversion += 1
 
     # Correct for leakage if needed
-    # leakagedopol = 0
     if xpolmodelfile != "":
         # First the xpoldelays
         if not args.targetonly:
-            xpolscan = 1
-            if not os.path.exists(xpolmodelfile):
-                print("Can't find xpol delay model  " + xpolmodelfile)
-                print("Aborting!!")
-                sys.exit(1)
-            xpolmodel = AIPSImage("LKGSRC", "CLEAN", 1, 1)
-            if xpolmodel.exists():
-                xpolmodel.zap()
-            vlbatasks.fitld_image(xpolmodelfile, xpolmodel)
-            xpolsolintmins = 1
-            inttimesecs = 0.5  # Doesn't matter if this is wrong
-            if os.path.exists(xpolsnfname):
-                os.remove(xpolsnfname)
-            vlbatasks.xpoldelaycal(
+            correct_leakage(
                 caldata,
+                snversion,
                 clversion,
-                refant,
                 args.sourcename,
-                xpolscan,
-                xpolmodel,
-                xpolsolintmins,
-                inttimesecs,
+                args.refant,
+                xpolmodelfile,
                 xpolsnfname,
-                delaywindow,
-                ratewindow,
-            )
-            vlbatasks.loadtable(caldata, xpolsnfname, snversion)
-            vlbatasks.applysntable(
-                caldata, snversion, "2PT", clversion, refant
             )
         if not args.calibrateonly:
             vlbatasks.loadtable(targetdata, xpolsnfname, snversion)
             vlbatasks.applysntable(
-                targetdata, snversion, "2PT", clversion, refant
+                targetdata, snversion, "2PT", clversion, args.refant
             )
         snversion += 1
         clversion += 1
 
-        # Then the leakage
-        # leakagefilename = os.getcwd() + "/leakage.an"
-        # hasbptable = False
-        # leakagemodel = xpolmodel
-        # leakageacalmins = 1
-        # leakagepcalmins = 1
-        # leakagescan = 1
-        # hasbptable = False
-        # leakageoutputfile = os.getcwd() + '/' + options.sourcename + "_leakagecal_uv.fits"
-        # leakageuvrange = [0,0]
-        # leakageweightit = 0
-        # vlbatasks.leakagecalc(caldata, options.sourcename, leakagemodel, leakagefilename,
-        #            refant, leakageacalmins, leakagepcalmins, leakagescan, clversion,
-        #            hasbptable, leakageoutputfile, leakageuvrange, leakageweightit)
-        # vlbatasks.deletetable(caldata, "AN", 1)
-        # vlbatasks.loadtable(caldata, leakagefilename, 1)
-        # vlbatasks.deletetable(targetdata, "AN", 1)
-        # vlbatasks.loadtable(targetdata, leakagefilename, 1)
-        # leakagedopol = 2
-        # print "Need to actually use leakagedopol below here - aborting!"
-        # sys.exit()
-
-    # Run BPASS
-    # scannumber = 1
-    # bpversion = 1
-    # vlbatasks.bpass(caldata, options.sourcename, clversion, scannumber)
-
-    # Run bandpass correction - default to CPASS, unless --bpass is specified
-    scannumber = 1
-    bpversion = 1
+    # Run bandpass correction
     if not args.targetonly:
-        if args.bpass:
-            vlbatasks.bpass(caldata, args.sourcename, clversion, scannumber)
-        else:
-            vlbatasks.cpass(
-                caldata,
-                args.sourcename,
-                clversion,
-                scannumber,
-                None,
-                args.cpasspoly,
-            )
-
-        # Write BP table to disk
-        if os.path.exists(bpfname):
-            os.system("rm -f " + bpfname)
-        vlbatasks.writetable(caldata, "BP", bpversion, bpfname)
-
+        run_bandpass(
+            caldata,
+            clversion,
+            bpversion,
+            args.sourcename,
+            bpfname,
+            args.cpasspoly,
+            args.bpass,
+        )
         # Plot the bandpass table
         if not args.skipplot:
-            bptableplotfname = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
-            plotsperpage = 4
-            plotbptable = True
-            vlbatasks.plotbandpass(
-                caldata,
-                bpversion,
-                plotbptable,
-                plotsperpage,
-                bptableplotfname,
-            )
+            plot_bandpass(caldata, bpversion, bptableplotfname)
 
     # Load up the bandpass to the target
     if not args.calibrateonly:
         vlbatasks.loadtable(targetdata, bpfname, bpversion)
 
     # Run selfcal
-    outklass = "SPLIT"
     if not args.targetonly:
-        applybandpasscal = True
-        splitsnversion = 1
-        doampcal = True
-        dostokesi = False
-        soltype = "L1R"
-        selfcalsnr = 5
-        splitcaldata = AIPSUVData(args.sourcename, outklass, 1, 1)
-        if splitcaldata.exists():
-            splitcaldata.zap()
-        vlbatasks.split(caldata, clversion, outklass, args.sourcename)
-        for i in range(1, 300):
-            todeletedata = AIPSUVData(args.sourcename, "CALIB", 1, i)
-            if todeletedata.exists():
-                todeletedata.zap()
-        vlbatasks.singlesource_calib(
-            splitcaldata,
-            args.flux,
-            splitsnversion,
+        run_selfcal(
+            caldata,
+            clversion,
+            args.sourcename,
             args.refant,
-            doampcal,
-            solintmins,
-            dostokesi,
-            soltype,
-            selfcalsnr,
-            sumifs,
+            args.flux,
+            selfcalsnfname,
         )
-
-        # Write SN table to disk
-        if os.path.exists(selfcalsnfname):
-            os.system("rm -f " + selfcalsnfname)
-        vlbatasks.writetable(splitcaldata, "SN", 1, selfcalsnfname)
 
     # Load up the selfcal SN table
     if not args.calibrateonly:
@@ -327,10 +185,12 @@ def _main():
 
     # Calibrate
     if not args.targetonly:
-        vlbatasks.applysntable(caldata, snversion, "SELN", clversion, refant)
+        vlbatasks.applysntable(
+            caldata, snversion, "SELN", clversion, args.refant
+        )
     if not args.calibrateonly:
         vlbatasks.applysntable(
-            targetdata, snversion, "SELN", clversion, refant
+            targetdata, snversion, "SELN", clversion, args.refant
         )
     snversion += 1
     clversion += 1
@@ -338,116 +198,26 @@ def _main():
     # Plot the uncalibrated and calibrated cross-correlation results if desired
     if not args.targetonly:
         if not args.skipplot:
-            uncalxcorplotfname = os.path.abspath(
-                f"uncalxcor{xpol_prefix}{src}.ps"
-            )
-            allcalxcorplotfname = os.path.abspath(
-                f"allcalxcor{xpol_prefix}{src}.ps"
-            )
-            plotbptable = False
-            plotsperpage = 4
-            ifs = [0, 0]
-            vlbatasks.plotbandpass(
+            plot_xcor(
                 caldata,
-                -1,
-                plotbptable,
-                plotsperpage,
-                uncalxcorplotfname,
-                0,
-                ifs,
-                xcorplotsmooth,
-            )
-            vlbatasks.plotbandpass(
-                caldata,
-                bpversion,
-                plotbptable,
-                plotsperpage,
-                allcalxcorplotfname,
                 clversion,
-                ifs,
-                xcorplotsmooth,
+                bpversion,
+                args.xcorplotsmooth,
+                uncalxcorplotfname,
+                allcalxcorplotfname,
             )
 
     # Run SPLIT and write output data for calibrator
-    seqno = 1
     if not args.targetonly:
-        outputdata = vlbatasks.zapAndCreateUVData(
-            "CRAFTSRC", "SPLIT", aipsdisk, seqno
-        )
-        vlbatasks.splitmulti(
-            caldata, clversion, outklass, args.sourcename, seqno
-        )
-        vlbatasks.writedata(caldata, caloutfname + ".unaveraged", True)
-        vlbatasks.writedata(
-            outputdata, caloutfname, True
-        )  # TODO: Make this optional
+        run_split(caldata, caloutfname, clversion, args.sourcename)
 
     # Run SPLIT and write output data for target
-    seqno = 1
     if not args.calibrateonly:
-        outputdata = vlbatasks.zapAndCreateUVData(
-            "CRAFTSRC", "SPLIT", aipsdisk, seqno
-        )
-        vlbatasks.splitmulti(
-            targetdata, clversion, outklass, args.sourcename, seqno
-        )
-        vlbatasks.writedata(
-            targetdata, targetoutfname + ".unaveraged", True
-        )  # TODO: Make this optional
-        vlbatasks.writedata(outputdata, targetoutfname, True)
+        run_split(targetdata, targetoutfname, clversion, args.sourcename)
 
     # Create a README file for the calibration and a tarball with it plus all the calibration
     if not args.targetonly:
-        readmeout = open(f"README{xpol_prefix}{src}.calibration", "w")
-        tarinputfiles = "{} {} {}".format(
-            fringsnfname.split("/")[-1],
-            selfcalsnfname.split("/")[-1],
-            bpfname.split("/")[-1],
-        )
-        readmeout.write("This calibration was derived as follows:\n")
-        readmeout.write("Calibrator file: %s\n" % args.calibrator)
-        readmeout.write("Run on host: %s\n" % socket.gethostname())
-        readmeout.write("At time: %s\n\n" % (str(datetime.datetime.now())))
-        readmeout.write(
-            "The following set of files was produced and used for calibration:\n"
-        )
-        readmeout.write(
-            "%s (frequency-independent delay and phase from FRING)\n"
-            % fringsnfname.split("/")[-1]
-        )
-        readmeout.write(
-            "%s (frequency-independent complex gain [mostly just amplitude] from CALIB to set absolute flux scale)\n"
-            % selfcalsnfname.split("/")[-1]
-        )
-        if xpolmodelfile != "":
-            readmeout.write(
-                "%s (frequency-independent, antenna-independent X-Y delay from FRING)\n"
-                % xpolsnfname.split("/")[-1]
-            )
-            tarinputfiles = tarinputfiles + " " + xpolsnfname.split("/")[-1]
-        readmeout.write(
-            "%s (frequency-dependent complex gain from CPASS [polynomial bandpass fit])\n\n"
-            % bpfname.split("/")[-1]
-        )
-        readmeout.write(
-            "Remember that the delay specified in the SN tables generates zero phase at the reference frequency of the observation\n"
-        )
-        readmeout.write(
-            'This reference frequency is set per subband (AIPS "IF"), but CRAFT datasets should only have one IF and hence one reference frequency.\n'
-        )
-        readmeout.write("Reference frequency(s) of this file:\n")
-        for i, reffreq in enumerate(reffreqs):
-            readmeout.write("AIPS IF %d ref (MHz): %.9f\n" % (i, reffreq))
-        readmeout.write(
-            "\nFinally I note that long-term, we really should also be solving for the leakage and writing both it and the parallactic angle corrections out.\n"
-        )
-        readmeout.close()
-        calibtarballfile = f"calibration{xpol_prefix}{src}.tar.gz"
-        if os.path.exists(calibtarballfile):
-            os.system("rm -f " + calibtarballfile)
-        os.system(
-            f"tar cvzf {calibtarballfile} README{xpol_prefix}{src}.calibration {tarinputfiles}"
-        )
+        write_readme(calsolnfnames, args.calibrator, xpolmodelfile, reffreqs)
 
     # Convert to a measurement set
     if not args.targetonly:
@@ -517,8 +287,6 @@ def _main():
     if not args.calibrateonly:
         do_imaging(args)
 
-
-def do_imaging(args: argparse.Namespace) -> None:
     imagesize = args.imagesize
     polarisations = args.pols.split(",")
 
@@ -725,7 +493,10 @@ def do_imaging(args: argparse.Namespace) -> None:
                     f'exportfits(imagename="{imagebase}.image",fitsimage="{imagebase}.fits")\n'
                 )
                 casaout.close()
-                os.system("casa --nologger -c imagescript.py")
+                os.system(
+                    "casa --nologger -c imagescript.py"
+                )  # Get the number of channels in the dataset
+                numchannels = vlbatasks.getNumChannels(targetdata)
                 for i in range(numchannels / args.averagechannels):
                     locstring = "%d,%d,%d,%d,%d,%d" % (
                         imagesize / 2 - 12,
@@ -1012,33 +783,26 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     return fitsfname, msfname
 
 
-def soln_fnames(
-    xpolmodelfile: str, src: str
-) -> "tuple[str, str, str, str, str, str, str]":
+def soln_fnames(xpol_prefix: str, src: str) -> "tuple[str]":
     """Determine filenames for the calibration solutions.
 
-    :param xpolmodelfile: X polarisation delay model filename
-    :type xpolmodelfile: str
-    :param src: Source name (i.e. FRB/Vela/etc.)
+    :param xpol_prefix: `_xpol` if we have an xpolmodelfile, `_noxpol`
+        otherwise
+    :type xpol_prefix: str
+    :param src: Source name (i.e. FRB/Vela/etc.) with a "_" pre-appended
     :type src: str
-    :return: Filenames for:
-        - Bandpasses
-        - Fring delays
-        - Selcal solutions
-        - X polarisation fring delays
-        - Bandpass table plots
-        - Uncalibrated cross-correlation plots
-        - Calibrated cross-correlation plots
-    :rtype: tuple[str, str, str, str, str, str, str]
+    :return: A prefix specifilenames for:
+            - Bandpasses
+            - Fring delays
+            - Selcal solutions
+            - X polarisation fring delays
+            - Bandpass table plots
+            - Uncalibrated cross-correlation plots
+            - Calibrated cross-correlation plots
+            - README
+            - Tarball for calibration solutions
+    :rtype: tuple[str]
     """
-    if xpolmodelfile != "":
-        xpol_prefix = "_xpol"
-    else:
-        xpol_prefix = "_noxpol"
-    if src != "":
-        src = "_" + src
-    else:
-        src = src
     bpfname = os.path.abspath(f"bandpasses{xpol_prefix}{src}.bp.txt")
     fringsnfname = os.path.abspath(f"delays{xpol_prefix}{src}.sn.txt")
     selfcalsnfname = os.path.abspath(f"selfcal{xpol_prefix}{src}.sn.txt")
@@ -1046,8 +810,12 @@ def soln_fnames(
     bptableplotfname = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
     uncalxcorplotfname = os.path.abspath(f"uncalxcor{xpol_prefix}{src}.ps")
     allcalxcorplotfname = os.path.abspath(f"allcalxcor{xpol_prefix}{src}.ps")
+    readmefname = os.path.abspath(f"README{xpol_prefix}{src}.calibration")
+    calibtarballfile = f"calibration{xpol_prefix}{src}.tar.gz"
 
     return (
+        xpol_prefix,
+        src,
         bpfname,
         fringsnfname,
         selfcalsnfname,
@@ -1055,6 +823,8 @@ def soln_fnames(
         bptableplotfname,
         uncalxcorplotfname,
         allcalxcorplotfname,
+        readmefname,
+        calibtarballfile,
     )
 
 
@@ -1096,6 +866,455 @@ def validate_soln_files(
             missingfiles,
         )
         sys.exit()
+
+
+def load_data(fits: str, uvsrt: bool):
+    """Load data from a fits file using AIPS.
+
+    TODO: Figure out what type data is returned as!
+
+    :param fits: Filename of the visibility fits file
+    :type fits: str
+    :param uvsrt: If True, runs UVSRT on the data after loading
+    :type uvsrt: bool
+    """
+    data = vlbatasks.zapAndCreateUVData("CRAFTTARG", "UVDATA", AIPSDISK, 1)
+    vlbatasks.fitld_corr(fits, data, [], "", 0.0001)
+
+    if uvsrt:
+        sorteddata = vlbatasks.zapAndCreateUVData(
+            "CRAFTTARG", "UVSRT", AIPSDISK, 1
+        )
+        vlbatasks.uvsrt(data, sorteddata)
+        data.zap()
+        data = sorteddata
+
+    return data
+
+
+def flag_data(data, flagfile: str, shadow: "list[str]") -> None:
+    """Flag data according to provided flagfile
+
+    :param data: Data to be flagged
+    :type data: [type]
+    :param flagfile: Path to file containing flags to be applied
+    :type flagfile: str
+    :param shadow: Shadow command line argument. If not None, then apply
+        shadowing flags
+    :type shadow: list[str]
+    :return: Flagged data
+    :rtype: [type]
+    """
+    vlbatasks.userflag(data, 1, flagfile)
+
+    if shadow:
+        shadowdiameter = float(shadow[0])
+        xtalkbl = float(shadow[1])
+        vlbatasks.shadowflag(data, 1, shadowdiameter, xtalkbl)
+        print("Shadowing diameter: " + str(shadowdiameter))
+        print("Cross-talk baseline: " + str(xtalkbl))
+
+
+def get_ref_freqs(caldata) -> "list[float]":
+    """Get the reference frequencies from the calibrator data
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :return: List of reference frequencies
+    :rtype: list[float]
+    """
+    reffreqs = []
+    fqtable = caldata.table("FQ", 1)
+    for row in fqtable:
+        try:
+            for iffreq in row.if_freq:
+                freqentry = float(iffreq) + float(caldata.header.crval[2])
+                reffreqs.append(float(iffreq) + float(caldata.header.crval[2]))
+        except (AttributeError, TypeError):
+            freqentry = float(row.if_freq) + float(caldata.header.crval[2])
+            reffreqs.append(
+                float(row.if_freq) + float(caldata.header.crval[2])
+            )
+    return reffreqs
+
+
+def run_FRING(
+    caldata,
+    snversion: int,
+    clversion: int,
+    sourcename: str,
+    refant: int,
+    fringsnfname: str,
+) -> None:
+    """Run FRING to calculate fring delays
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param snversion: TODO
+    :type snversion: int
+    :param clversion: TODO
+    :type clversion: int
+    :param sourcename: Name of source
+    :type sourcename: str
+    :param refant: Reference antenna
+    :type refant: int
+    :param fringsnfname: File name to save fring delays to
+    :type fringsnfname: str
+    """
+    inttimesecs = 0.5  # Doesn't really matter if this is wrong
+    applybandpasscal = False
+    snrlimit = 6
+    modeldata = None
+    sumpols = False
+    uvrange = [0, 0]
+    zerorates = True
+    vlbatasks.fring(
+        caldata,
+        snversion,
+        clversion,
+        SOLINTMINS,
+        inttimesecs,
+        sourcename,
+        refant,
+        applybandpasscal,
+        snrlimit,
+        SUMIFS,
+        modeldata,
+        sumpols,
+        uvrange,
+        zerorates,
+        DELAYWINDOW,
+        RATEWINDOW,
+    )
+
+    # Write SN table to disk
+    if os.path.exists(fringsnfname):
+        os.system("rm -f " + fringsnfname)
+    vlbatasks.writetable(caldata, "SN", snversion, fringsnfname)
+
+
+def correct_leakage(
+    caldata,
+    snversion: int,
+    clversion: int,
+    sourcename: str,
+    refant: int,
+    xpolmodelfile: str,
+    xpolsnfname: str,
+) -> None:
+    """Correct for leakage if needed
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param snversion: TODO
+    :type snversion: int
+    :param clversion: TODO
+    :type clversion: int
+    :param sourcename: Source name
+    :type sourcename: str
+    :param refant: Reference antenna
+    :type refant: int
+    :param xpolmodelfile: X polarisation model file
+    :type xpolmodelfile: str
+    :param xpolsnfname: File containing X polarisation solutions
+    :type xpolsnfname: str
+    """
+    xpolscan = 1
+    if not os.path.exists(xpolmodelfile):
+        print("Can't find xpol delay model  " + xpolmodelfile)
+        print("Aborting!!")
+        sys.exit(1)
+    xpolmodel = AIPSImage("LKGSRC", "CLEAN", 1, 1)
+    if xpolmodel.exists():
+        xpolmodel.zap()
+    vlbatasks.fitld_image(xpolmodelfile, xpolmodel)
+    xpolsolintmins = 1
+    inttimesecs = 0.5  # Doesn't matter if this is wrong
+    if os.path.exists(xpolsnfname):
+        os.remove(xpolsnfname)
+    vlbatasks.xpoldelaycal(
+        caldata,
+        clversion,
+        refant,
+        sourcename,
+        xpolscan,
+        xpolmodel,
+        xpolsolintmins,
+        inttimesecs,
+        xpolsnfname,
+        DELAYWINDOW,
+        RATEWINDOW,
+    )
+    vlbatasks.loadtable(caldata, xpolsnfname, snversion)
+    vlbatasks.applysntable(caldata, snversion, "2PT", clversion, args.refant)
+
+
+def run_bandpass(
+    caldata,
+    clversion: int,
+    bpversion: int,
+    sourcename: str,
+    bpfname: str,
+    cpasspoly: int,
+    bpass: bool,
+) -> None:
+    """Run bandpass correction. Defaults to using CPASS unless --bpass
+    is specified.
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param clversion: TODO
+    :type clversion: int
+    :param bpversion: TODO
+    :type bpversion: int
+    :param sourcename: Source name
+    :type sourcename: str
+    :param bpfname: Filename to save bandpass corrections to
+    :type bpfname: str
+    :param cpasspoly: Order of polynomial for CPASS
+    :type cpasspoly: int
+    :param bpass: If True, use BPASS instead of CPASS
+    :type bpass: bool
+    """
+    scannumber = 1
+    if bpass:
+        vlbatasks.bpass(caldata, sourcename, clversion, scannumber)
+    else:
+        vlbatasks.cpass(
+            caldata,
+            sourcename,
+            clversion,
+            scannumber,
+            None,
+            cpasspoly,
+        )
+
+    # Write BP table to disk
+    if os.path.exists(bpfname):
+        os.system("rm -f " + bpfname)
+    vlbatasks.writetable(caldata, "BP", bpversion, bpfname)
+
+
+def plot_bandpass(caldata, bpversion: int, bptableplotfname: str) -> None:
+    """Plot the bandpass corrections.
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param bpversion: TODO
+    :type bpversion: int
+    :param bptableplotfname: File to save plots into
+    :type bptableplotfname: str
+    """
+    plotbptable = True
+    vlbatasks.plotbandpass(
+        caldata,
+        bpversion,
+        plotbptable,
+        PLOTSPERPAGE,
+        bptableplotfname,
+    )
+
+
+def run_selfcal(
+    caldata,
+    clversion: int,
+    sourcename: str,
+    refant: int,
+    flux: float,
+    selfcalsnfname: str,
+) -> None:
+    """Run selfcal
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param clversion: TODO
+    :type clversion: int
+    :param sourcename: Source name
+    :type sourcename: str
+    :param refant: Reference antenna
+    :type refant: int
+    :param flux: Calibrator flux in Jy
+    :type flux: float
+    :param selfcalsnfname: File to save selfcal solutions to
+    :type selfcalsnfname: str
+    """
+    splitsnversion = 1
+    doampcal = True
+    dostokesi = False
+    soltype = "L1R"
+    selfcalsnr = 5
+    splitcaldata = AIPSUVData(sourcename, OUTKLASS, 1, 1)
+    if splitcaldata.exists():
+        splitcaldata.zap()
+    vlbatasks.split(caldata, clversion, OUTKLASS, sourcename)
+    for i in range(1, 300):
+        todeletedata = AIPSUVData(sourcename, "CALIB", 1, i)
+        if todeletedata.exists():
+            todeletedata.zap()
+    vlbatasks.singlesource_calib(
+        splitcaldata,
+        flux,
+        splitsnversion,
+        refant,
+        doampcal,
+        SOLINTMINS,
+        dostokesi,
+        soltype,
+        selfcalsnr,
+        SUMIFS,
+    )
+
+    # Write SN table to disk
+    if os.path.exists(selfcalsnfname):
+        os.system("rm -f " + selfcalsnfname)
+    vlbatasks.writetable(splitcaldata, "SN", 1, selfcalsnfname)
+
+
+def plot_xcor(
+    caldata,
+    clversion: int,
+    bpversion: int,
+    xcorplotsmooth: int,
+    uncalxcorplotfname: str,
+    allcalxcorplotfname: str,
+) -> None:
+    """Plot calibrated and uncalibrated cross-correlation results
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param clversion: TODO
+    :type clversion: int
+    :param bpversion: TODO
+    :type bpversion: int
+    :param xcorplotsmooth: Length of the smoothing kernel in channels
+        for xcor plotting
+    :type xcorplotsmooth: int
+    :param uncalxcorplotfname: File to save uncalibrated
+        cross-correlation plots to
+    :type uncalxcorplotfname: str
+    :param allcalxcorplotfname: File to save calibrated
+        cross-correlation plots to
+    :type allcalxcorplotfname: str
+    """
+    plotbptable = False
+    ifs = [0, 0]
+    vlbatasks.plotbandpass(
+        caldata,
+        -1,
+        plotbptable,
+        PLOTSPERPAGE,
+        uncalxcorplotfname,
+        0,
+        ifs,
+        xcorplotsmooth,
+    )
+    vlbatasks.plotbandpass(
+        caldata,
+        bpversion,
+        plotbptable,
+        PLOTSPERPAGE,
+        allcalxcorplotfname,
+        clversion,
+        ifs,
+        xcorplotsmooth,
+    )
+
+
+def run_split(data, outfname: str, clversion: int, sourcename: str) -> None:
+    """Run SPLIT on provided data
+
+    :param data: Data to operate on
+    :type data: [type]
+    :param outfname: Filename to save output to
+    :type outfname: str
+    :param clversion: TODO
+    :type clversion: int
+    :param sourcename: Source name
+    :type sourcename: str
+    """
+    outputdata = vlbatasks.zapAndCreateUVData(
+        "CRAFTSRC", "SPLIT", AIPSDISK, SEQNO
+    )
+    vlbatasks.splitmulti(data, clversion, OUTKLASS, sourcename, SEQNO)
+    vlbatasks.writedata(data, outfname + ".unaveraged", True)
+    vlbatasks.writedata(outputdata, outfname, True)
+
+
+def write_readme(
+    calsolnfnames: "tuple[str]",
+    calibrator: str,
+    xpolmodelfile: str,
+    reffreqs: "list[float]",
+):
+    """Write a README file for the calibration and a tarball with it and
+    all the calibration solutions
+
+    :param calsolnfnames: Tuple of calibration solution filenames as
+        determined by `soln_fnames()`
+    :type calsolnfnames: tuple[str]
+    :param calibrator: Calibrator FITS file
+    :type calibrator: str
+    :param xpolmodelfile: File containing model used for xpol delay
+        correction
+    :type xpolmodelfile: str
+    :param reffreqs: List of reference frequencies as determined by
+        the calibrator data
+    :type reffreqs: list[float]
+    """
+    bpfname = calsolnfnames[0]
+    fringsnfname = calsolnfnames[1]
+    selfcalsnfname = calsolnfnames[2]
+    xpolsnfname = calsolnfnames[3]
+    readmefname = calsolnfnames[7]
+    calibtarballfile = calsolnfnames[8]
+
+    readmeout = open(readmefname, "w")
+    tarinputfiles = "{} {} {}".format(
+        fringsnfname.split("/")[-1],
+        selfcalsnfname.split("/")[-1],
+        bpfname.split("/")[-1],
+    )
+    readmeout.write("This calibration was derived as follows:\n")
+    readmeout.write("Calibrator file: %s\n" % calibrator)
+    readmeout.write("Run on host: %s\n" % socket.gethostname())
+    readmeout.write("At time: %s\n\n" % (str(datetime.datetime.now())))
+    readmeout.write(
+        "The following set of files was produced and used for calibration:\n"
+    )
+    readmeout.write(
+        "%s (frequency-independent delay and phase from FRING)\n"
+        % fringsnfname.split("/")[-1]
+    )
+    readmeout.write(
+        "%s (frequency-independent complex gain [mostly just amplitude] from CALIB to set absolute flux scale)\n"
+        % selfcalsnfname.split("/")[-1]
+    )
+    if xpolmodelfile != "":
+        readmeout.write(
+            "%s (frequency-independent, antenna-independent X-Y delay from FRING)\n"
+            % xpolsnfname.split("/")[-1]
+        )
+        tarinputfiles = tarinputfiles + " " + xpolsnfname.split("/")[-1]
+    readmeout.write(
+        "%s (frequency-dependent complex gain from CPASS [polynomial bandpass fit])\n\n"
+        % bpfname.split("/")[-1]
+    )
+    readmeout.write(
+        "Remember that the delay specified in the SN tables generates zero phase at the reference frequency of the observation\n"
+    )
+    readmeout.write(
+        'This reference frequency is set per subband (AIPS "IF"), but CRAFT datasets should only have one IF and hence one reference frequency.\n'
+    )
+    readmeout.write("Reference frequency(s) of this file:\n")
+    for i, reffreq in enumerate(reffreqs):
+        readmeout.write("AIPS IF %d ref (MHz): %.9f\n" % (i, reffreq))
+    readmeout.write(
+        "\nFinally I note that long-term, we really should also be solving for the leakage and writing both it and the parallactic angle corrections out.\n"
+    )
+    readmeout.close()
+    if os.path.exists(calibtarballfile):
+        os.system("rm -f " + calibtarballfile)
+    os.system(f"tar cvzf {calibtarballfile} {readmefname} {tarinputfiles}")
 
 
 if __name__ == "__main__":
