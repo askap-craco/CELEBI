@@ -33,89 +33,21 @@ def _main():
     aipsdisk = 1
 
     # Make path names absolute if needed
-    args.target = os.path.abspath(args.target)
-    args.calibrator = os.path.abspath(args.calibrator)
+    targetpath = os.path.abspath(args.target)
+    calpath = os.path.abspath(args.calibrator)
     if xpolmodelfile != "":
         xpolmodelfile = os.path.abspath(xpolmodelfile)
 
-    # Get some other path names
-    if ".uvfits" in args.target:
-        targetoutputfilename = (
-            os.getcwd()
-            + "/"
-            + args.target.split("/")[-1][:-7]
-            + "_calibrated_uv.fits"
-        )
-    else:
-        targetoutputfilename = (
-            os.getcwd()
-            + "/"
-            + args.target.split("/")[-1][:-5]
-            + "_calibrated_uv.fits"
-        )
-    targetmsfilename = targetoutputfilename[:-4] + "ms"
+    # Calibrated output filenames
+    targetoutfname, targetmsfname = out_fnames(targetpath)
+    caloutfname, calmsfname = out_fnames(calpath)
 
-    if ".uvfits" in args.calibrator:
-        calibratoroutputfilename = (
-            os.getcwd()
-            + "/"
-            + args.calibrator.split("/")[-1][:-7]
-            + "_calibrated_uv.fits"
-        )
-    else:
-        calibratoroutputfilename = (
-            os.getcwd()
-            + "/"
-            + args.calibrator.split("/")[-1][:-5]
-            + "_calibrated_uv.fits"
-        )
-    calibratormsfilename = calibratoroutputfilename[:-4] + "ms"
+    # Solution output filenames
+    calsolnfnames = soln_fnames(xpolmodelfile, args.src)
 
-    # Define some output filenames
-    if xpolmodelfile != "":
-        xpol_prefix = "_xpol"
-    else:
-        xpol_prefix = "_noxpol"
-    if args.src != "":
-        src = "_" + args.src
-    else:
-        src = args.src
-    bpfilename = os.path.abspath(f"bandpasses{xpol_prefix}{src}.bp.txt")
-    fringsnfilename = os.path.abspath(f"delays{xpol_prefix}{src}.sn.txt")
-    selfcalsnfilename = os.path.abspath(f"selfcal{xpol_prefix}{src}.sn.txt")
-    xpolsnfilename = os.path.abspath(f"xpolfring{xpol_prefix}{src}.sn.txt")
-    bptableplotfilename = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
-    uncalxcorplotfilename = os.path.abspath(f"uncalxcor{xpol_prefix}{src}.ps")
-    allcalxcorplotfilename = os.path.abspath(
-        f"allcalxcor{xpol_prefix}{src}.ps"
-    )
-
-    # Check if the ms already exists, abort if so
-    if os.path.exists(targetmsfilename):
-        print(targetmsfilename, "already exists - aborting here!!!")
-        sys.exit()
-
-    if os.path.exists(calibratormsfilename):
-        print(calibratormsfilename, "already exists - aborting here!!!")
-        sys.exit()
-
-    # If we are running targetonly, then check that all the calibration files exist
+    # If we are running targetonly, check that all the calibration files exist
     if args.targetonly:
-        missingfiles = []
-        if not os.path.exists(bpfilename):
-            missingfiles.append(bpfilename)
-        if not os.path.exists(fringsnfilename):
-            missingfiles.append(fringsnfilename)
-        if not os.path.exists(selfcalsnfilename):
-            missingfiles.append(selfcalsnfilename)
-        if xpolmodelfile != "" and not os.path.exists(xpolsnfilename):
-            missingfiles.append(xpolsnfilename)
-        if len(missingfiles) > 0:
-            print(
-                "Running targetonly but the following files are missing:",
-                missingfiles,
-            )
-            sys.exit()
+        validate_soln_files(calsolnfnames)
 
     # Load up the target data if needed
     if not args.calibrateonly:
@@ -226,13 +158,13 @@ def _main():
         )
 
         # Write SN table to disk
-        if os.path.exists(fringsnfilename):
-            os.system("rm -f " + fringsnfilename)
-        vlbatasks.writetable(caldata, "SN", snversion, fringsnfilename)
+        if os.path.exists(fringsnfname):
+            os.system("rm -f " + fringsnfname)
+        vlbatasks.writetable(caldata, "SN", snversion, fringsnfname)
 
     # Load FRING SN table into the target
     if not args.calibrateonly:
-        vlbatasks.loadtable(targetdata, fringsnfilename, snversion)
+        vlbatasks.loadtable(targetdata, fringsnfname, snversion)
 
     # Calibrate
     if not args.targetonly:
@@ -260,8 +192,8 @@ def _main():
             vlbatasks.fitld_image(xpolmodelfile, xpolmodel)
             xpolsolintmins = 1
             inttimesecs = 0.5  # Doesn't matter if this is wrong
-            if os.path.exists(xpolsnfilename):
-                os.remove(xpolsnfilename)
+            if os.path.exists(xpolsnfname):
+                os.remove(xpolsnfname)
             vlbatasks.xpoldelaycal(
                 caldata,
                 clversion,
@@ -271,16 +203,16 @@ def _main():
                 xpolmodel,
                 xpolsolintmins,
                 inttimesecs,
-                xpolsnfilename,
+                xpolsnfname,
                 delaywindow,
                 ratewindow,
             )
-            vlbatasks.loadtable(caldata, xpolsnfilename, snversion)
+            vlbatasks.loadtable(caldata, xpolsnfname, snversion)
             vlbatasks.applysntable(
                 caldata, snversion, "2PT", clversion, refant
             )
         if not args.calibrateonly:
-            vlbatasks.loadtable(targetdata, xpolsnfilename, snversion)
+            vlbatasks.loadtable(targetdata, xpolsnfname, snversion)
             vlbatasks.applysntable(
                 targetdata, snversion, "2PT", clversion, refant
             )
@@ -331,15 +263,13 @@ def _main():
             )
 
         # Write BP table to disk
-        if os.path.exists(bpfilename):
-            os.system("rm -f " + bpfilename)
-        vlbatasks.writetable(caldata, "BP", bpversion, bpfilename)
+        if os.path.exists(bpfname):
+            os.system("rm -f " + bpfname)
+        vlbatasks.writetable(caldata, "BP", bpversion, bpfname)
 
         # Plot the bandpass table
         if not args.skipplot:
-            bptableplotfilename = os.path.abspath(
-                f"bptable{xpol_prefix}{src}.ps"
-            )
+            bptableplotfname = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
             plotsperpage = 4
             plotbptable = True
             vlbatasks.plotbandpass(
@@ -347,12 +277,12 @@ def _main():
                 bpversion,
                 plotbptable,
                 plotsperpage,
-                bptableplotfilename,
+                bptableplotfname,
             )
 
     # Load up the bandpass to the target
     if not args.calibrateonly:
-        vlbatasks.loadtable(targetdata, bpfilename, bpversion)
+        vlbatasks.loadtable(targetdata, bpfname, bpversion)
 
     # Run selfcal
     outklass = "SPLIT"
@@ -385,15 +315,15 @@ def _main():
         )
 
         # Write SN table to disk
-        if os.path.exists(selfcalsnfilename):
-            os.system("rm -f " + selfcalsnfilename)
-        vlbatasks.writetable(splitcaldata, "SN", 1, selfcalsnfilename)
+        if os.path.exists(selfcalsnfname):
+            os.system("rm -f " + selfcalsnfname)
+        vlbatasks.writetable(splitcaldata, "SN", 1, selfcalsnfname)
 
     # Load up the selfcal SN table
     if not args.calibrateonly:
-        vlbatasks.loadtable(targetdata, selfcalsnfilename, snversion)
+        vlbatasks.loadtable(targetdata, selfcalsnfname, snversion)
     if not args.targetonly:
-        vlbatasks.loadtable(caldata, selfcalsnfilename, snversion)
+        vlbatasks.loadtable(caldata, selfcalsnfname, snversion)
 
     # Calibrate
     if not args.targetonly:
@@ -408,10 +338,10 @@ def _main():
     # Plot the uncalibrated and calibrated cross-correlation results if desired
     if not args.targetonly:
         if not args.skipplot:
-            uncalxcorplotfilename = os.path.abspath(
+            uncalxcorplotfname = os.path.abspath(
                 f"uncalxcor{xpol_prefix}{src}.ps"
             )
-            allcalxcorplotfilename = os.path.abspath(
+            allcalxcorplotfname = os.path.abspath(
                 f"allcalxcor{xpol_prefix}{src}.ps"
             )
             plotbptable = False
@@ -422,7 +352,7 @@ def _main():
                 -1,
                 plotbptable,
                 plotsperpage,
-                uncalxcorplotfilename,
+                uncalxcorplotfname,
                 0,
                 ifs,
                 xcorplotsmooth,
@@ -432,7 +362,7 @@ def _main():
                 bpversion,
                 plotbptable,
                 plotsperpage,
-                allcalxcorplotfilename,
+                allcalxcorplotfname,
                 clversion,
                 ifs,
                 xcorplotsmooth,
@@ -447,11 +377,9 @@ def _main():
         vlbatasks.splitmulti(
             caldata, clversion, outklass, args.sourcename, seqno
         )
+        vlbatasks.writedata(caldata, caloutfname + ".unaveraged", True)
         vlbatasks.writedata(
-            caldata, calibratoroutputfilename + ".unaveraged", True
-        )
-        vlbatasks.writedata(
-            outputdata, calibratoroutputfilename, True
+            outputdata, caloutfname, True
         )  # TODO: Make this optional
 
     # Run SPLIT and write output data for target
@@ -464,17 +392,17 @@ def _main():
             targetdata, clversion, outklass, args.sourcename, seqno
         )
         vlbatasks.writedata(
-            targetdata, targetoutputfilename + ".unaveraged", True
+            targetdata, targetoutfname + ".unaveraged", True
         )  # TODO: Make this optional
-        vlbatasks.writedata(outputdata, targetoutputfilename, True)
+        vlbatasks.writedata(outputdata, targetoutfname, True)
 
     # Create a README file for the calibration and a tarball with it plus all the calibration
     if not args.targetonly:
         readmeout = open(f"README{xpol_prefix}{src}.calibration", "w")
         tarinputfiles = "{} {} {}".format(
-            fringsnfilename.split("/")[-1],
-            selfcalsnfilename.split("/")[-1],
-            bpfilename.split("/")[-1],
+            fringsnfname.split("/")[-1],
+            selfcalsnfname.split("/")[-1],
+            bpfname.split("/")[-1],
         )
         readmeout.write("This calibration was derived as follows:\n")
         readmeout.write("Calibrator file: %s\n" % args.calibrator)
@@ -485,21 +413,21 @@ def _main():
         )
         readmeout.write(
             "%s (frequency-independent delay and phase from FRING)\n"
-            % fringsnfilename.split("/")[-1]
+            % fringsnfname.split("/")[-1]
         )
         readmeout.write(
             "%s (frequency-independent complex gain [mostly just amplitude] from CALIB to set absolute flux scale)\n"
-            % selfcalsnfilename.split("/")[-1]
+            % selfcalsnfname.split("/")[-1]
         )
         if xpolmodelfile != "":
             readmeout.write(
                 "%s (frequency-independent, antenna-independent X-Y delay from FRING)\n"
-                % xpolsnfilename.split("/")[-1]
+                % xpolsnfname.split("/")[-1]
             )
-            tarinputfiles = tarinputfiles + " " + xpolsnfilename.split("/")[-1]
+            tarinputfiles = tarinputfiles + " " + xpolsnfname.split("/")[-1]
         readmeout.write(
             "%s (frequency-dependent complex gain from CPASS [polynomial bandpass fit])\n\n"
-            % bpfilename.split("/")[-1]
+            % bpfname.split("/")[-1]
         )
         readmeout.write(
             "Remember that the delay specified in the SN tables generates zero phase at the reference frequency of the observation\n"
@@ -525,7 +453,7 @@ def _main():
     if not args.targetonly:
         casaout = open("loadtarget.py", "w")
         casaout.write(
-            f"importuvfits(fitsfile='{calibratoroutputfilename}',vis='{calibratormsfilename}',antnamescheme='old')\n"
+            f"importuvfits(fitsfile='{caloutfname}',vis='{calmsfname}',antnamescheme='old')\n"
         )
         casaout.close()
         os.system("runloadtarget.sh")
@@ -533,7 +461,7 @@ def _main():
     if not args.calibrateonly:
         casaout = open("loadtarget.py", "w")
         casaout.write(
-            f"importuvfits(fitsfile='{targetoutputfilename}',vis='{targetmsfilename}',antnamescheme='old')\n"
+            f"importuvfits(fitsfile='{targetoutfname}',vis='{targetmsfname}',antnamescheme='old')\n"
         )
         casaout.close()
         os.system("runloadtarget.sh")
@@ -1044,6 +972,130 @@ def get_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
+
+
+def out_fnames(fitspath: str) -> "tuple[str, str]":
+    """Determine output filename based on the provided path to a target
+    or calibrator fits file.
+
+    Replaces the suffix (either `.fits` or `.uvfits`) with
+    `_calibrated_uv.fits`, and the path to the provided file with the
+    current working directory's path. Also returns a path with the same
+    structure, but with `.ms` as the extension instead of `.fits.`
+
+    Additionally checks if the `.ms` file already exists. If it does,
+    abort the program.
+
+    :param fitspath: Path to the input fits file. Must have either
+        `.fits` or `.uvfits` as its suffix
+    :type fitspath: str
+    :return: Path for two output files: a `.fits` file and a `.ms`
+        measurement set.
+    :rtype: str
+    """
+    assert (
+        fitspath[:-5] == ".fits" or fitspath[:-7] == ".uvfits"
+    ), "fits filename must end in either .fits or .uvfits!"
+
+    fitsbase = fitspath.split("/")[-1]
+    if ".uvfits" in fitspath:
+        fitsfname = f"{os.getcwd}/{fitsbase[:-7]}_calibrated_uv.fits"
+    else:
+        fitsfname = f"{os.getcwd}/{fitsbase[:-5]}_calibrated_uv.fits"
+
+    msfname = fitsfname[:-4] + "ms"
+
+    if os.path.exists(msfname):
+        print(f"{msfname} already exists - aborting!!!")
+        sys.exit()
+
+    return fitsfname, msfname
+
+
+def soln_fnames(
+    xpolmodelfile: str, src: str
+) -> "tuple[str, str, str, str, str, str, str]":
+    """Determine filenames for the calibration solutions.
+
+    :param xpolmodelfile: X polarisation delay model filename
+    :type xpolmodelfile: str
+    :param src: Source name (i.e. FRB/Vela/etc.)
+    :type src: str
+    :return: Filenames for:
+        - Bandpasses
+        - Fring delays
+        - Selcal solutions
+        - X polarisation fring delays
+        - Bandpass table plots
+        - Uncalibrated cross-correlation plots
+        - Calibrated cross-correlation plots
+    :rtype: tuple[str, str, str, str, str, str, str]
+    """
+    if xpolmodelfile != "":
+        xpol_prefix = "_xpol"
+    else:
+        xpol_prefix = "_noxpol"
+    if src != "":
+        src = "_" + src
+    else:
+        src = src
+    bpfname = os.path.abspath(f"bandpasses{xpol_prefix}{src}.bp.txt")
+    fringsnfname = os.path.abspath(f"delays{xpol_prefix}{src}.sn.txt")
+    selfcalsnfname = os.path.abspath(f"selfcal{xpol_prefix}{src}.sn.txt")
+    xpolsnfname = os.path.abspath(f"xpolfring{xpol_prefix}{src}.sn.txt")
+    bptableplotfname = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
+    uncalxcorplotfname = os.path.abspath(f"uncalxcor{xpol_prefix}{src}.ps")
+    allcalxcorplotfname = os.path.abspath(f"allcalxcor{xpol_prefix}{src}.ps")
+
+    return (
+        bpfname,
+        fringsnfname,
+        selfcalsnfname,
+        xpolsnfname,
+        bptableplotfname,
+        uncalxcorplotfname,
+        allcalxcorplotfname,
+    )
+
+
+def validate_soln_files(
+    calsolnfnames: "tuple[str, str, str, str, str, str, str]",
+) -> None:
+    """Check that the calibration solution files already exist. If
+    any mission-critical files are missing (i.e. not including plot
+    files), abort.
+
+    This should only be done when running the `targetonly` mode.
+
+    :param calsolnfnames: Filenames for:
+        - Bandpasses
+        - Fring delays
+        - Selcal solutions
+        - X polarisation fring delays
+        - Bandpass table plots
+        - Uncalibrated cross-correlation plots
+        - Calibrated cross-correlation plots
+    :type cal_soln_fnames: tuple[str, str, str, str, str, str, str]
+    """
+    bpfname = calsolnfnames[0]
+    fringsnfname = calsolnfnames[1]
+    selfcalsnfname = calsolnfnames[2]
+    xpolsnfname = calsolnfnames[3]
+    missingfiles = []
+    if not os.path.exists(bpfname):
+        missingfiles.append(bpfname)
+    if not os.path.exists(fringsnfname):
+        missingfiles.append(fringsnfname)
+    if not os.path.exists(selfcalsnfname):
+        missingfiles.append(selfcalsnfname)
+    if not os.path.exists(xpolsnfname):
+        missingfiles.append(xpolsnfname)
+    if len(missingfiles) > 0:
+        print(
+            "Running targetonly but the following files are missing:",
+            missingfiles,
+        )
+        sys.exit()
 
 
 if __name__ == "__main__":
