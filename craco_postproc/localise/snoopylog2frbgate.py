@@ -34,7 +34,7 @@ def _main():
     polycorefmjd, hh, mm, ss = calc_polyco_ref_mjd(args.corrstartmjd)
 
     # Write out the polyco file
-    polycopath = write_polyco(polycorefmjd, hh, mm, ss)
+    polycopath = write_polyco(polycorefmjd, hh, mm, ss, dm, args.freq)
 
     # Gate binconfig
     gatebinedges, gateweights = calc_gate_bins(
@@ -51,7 +51,7 @@ def _main():
     )
 
     # High time resolution binconfig
-    htrbinedges, htrweights = calc_htr_bins(cand)
+    htrbinedges, htrweights, numbins = calc_htr_bins(cand, gatebinedges[0])
     write_binconfig(
         "craftfrb.bin.binconfig",
         polycopath,
@@ -61,7 +61,9 @@ def _main():
     )
 
     # Finder binconfig
-    finderbinedges, finderweights = calc_finder_bins(rfibinedges)
+    finderbinedges, finderweights, numfinderbins = calc_finder_bins(
+        rfibinedges
+    )
     write_binconfig(
         "craftfrb.finder.binconfig",
         polycopath,
@@ -72,7 +74,12 @@ def _main():
 
     # And write out a little script ready to do the various subtractions
     write_subtractions_script(
-        gatebinedges, rfibinedges, finderbinedges, htrbinedges
+        gatebinedges,
+        rfibinedges,
+        finderbinedges,
+        htrbinedges,
+        numbins,
+        numfinderbins,
     )
 
 
@@ -195,10 +202,8 @@ def calc_polyco_ref_mjd(corrstartmjd: float) -> "tuple[float, int, int, int]":
         seconds of that time as integers
     :rtype: tuple[float, int, int, int]
     """
-    polycorefmjdint = int(args.corrstartmjd)
-    polycorefseconds = int(
-        (args.corrstartmjd - int(args.corrstartmjd)) * 86400
-    )
+    polycorefmjdint = int(corrstartmjd)
+    polycorefseconds = int((corrstartmjd - int(corrstartmjd)) * 86400)
 
     hh = polycorefseconds // 3600
     mm = (polycorefseconds - hh * 3600) // 60
@@ -210,7 +215,7 @@ def calc_polyco_ref_mjd(corrstartmjd: float) -> "tuple[float, int, int, int]":
 
 
 def write_polyco(
-    polycorefmjd: float, hh: int, mm: int, ss: int, dm: float
+    polycorefmjd: float, hh: int, mm: int, ss: int, dm: float, freq: float
 ) -> str:
     """Write out the polyco file
 
@@ -224,6 +229,8 @@ def write_polyco(
     :type ss: int
     :param dm: Dispersion measure of the triggering FRB candidate
     :type dm: float
+    :param freq: Reference frequency at which snoopy DM was calculated
+    :type freq: float
     :return: Full path to written polyco file
     :rtype: str
     """
@@ -233,7 +240,7 @@ def write_polyco(
             % (hh, mm, ss, polycorefmjd, dm)
         )
         polycoout.write(
-            f"0.0 {1.0/float(fakepulsarperiod):.3f} 0 100 3 {args.freq:.3f}\n"
+            f"0.0 {1.0/float(fakepulsarperiod):.3f} 0 100 3 {freq:.3f}\n"
         )
         polycoout.write(
             "0.00000000000000000E-99 "
@@ -321,10 +328,10 @@ def calc_gate_bins(
         gatestartmjd + (pulsewidthms + 200) / 86400000.0
     )  # pulse width is in ms at this point
     gatestartphase = (
-        86400.0 * (gatestartmjd - polycorefmjd) + timediffsec
+        86400.0 * (gatestartmjd - polycorefmjd) + timediff * 1e3
     ) / fakepulsarperiod
     gateendphase = (
-        86400.0 * (gateendmjd - polycorefmjd) + timediffsec
+        86400.0 * (gateendmjd - polycorefmjd) + timediff * 1e3
     ) / fakepulsarperiod
 
     binedges = [gatestartphase, gateendphase]
@@ -370,7 +377,10 @@ def calc_rfi_bins(
     return gateedges, binedges
 
 
-def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
+def calc_htr_bins(
+    cand: "list[str]",
+    gatestartphase: float,
+) -> "tuple[list[float], list[float]]":
     """Determine the bins for the high time resolution binconfig
 
     The high time resolution mode creates bins 216 us wide in the range
@@ -379,6 +389,8 @@ def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
 
     :param cand: Fields of the snoopy candidate
     :type cand: list[str]
+    :param gatestartphase: Start phase of the gate bin
+    :type gatestartphase: float
     :return: List of bin edges and list of weights
     :rtype: tuple[list[float], list[float]]
     """
@@ -406,7 +418,7 @@ def calc_htr_bins(cand: "list[str]") -> "tuple[list[float], list[float]]":
     binedges = [binstartphase + i * bindeltaphase for i in range(numbins + 1)]
     binweights = [1 for i in range(numbins + 1)]
 
-    return binedges, binweights
+    return binedges, binweights, numbins
 
 
 def calc_finder_bins(
@@ -438,7 +450,7 @@ def calc_finder_bins(
     ]
     binweights = [1 for i in range(numfinderbins + 1)]
 
-    return binedges, binweights
+    return binedges, binweights, numfinderbins
 
 
 def write_subtractions_script(
@@ -446,6 +458,8 @@ def write_subtractions_script(
     rfibinedges: "list[float]",
     finderbinedges: "list[float]",
     htrbinedges: "list[float]",
+    numbins: int,
+    numfinderbins: int,
 ) -> None:
     """Write the bash script that performs the RFI subtractions.
 
@@ -459,6 +473,10 @@ def write_subtractions_script(
     :type finderbinedges: list[float]
     :param htrbinedges: Bin edges for the high time resolution mode
     :type htrbinedges: list[float]
+    :param numbins: Number of high time resolution bins
+    :type numbins: int
+    :param numfinderbins: Number of finder bins
+    :type numfinderbins: int
     """
     binscale = (htrbinedges[1] - htrbinedges[0]) / (
         rfibinedges[3] + rfibinedges[1] - rfibinedges[2] - rfibinedges[0]
