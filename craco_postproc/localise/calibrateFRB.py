@@ -220,53 +220,6 @@ def _main():
     if do_target:
         fits_to_ms(targetoutfname, targetmsfname)
 
-    def write_timestep_loop(write_file, fmt_str, vals):
-        # iterate over the duration given in the options, writing the fmt_str to
-        # write_file (formatted with vals), with the addition of selecting the data
-        # for the step and appending an index to the imagename
-        init_imagename = vals[1]
-
-        i = 0
-        start = Time(args.start, format="mjd")
-        while (i + 1) * args.inttime < args.duration:
-            # get end time by adding inttime to start time
-            end = start + args.inttime * un.s
-
-            # format times as YYYY/MM/DD/hh:mm:ss strings
-            start_str = start.iso.replace(" ", "/").replace("-", "/")
-            end_str = end.iso.replace(" ", "/").replace("-", "/")
-
-            # add data selection to fmt_str
-            new_fmt_str = fmt_str.replace(
-                ")", f", selectdata=True, timerange='{start_str}~{end_str}')\n"
-            )
-
-            # specify image name for this timestep
-            vals[1] = init_imagename + "_" + str(i)
-
-            write_file.write(new_fmt_str.format(*vals))
-
-            i += 1
-            start = end
-
-        print("Wrote " + str(i) + " time steps")
-
-    def write_single_timestep(write_file, fmt_str, vals, i):
-        start = Time(args.start, format="mjd") + args.inttime * un.s * i
-        end = start + args.inttime * un.s
-        start_str = start.iso.replace(" ", "/").replace("-", "/")
-        end_str = end.iso.replace(" ", "/").replace("-", "/")
-
-        # add data selection to fmt_str
-        new_fmt_str = fmt_str.replace(
-            ")", f", selectdata=True, timerange='{start_str}~{end_str}')\n"
-        )
-
-        # specify image name for this timestep
-        vals[1] = f"{i:03d}_{vals[1]}"
-
-        write_file.write(new_fmt_str.format(*vals))
-
     imsize = args.imagesize
     pxsize = args.pixelsize
     polarisations = args.pols.split(",")
@@ -278,14 +231,28 @@ def _main():
         polarisations = ["I"]
 
     if args.imagecube:
+        maskstr = "'circle[[{0}pix,{0}pix] ,5pix ]'".format(imsize / 2)
+        phasecenter = f"'{args.phasecenter}'".encode()
+        deftcleanvals = {
+            "vis": targetmsfname,
+            "imsize": imsize,
+            "cell": f"{pxsize}arcsec",
+            "phasecenter": phasecenter,
+            "gridder": "widefield",
+            "wprojplanes": -1,
+            "pblimit": -1,
+            "deconvolver": "multiscale",
+            "weighting": "natural",
+            "mask": maskstr,
+        }
         # Do the cube
         for pol in polarisations:
             casaout = open("imagescript.py", "w")
             imagename = f"TARGET.cube.{pol}"
             offsourcename = f"OFFSOURCE.cube.{pol}"
-            maskstr = "'circle[[{0}pix,{0}pix] ,5pix ]'".format(imsize / 2)
-            phasecenter = f"'{args.phasecenter}'".encode()
-            imsize = "[{0},{0}]".format(imsize)
+
+            deftcleanvals["imagename"] = imagename
+            deftcleanvals["stokes"] = pol
 
             # If desired, produce the noise image
             if args.noisecentre:
@@ -306,6 +273,8 @@ def _main():
             else:
                 outlierfields = "[]"
                 os.system(f"rm -rf {imagename}.*")
+
+            deftcleanvals["outlierfile"] = outlierfields
 
             # If desired, produce the only the dirty image
             if args.dirtyonly:
@@ -330,19 +299,11 @@ def _main():
                         casaout, fmt_str, vals, args.timestep
                     )
                 else:
-                    casaout.write(
-                        "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})".format(
-                            targetmsfname,
-                            imagename,
-                            imsize,
-                            pol,
-                            args.averagechannels,
-                            phasecenter,
-                            maskstr,
-                            outlierfields,
-                            pxsize,
-                        )
-                    )
+                    tcleanvals = deftcleanvals.copy()
+                    tcleanvals["specmode"] = "cube"
+                    tcleanvals["niter"] = 0
+                    tcleanvals["width"] = args.averagechannels
+                    write_casa_cmd(casaout, "tclean", tcleanvals)
 
             elif args.dirtymfs:
                 imagename = f"TARGET.mfs.dirim.{pol}"
@@ -366,19 +327,11 @@ def _main():
                         casaout, fmt_str, vals, args.timestep
                     )
 
-                casaout.write(
-                    "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='mfs', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})".format(
-                        targetmsfname,
-                        imagename,
-                        imsize,
-                        pol,
-                        args.averagechannels,
-                        phasecenter,
-                        maskstr,
-                        outlierfields,
-                        pxsize,
-                    )
-                )
+                tcleanvals = deftcleanvals.copy()
+                tcleanvals["specmode"] = "mfs"
+                tcleanvals["niter"] = 0
+                tcleanvals["width"] = args.averagechannels
+                write_casa_cmd(casaout, "tclean", tcleanvals)
 
             elif args.cleanmfs:
                 imagename = args.imagename
@@ -401,18 +354,11 @@ def _main():
                         casaout, fmt_str, vals, args.timestep
                     )
                 else:
-                    casaout.write(
-                        "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{7}arcsec', '{7}arcsec'], stokes='{3}', specmode='mfs', phasecenter={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=100, mask={5}, outlierfile={6}, savemodel='modelcolumn')".format(
-                            targetmsfname,
-                            imagename,
-                            imsize,
-                            pol,
-                            phasecenter,
-                            maskstr,
-                            outlierfields,
-                            pxsize,
-                        )
-                    )
+                    tcleanvals = deftcleanvals.copy()
+                    tcleanvals["specmode"] = "mfs"
+                    tcleanvals["niter"] = 0
+                    tcleanvals["savemodel"] = "modelcolumn"
+                    write_casa_cmd(casaout, "tclean", tcleanvals)
 
             # Default: produce a cleaned cube image
             else:
@@ -436,20 +382,14 @@ def _main():
                         casaout, fmt_str, vals, args.timestep
                     )
                 else:
-                    casaout.write(
-                        "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=5000, cycleniter=100, mask={5}, savemodel='modelcolumn', phasecenter={6}, outlierfile={7}, spw={9})".format(
-                            targetmsfname,
-                            imagename,
-                            imsize,
-                            pol,
-                            args.averagechannels,
-                            maskstr,
-                            phasecenter,
-                            outlierfields,
-                            pxsize,
-                            args.spwrange,
-                        )
-                    )
+                    tcleanvals = deftcleanvals.copy()
+                    tcleanvals["specmode"] = "cube"
+                    tcleanvals["width"] = args.averagechannels
+                    tcleanvals["niter"] = 5000
+                    tcleanvals["cycleniter"] = 100
+                    tcleanvals["savemodel"] = "modelcolumn"
+                    tcleanvals["spw"] = args.spwrange
+                    write_casa_cmd(casaout, "tclean", tcleanvals)
 
             casaout.close()
             os.system("chmod 775 imagescript.py")
@@ -458,10 +398,13 @@ def _main():
             # If desired, also export the image as a FITS file
             if args.exportfits:
                 casaout = open("exportfits.py", "w")
-                casaout.write(
-                    'exportfits(imagename="{0}.image",fitsimage="{0}.FITS")\n'.format(
-                        imagename
-                    )
+                write_casa_cmd(
+                    casaout,
+                    "exportfits",
+                    {
+                        "imagename": f"{imagename}.image",
+                        "fitsimage": f"{imagename}.fits",
+                    },
                 )
                 casaout.close()
                 os.system("chmod 775 exportfits.py")
@@ -470,8 +413,13 @@ def _main():
             # If desired, also make the JMFIT output
             if args.imagejmfit:
                 casaout = open("imagescript.py", "w")
-                casaout.write(
-                    f'exportfits(imagename="{imagebase}.image",fitsimage="{imagebase}.fits")\n'
+                write_casa_cmd(
+                    casaout,
+                    "exportfits",
+                    {
+                        "imagename": f"{imagename}.image",
+                        "fitsimage": f"{imagename}.fits,",
+                    },
                 )
                 casaout.close()
                 os.system(
@@ -489,7 +437,7 @@ def _main():
                     )
                     os.system(
                         "jmfitfromfile.py %s.fits %s.slice%03d.jmfit.stats %s"
-                        % (imagebase, imagebase, i, locstring)
+                        % (imagename, imagename, i, locstring)
                     )
 
 
@@ -1307,11 +1255,120 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
     :type msfname: str
     """
     casaout = open("loadtarget.py", "w")
-    casaout.write(
-        f"importuvfits(fitsfile='{fitsfname}',vis='{msfname}',antnamescheme='old')\n"
+    write_casa_cmd(
+        casaout,
+        "importuvfits",
+        {
+            "fitsfile": fitsfname,
+            "vis": msfname,
+            "antnamescheme": "old",
+        },
     )
     casaout.close()
     os.system("runloadtarget.sh")
+
+
+def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
+    """Write a CASA command to a file, including its arguments.
+
+    :param casaout: Open file object to write the command to
+    :type casaout: :class:`os.PathLike`
+    :param cmd: CASA command to write
+    :type cmd: str, optional
+    :param vals: Dictionary of arguments to pass to the command, with
+        the keywords as the keys, and values as the dictionary values.
+    :type vals: dict
+    """
+
+    def val2str(v):
+        return f"'{v}'"
+
+    cmdstr = f"{cmd}("
+    for key, val in vals.items():
+        if val is str:
+            valstr = val2str(val)
+        elif val is list:
+            valstr = "["
+            for v in val:
+                if v is str:
+                    valstr += f"{val2str(v)}, "
+                else:
+                    valstr += f"{v}, "
+            valstr += "]"
+        else:
+            valstr = str(val)
+
+        cmdstr += f"{key}={valstr}, "
+    cmdstr += ")\n"
+    casaout.write(cmdstr)
+
+
+def write_timestep_loop(
+    casaout: os.PathLike,
+    vals: dict,
+    startmjd: float,
+    inttime: float,
+    duration: float,
+):
+    """Iterate over the duration given, starting at `startmjd` (a time in
+    MJD) with steps of `inttime` (a time in seconds), writing `tclean`
+    commands to `casaout` with the arguments as given in `vals`.
+
+    :param casaout: Open file object to write the commands to
+    :type casaout: :class:`os.PathLike`
+    :param vals: Dictionary of arguments to be passed to tclean, with
+        the keywords as the keys, and values as the dictionary values.
+    :type vals: dict
+    :param startmjd: Start of the time range to be imaged in MJD
+    :type startmjd: float
+    :param inttime: Step size of images in seconds
+    :type inttime: float
+    :param duration: Duration over which to iterate in steps of
+        `inttime` in seconds.
+    :type duration: float
+    """
+
+    i = 0
+    start = Time(startmjd, format="mjd")
+    while (i + 1) * inttime < duration:
+        # get end time by adding inttime to start time
+        end = start + inttime * un.s
+
+        # format times as YYYY/MM/DD/hh:mm:ss strings
+        start_str = start.iso.replace(" ", "/").replace("-", "/")
+        end_str = end.iso.replace(" ", "/").replace("-", "/")
+
+        # add data selection to fmt_str
+        new_fmt_str = fmt_str.replace(
+            ")", f", selectdata=True, timerange='{start_str}~{end_str}')\n"
+        )
+
+        # specify image name for this timestep
+        vals[1] = init_imagename + "_" + str(i)
+
+        casaout.write(new_fmt_str.format(*vals))
+
+        i += 1
+        start = end
+
+    print(f"Wrote {str(i)} time steps")
+
+
+def write_single_timestep(write_file, fmt_str, vals, i):
+    start = Time(args.start, format="mjd") + args.inttime * un.s * i
+    end = start + args.inttime * un.s
+    start_str = start.iso.replace(" ", "/").replace("-", "/")
+    end_str = end.iso.replace(" ", "/").replace("-", "/")
+
+    # add data selection to fmt_str
+    new_fmt_str = fmt_str.replace(
+        ")", f", selectdata=True, timerange='{start_str}~{end_str}')\n"
+    )
+
+    # specify image name for this timestep
+    vals[1] = f"{i:03d}_{vals[1]}"
+
+    write_file.write(new_fmt_str.format(*vals))
 
 
 if __name__ == "__main__":
