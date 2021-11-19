@@ -33,6 +33,9 @@ SEQNO = 1
 def _main():
     args = get_args()
 
+    do_target = not args.calibrateonly
+    do_calibrate = not args.targetonly
+
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
 
@@ -40,15 +43,6 @@ def _main():
     snversion = 1
     clversion = 1
     bpversion = 1
-
-    if xpolmodelfile != "":
-        xpol_prefix = "_xpol"
-    else:
-        xpol_prefix = "_noxpol"
-    if args.src != "":
-        src = "_" + args.src
-    else:
-        src = args.src
 
     # Make path names absolute if needed
     targetpath = os.path.abspath(args.target)
@@ -76,13 +70,13 @@ def _main():
     allcalxcorplotfname = calsolnfnames[6]
 
     # Load and flag the target data if needed
-    if not args.calibrateonly:
+    if do_target:
         targetdata = load_data(args.target, args.uvsrt)
         if args.tarflagfile != "":
             flag_data(targetdata, args.tarflagfile, args.shadow)
 
     # Load and flag the calibrator data if needed
-    if not args.targetonly:
+    if do_calibrate:
         caldata = load_data(args.calibrator, args.uvsrt)
         if args.flagfile != "":
             flag_data(caldata, args.flagfile, args.shadow)
@@ -92,14 +86,14 @@ def _main():
 
     # Run CLCOR to correct PANG if needed
     if xpolmodelfile != "":
-        if not args.targetonly:
+        if do_calibrate:
             vlbatasks.clcor_pang(caldata, clversion)
-        if not args.calibrateonly:
+        if do_target:
             vlbatasks.clcor_pang(targetdata, clversion)
         clversion = clversion + 1
 
     # Run FRING
-    if not args.targetonly:
+    if do_calibrate:
         run_FRING(
             caldata,
             snversion,
@@ -110,15 +104,15 @@ def _main():
         )
 
     # Load FRING SN table into the target
-    if not args.calibrateonly:
+    if do_target:
         vlbatasks.loadtable(targetdata, fringsnfname, snversion)
 
     # Calibrate
-    if not args.targetonly:
+    if do_calibrate:
         vlbatasks.applysntable(
             caldata, snversion, "SELN", clversion, args.refant
         )
-    if not args.calibrateonly:
+    if do_target:
         vlbatasks.applysntable(
             targetdata, snversion, "SELN", clversion, args.refant
         )
@@ -129,7 +123,7 @@ def _main():
     # Correct for leakage if needed
     if xpolmodelfile != "":
         # First the xpoldelays
-        if not args.targetonly:
+        if do_calibrate:
             correct_leakage(
                 caldata,
                 snversion,
@@ -139,7 +133,7 @@ def _main():
                 xpolmodelfile,
                 xpolsnfname,
             )
-        if not args.calibrateonly:
+        if do_target:
             vlbatasks.loadtable(targetdata, xpolsnfname, snversion)
             vlbatasks.applysntable(
                 targetdata, snversion, "2PT", clversion, args.refant
@@ -148,7 +142,7 @@ def _main():
         clversion += 1
 
     # Run bandpass correction
-    if not args.targetonly:
+    if do_calibrate:
         run_bandpass(
             caldata,
             clversion,
@@ -163,11 +157,11 @@ def _main():
             plot_bandpass(caldata, bpversion, bptableplotfname)
 
     # Load up the bandpass to the target
-    if not args.calibrateonly:
+    if do_target:
         vlbatasks.loadtable(targetdata, bpfname, bpversion)
 
     # Run selfcal
-    if not args.targetonly:
+    if do_calibrate:
         run_selfcal(
             caldata,
             clversion,
@@ -178,17 +172,17 @@ def _main():
         )
 
     # Load up the selfcal SN table
-    if not args.calibrateonly:
+    if do_target:
         vlbatasks.loadtable(targetdata, selfcalsnfname, snversion)
-    if not args.targetonly:
+    if do_calibrate:
         vlbatasks.loadtable(caldata, selfcalsnfname, snversion)
 
     # Calibrate
-    if not args.targetonly:
+    if do_calibrate:
         vlbatasks.applysntable(
             caldata, snversion, "SELN", clversion, args.refant
         )
-    if not args.calibrateonly:
+    if do_target:
         vlbatasks.applysntable(
             targetdata, snversion, "SELN", clversion, args.refant
         )
@@ -196,7 +190,7 @@ def _main():
     clversion += 1
 
     # Plot the uncalibrated and calibrated cross-correlation results if desired
-    if not args.targetonly:
+    if do_calibrate:
         if not args.skipplot:
             plot_xcor(
                 caldata,
@@ -208,33 +202,23 @@ def _main():
             )
 
     # Run SPLIT and write output data for calibrator
-    if not args.targetonly:
+    if do_calibrate:
         run_split(caldata, caloutfname, clversion, args.sourcename)
 
     # Run SPLIT and write output data for target
-    if not args.calibrateonly:
+    if do_target:
         run_split(targetdata, targetoutfname, clversion, args.sourcename)
 
-    # Create a README file for the calibration and a tarball with it plus all the calibration
-    if not args.targetonly:
+    # Create a README file and a tarball with it plus all the calibration
+    if do_calibrate:
         write_readme(calsolnfnames, args.calibrator, xpolmodelfile, reffreqs)
 
     # Convert to a measurement set
-    if not args.targetonly:
-        casaout = open("loadtarget.py", "w")
-        casaout.write(
-            f"importuvfits(fitsfile='{caloutfname}',vis='{calmsfname}',antnamescheme='old')\n"
-        )
-        casaout.close()
-        os.system("runloadtarget.sh")
+    if do_calibrate:
+        fits_to_ms(caloutfname, calmsfname)
 
-    if not args.calibrateonly:
-        casaout = open("loadtarget.py", "w")
-        casaout.write(
-            f"importuvfits(fitsfile='{targetoutfname}',vis='{targetmsfname}',antnamescheme='old')\n"
-        )
-        casaout.close()
-        os.system("runloadtarget.sh")
+    if do_target:
+        fits_to_ms(targetoutfname, targetmsfname)
 
     def write_timestep_loop(write_file, fmt_str, vals):
         # iterate over the duration given in the options, writing the fmt_str to
@@ -283,11 +267,8 @@ def _main():
 
         write_file.write(new_fmt_str.format(*vals))
 
-    # Run the imaging via CASA if desired
-    if not args.calibrateonly:
-        do_imaging(args)
-
-    imagesize = args.imagesize
+    imsize = args.imagesize
+    pxsize = args.pixelsize
     polarisations = args.pols.split(",")
 
     if args.dirtyonly:
@@ -302,14 +283,14 @@ def _main():
             casaout = open("imagescript.py", "w")
             imagename = f"TARGET.cube.{pol}"
             offsourcename = f"OFFSOURCE.cube.{pol}"
-            maskstr = "'circle[[{0}pix,{0}pix] ,5pix ]'".format(imagesize / 2)
+            maskstr = "'circle[[{0}pix,{0}pix] ,5pix ]'".format(imsize / 2)
             phasecenter = f"'{args.phasecenter}'".encode()
-            imsize = "[{0},{0}]".format(imagesize)
+            imsize = "[{0},{0}]".format(imsize)
 
             # If desired, produce the noise image
             if args.noisecentre:
                 rmscenter = f"{args.noisecentre}"
-                rmsimsize = "[{0},{0}]".format(imagesize * 4)
+                rmsimsize = "[{0},{0}]".format(imsize * 4)
                 os.system(f"rm -rf {offsourcename}*")
                 os.system(f"rm -rf {imagename}*")
                 outlierfile = open(f"outlierfield_Stokes{pol}.txt", "w")
@@ -317,7 +298,7 @@ def _main():
                     "imagename={0}\nimsize={1}\nphasecenter={2}\nmask="
                     "circle[[{3}pix,{3}pix] ,{3}pix ]"
                     "\n".format(
-                        offsourcename, rmsimsize, rmscenter, imagesize * 2
+                        offsourcename, rmsimsize, rmscenter, imsize * 2
                     )
                 )
                 outlierfile.close()
@@ -332,7 +313,7 @@ def _main():
                 os.system(f"rm -rf {imagename}.*")
                 fmt_str = "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})"
                 vals = [
-                    targetmsfilename,
+                    targetmsfname,
                     imagename,
                     imsize,
                     pol,
@@ -340,7 +321,7 @@ def _main():
                     phasecenter,
                     maskstr,
                     outlierfields,
-                    pixelsize,
+                    pxsize,
                 ]
                 if args.doalltimesteps:
                     write_timestep_loop(casaout, fmt_str, vals)
@@ -351,7 +332,7 @@ def _main():
                 else:
                     casaout.write(
                         "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})".format(
-                            targetmsfilename,
+                            targetmsfname,
                             imagename,
                             imsize,
                             pol,
@@ -359,7 +340,7 @@ def _main():
                             phasecenter,
                             maskstr,
                             outlierfields,
-                            pixelsize,
+                            pxsize,
                         )
                     )
 
@@ -368,7 +349,7 @@ def _main():
                 os.system(f"rm -rf {imagename}.*")
                 fmt_str = "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='mfs', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})"
                 vals = [
-                    targetmsfilename,
+                    targetmsfname,
                     imagename,
                     imsize,
                     pol,
@@ -376,7 +357,7 @@ def _main():
                     phasecenter,
                     maskstr,
                     outlierfields,
-                    pixelsize,
+                    pxsize,
                 ]
                 if args.doalltimesteps:
                     write_timestep_loop(casaout, fmt_str, vals)
@@ -387,7 +368,7 @@ def _main():
 
                 casaout.write(
                     "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='mfs', width={4}, phasecenter={5}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=0, mask={6}, outlierfile={7})".format(
-                        targetmsfilename,
+                        targetmsfname,
                         imagename,
                         imsize,
                         pol,
@@ -395,7 +376,7 @@ def _main():
                         phasecenter,
                         maskstr,
                         outlierfields,
-                        pixelsize,
+                        pxsize,
                     )
                 )
 
@@ -404,14 +385,14 @@ def _main():
                 os.system(f"rm -rf {imagename}.*")
                 fmt_str = "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{7}arcsec', '{7}arcsec'], stokes='{3}', specmode='mfs', phasecenter={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=100, mask={5}, outlierfile={6}, savemodel='modelcolumn')"
                 vals = [
-                    targetmsfilename,
+                    targetmsfname,
                     imagename,
                     imsize,
                     pol,
                     phasecenter,
                     maskstr,
                     outlierfields,
-                    pixelsize,
+                    pxsize,
                 ]
                 if args.doalltimesteps:
                     write_timestep_loop(casaout, fmt_str, vals)
@@ -422,14 +403,14 @@ def _main():
                 else:
                     casaout.write(
                         "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{7}arcsec', '{7}arcsec'], stokes='{3}', specmode='mfs', phasecenter={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=100, mask={5}, outlierfile={6}, savemodel='modelcolumn')".format(
-                            targetmsfilename,
+                            targetmsfname,
                             imagename,
                             imsize,
                             pol,
                             phasecenter,
                             maskstr,
                             outlierfields,
-                            pixelsize,
+                            pxsize,
                         )
                     )
 
@@ -437,7 +418,7 @@ def _main():
             else:
                 fmt_str = "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=5000, cycleniter=100, mask={5}, savemodel='modelcolumn', phasecenter={6}, outlierfile={7}, spw={9})"
                 vals = [
-                    targetmsfilename,
+                    targetmsfname,
                     imagename,
                     imsize,
                     pol,
@@ -445,7 +426,7 @@ def _main():
                     maskstr,
                     phasecenter,
                     outlierfields,
-                    pixelsize,
+                    pxsize,
                     args.spwrange,
                 ]
                 if args.doalltimesteps:
@@ -457,7 +438,7 @@ def _main():
                 else:
                     casaout.write(
                         "tclean(vis='{0}', imagename='{1}', imsize={2}, cell=['{8}arcsec', '{8}arcsec'], stokes='{3}', specmode='cube', width={4}, gridder='widefield', wprojplanes=-1, pblimit=-1, deconvolver='multiscale', weighting='natural', niter=5000, cycleniter=100, mask={5}, savemodel='modelcolumn', phasecenter={6}, outlierfile={7}, spw={9})".format(
-                            targetmsfilename,
+                            targetmsfname,
                             imagename,
                             imsize,
                             pol,
@@ -465,7 +446,7 @@ def _main():
                             maskstr,
                             phasecenter,
                             outlierfields,
-                            pixelsize,
+                            pxsize,
                             args.spwrange,
                         )
                     )
@@ -499,11 +480,11 @@ def _main():
                 numchannels = vlbatasks.getNumChannels(targetdata)
                 for i in range(numchannels / args.averagechannels):
                     locstring = "%d,%d,%d,%d,%d,%d" % (
-                        imagesize / 2 - 12,
-                        imagesize / 2 - 12,
+                        imsize / 2 - 12,
+                        imsize / 2 - 12,
                         i,
-                        imagesize / 2 + 12,
-                        imagesize / 2 + 12,
+                        imsize / 2 + 12,
+                        imsize / 2 + 12,
                         i,
                     )
                     os.system(
@@ -1315,6 +1296,22 @@ def write_readme(
     if os.path.exists(calibtarballfile):
         os.system("rm -f " + calibtarballfile)
     os.system(f"tar cvzf {calibtarballfile} {readmefname} {tarinputfiles}")
+
+
+def fits_to_ms(fitsfname: str, msfname: str) -> None:
+    """Convert a FITS file to a measurement set with CASA
+
+    :param fitsfname: FITS file to convert
+    :type fitsfname: str
+    :param msfname: Destination measurement set name
+    :type msfname: str
+    """
+    casaout = open("loadtarget.py", "w")
+    casaout.write(
+        f"importuvfits(fitsfile='{fitsfname}',vis='{msfname}',antnamescheme='old')\n"
+    )
+    casaout.close()
+    os.system("runloadtarget.sh")
 
 
 if __name__ == "__main__":
