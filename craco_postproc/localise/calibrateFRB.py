@@ -35,6 +35,7 @@ def _main():
 
     do_target = not args.calibrateonly
     do_calibrate = not args.targetonly
+    do_plot = not args.skipplot
 
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
@@ -153,7 +154,7 @@ def _main():
             args.bpass,
         )
         # Plot the bandpass table
-        if not args.skipplot:
+        if do_plot:
             plot_bandpass(caldata, bpversion, bptableplotfname)
 
     # Load up the bandpass to the target
@@ -191,7 +192,7 @@ def _main():
 
     # Plot the uncalibrated and calibrated cross-correlation results if desired
     if do_calibrate:
-        if not args.skipplot:
+        if do_plot:
             plot_xcor(
                 caldata,
                 clversion,
@@ -231,8 +232,8 @@ def _main():
         polarisations = ["I"]
 
     if args.imagecube:
-        maskstr = "'circle[[{0}pix,{0}pix] ,5pix ]'".format(imsize / 2)
-        phasecenter = f"'{args.phasecenter}'".encode()
+        maskstr = "circle[[{0}pix,{0}pix], 5pix ]".format(imsize / 2)
+        phasecenter = f"{args.phasecenter}"  # .encode()   Not sure why encode
         deftcleanvals = {  # Default values to be passed to tclean
             "vis": targetmsfname,
             "imsize": imsize,
@@ -245,33 +246,21 @@ def _main():
             "weighting": "natural",
             "mask": maskstr,
         }
+
         # Do the cube
         for pol in polarisations:
             tcleanvals = deftcleanvals.copy()
             casaout = open("imagescript.py", "w")
-            offsourcename = f"OFFSOURCE.cube.{pol}"
 
             tcleanvals["stokes"] = pol
 
             # If desired, produce the noise image
             if args.noisecentre:
-                rmscenter = f"{args.noisecentre}"
-                rmsimsize = "[{0},{0}]".format(imsize * 4)
-                os.system(f"rm -rf {offsourcename}*")
-                os.system(f"rm -rf {imagename}*")
-                outlierfile = open(f"outlierfield_Stokes{pol}.txt", "w")
-                outlierfile.write(
-                    "imagename={0}\nimsize={1}\nphasecenter={2}\nmask="
-                    "circle[[{3}pix,{3}pix] ,{3}pix ]"
-                    "\n".format(
-                        offsourcename, rmsimsize, rmscenter, imsize * 2
-                    )
+                outlierfields = write_outlier_file(
+                    pol, args.noisecenter, args.imsize
                 )
-                outlierfile.close()
-                outlierfields = f"'outlierfield_Stokes{pol}.txt'"
             else:
                 outlierfields = "[]"
-                os.system(f"rm -rf {imagename}.*")
 
             tcleanvals["outlierfile"] = outlierfields
 
@@ -334,7 +323,7 @@ def _main():
                     casaout,
                     "exportfits",
                     {
-                        "tcleanvals['imagename']": f"{tcleanvals['imagename']}.image",
+                        "imagename": f"{tcleanvals['imagename']}.image",
                         "fitsimage": f"{tcleanvals['imagename']}.fits",
                     },
                 )
@@ -349,7 +338,7 @@ def _main():
                     casaout,
                     "exportfits",
                     {
-                        "tcleanvals['imagename']": f"{tcleanvals['imagename']}.image",
+                        "imagename": f"{tcleanvals['imagename']}.image",
                         "fitsimage": f"{tcleanvals['imagename']}.fits,",
                     },
                 )
@@ -1286,6 +1275,33 @@ def write_timestep_loop(
         start = end
 
     print(f"Wrote {i} time steps")
+
+
+def write_outlier_file(pol: str, rmscenter: str, imsize: int) -> str:
+    """Write parameters for a noise image to be provided to tclean later
+
+    :param pol: Polarisation to process
+    :type pol: str
+    :param rmscenter: CASA format position at which noise should be
+    estimated
+    :type rmscenter: str
+    :param imsize: Size of image in pixels
+    :type imsize: int
+    :return: Filename of outlier file
+    :rtype: str
+    """
+    offsourcename = f"OFFSOURCE.cube.{pol}"
+    rmsimsize = imsize * 4
+    os.system(f"rm -rf {offsourcename}*")
+    outlierfile = open(f"outlierfield_Stokes{pol}.txt", "w")
+    outlierfile.write(
+        "imagename={0}\n"
+        "imsize={1}\nphasecenter={2}\nmask="
+        "circle[[{3}pix,{3}pix] ,{3}pix ]"
+        "\n".format(offsourcename, rmsimsize, rmscenter, imsize * 2)
+    )
+    outlierfile.close()
+    return f"outlierfield_Stokes{pol}.txt"
 
 
 if __name__ == "__main__":
