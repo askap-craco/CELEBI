@@ -11,6 +11,16 @@ def _main():
     args = get_args()
     keepCodif = args.keep  # Don't rerun CRAFTConverter
 
+    correlateseconds = 20
+    framesize = 8064
+    if args.bits == 4:
+        correlateseconds = 6
+        framesize = 8256
+    elif args.bits == 8:
+        correlateseconds = 4
+    elif args.bits == 16:
+        correlateseconds = 3
+
     vcraftfiles = find_vcraft(args.fileglob)
 
     npol = len(vcraftfiles)
@@ -24,9 +34,11 @@ def _main():
         thisvals = parse_vcraft_hdr(hdrfile)
 
         # as we go over all the headers, search for the earliest start
-        thismjd = float(thisvals["TRIGGER_MJD"]) - float(
-            thisvals["NSAMPS_REQUEST"]
-        ) / (float(thisvals["SAMP_RATE"]) * 86400)
+        # Duration of data in MJD
+        durmjd = float(thisvals["NSAMPS_REQUEST"]) / (
+            float(thisvals["SAMP_RATE"]) * 86400
+        )
+        thismjd = float(thisvals["TRIGGER_MJD"]) - durmjd
         if thismjd < startmjd:
             startmjd = thismjd
 
@@ -55,58 +67,28 @@ def _main():
     )
 
     # These should be constant between header files, so can just grab at end
-    beamra = thisvals["BEAM_RA"]
-    beamdec = thisvals["BEAM_DEC"]
-    mode = thisvals["MODE"]
+    beamra = float(thisvals["BEAM_RA"])
+    beamdec = float(thisvals["BEAM_DEC"])
+    mode = int(thisvals["MODE"])
 
-    # round start MJD down to nearest second
+    # round start MJD down to previous integer second
     startmjd = math.floor(startmjd * 60 * 60 * 24) / (60 * 60 * 24)
 
-    # Write the obs.txt file
-    rastring, decstring = posradians2string(
+    rastr, decstr = posradians2string(
         beamra * math.pi / 180, beamdec * math.pi / 180
     )
 
     # Overwrite the RA/Dec with command line values if supplied
     if args.ra != None:
-        rastring = args.ra
+        rastr = args.ra
     if args.dec != None:
-        decstring = args.dec
+        decstr = args.dec
 
-    correlateseconds = 20
-    framesize = 8064
-    if args.bits == 4:
-        correlateseconds = 6
-        framesize = 8256
-    elif args.bits == 8:
-        correlateseconds = 4
-    elif args.bits == 16:
-        correlateseconds = 3
-
-    output = open("obs.txt", "w")
-    output.write("startmjd    = %.9f\n" % startmjd)
-    output.write(
-        "stopmjd     = %.9f\n" % (startmjd + float(correlateseconds) / 86400.0)
-    )
-    output.write("srcname     = CRAFTSRC\n")
-    output.write("srcra       = %s\n" % rastring)
-    output.write("srcdec      = %s\n" % decstring)
-    output.close()
+    # Write the obs.txt file
+    write_obs(rastr, decstr, correlateseconds, startmjd)
 
     # Write the chandefs file
-    output = open("chandefs.txt", "w")
-    for f in xfreqs:
-        # vcraft headers apparently currently have a 1 MHz frequency offset - correct this
-        # WARN This should probably be regularly checked!
-        # Also this can be upper sideband in some cases!
-        output.write("%s L 1.185185185185185185\n" % str(int(f) - 1))
-    if npol > 1:
-        for f in xfreqs:
-            # vcraft headers apparently currently have a 1 MHz frequency offset - correct this
-            # WARN This should probably be regularly checked!
-            # Also this can be upper sideband in some cases!
-            output.write("%s L 1.185185185185185185\n" % str(int(f) - 1))
-    output.close()
+    write_chandefs(xfreqs, npol)
 
     if args.ts > 0:
         print("Waiting on CRAFTConverter to finish")
@@ -429,6 +411,54 @@ def parse_vcraft_hdr(hdrfile: str) -> dict:
     vals["FREQS"] = vals["FREQS"][0].split(",")
 
     return vals
+
+
+def write_obs(
+    rastr: str, decstr: str, correlateseconds: int, startmjd: float
+) -> None:
+    """Write the obs.txt file containing the start and stop MJD of the
+    data and the position to correlate about
+
+    :param rastr: Right ascension as an hh:mm:ss string
+    :type rastr: str
+    :param decstr: Declination as a dd:mm:ss string
+    :type decstr: str
+    :param correlateseconds: Duration of the correlation as determined
+    by the number of bits per data point
+    :type correlateseconds: int
+    :param startmjd: Start time of the data as MJD
+    :type startmjd: float
+    """
+    stopmjd = startmjd + correlateseconds / 86400
+    output = open("obs.txt", "w")
+    output.write(f"startmjd    = {startmjd:.9f}\n")
+    output.write(f"stopmjd     = {stopmjd:.9f}\n")
+    output.write("srcname     = CRAFTSRC\n")
+    output.write(f"srcra       = {rastr}\n")
+    output.write(f"srcdec      = {decstr}\n")
+    output.close()
+
+
+def write_chandefs(freqs: list[str], npol: int) -> None:
+    """Write the chandefs file containing channel definitions. Currently
+    vcraft headers have a 1 MHz frequency offset - this is corrected
+    for here.
+
+    :param freqs: List of frequencies in MHz as strings as determined
+        from the header files
+    :type freqs: list[str]
+    :param npol: Number of polarisations being processed
+    :type npol: int
+    """
+    output = open("chandefs.txt", "w")
+    for i in range(npol):
+        for f in freqs:
+            # vcraft headers apparently currently have a 1 MHz frequency offset - correct this
+            # WARN This should probably be regularly checked!
+            # Also this can be upper sideband in some cases!
+            output.write("%s L 1.185185185185185185\n" % str(int(f) - 1))
+
+    output.close()
 
 
 if __name__ == "__main__":
