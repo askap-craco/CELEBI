@@ -18,10 +18,8 @@ def _main():
     keepcodif = args.keep  # Don't rerun CRAFTConverter
 
     correlateseconds = 20
-    framesize = 8064
     if args.bits == 4:
         correlateseconds = 6
-        framesize = 8256
     elif args.bits == 8:
         correlateseconds = 4
     elif args.bits == 16:
@@ -126,25 +124,7 @@ def _main():
         convert_vcraft_slurm(NCODIFPARALLEL)
 
     # Write a machines file and a run.sh file
-    output = open("machines", "w")
-    for i in range(nant + 2):
-        output.write("localhost\n")
-    output.close()
-
-    output = open("run.sh", "w")
-    output.write("#!/bin/sh\n\n")
-    output.write("rm -rf craft.difx\n")
-    output.write("rm -rf log*\n")
-    output.write("errormon2 6 &\n")
-    output.write("export ERRORMONPID=$!\n")
-    output.write(
-        "mpirun -machinefile machines -np %d mpifxcorr craft.input\n"
-        % (nant + 2)
-    )
-    output.write("kill $ERRORMONPID\n")
-    output.write("rm -f craft.difxlog\n")
-    output.write("mv log craft.difxlog\n")
-    output.close()
+    write_run(nant)
 
     if args.ts > 0:
         print("Waiting on CRAFTConverter to finish")
@@ -152,39 +132,10 @@ def _main():
         if ret != 0:
             sys.exit(ret)
 
-    # Print out the askap2difx command line to run (ultimately, could just run it ourselves)
-    runline = (
-        args.dir
-        + "/askap2difx.py fcm.txt obs.txt chandefs.txt --ants="
-        + antlist[:-1]
-        + " --bits="
-        + str(args.bits)
-        + " --framesize="
-        + str(framesize)
-        + " --npol="
-        + str(npol)
-    )
-    if args.slurm:
-        runline += " --slurm"
-    if args.fpga is not None:
-        runline += f" --fpga {args.fpga}"
-    if args.polyco is not None:
-        runline += f" --polyco={args.polyco}"
-    if args.integration is not None:
-        runline += f" --integration={args.integration}"
-    if args.nchan is not None:
-        runline += f" --nchan={args.nchan}"
-    if args.calconly:
-        runline += " --calconly"
-    if args.forceFFT:
-        runline += " --forceFFT"
-    if args.gstar:
-        runline += " --gstar"
-    if args.large:
-        runline += " --large"
-    if args.numskylakenodes > 1:
-        runline += " --numskylakenodes=" + str(args.numskylakenodes)
-    runline += "\n"
+    # Print out the askap2difx command line to run
+    # (ultimately, could just run here)
+    runline = get_askap2difx_cmd(args, antlist, npol)
+
     print("\nNow run:")
     print(runline)
     with open("runaskap2difx", "w") as runaskap:
@@ -514,6 +465,83 @@ def convert_vcraft_slurm(ncodifparallel: int) -> None:
 
     # Run that sbatch script
     os.system("sbatch --wait runcraftconversionbatch.sh")
+
+
+def write_run(nant: int) -> None:
+    """Write a script `run.sh` to be used in the codif to difx
+    conversion
+
+    :param nant: Number of antennas in the dataset
+    :type nant: int
+    """
+    output = open("machines", "w")
+    for i in range(nant + 2):
+        output.write("localhost\n")
+    output.close()
+
+    output = open("run.sh", "w")
+    output.write("#!/bin/sh\n\n")
+    output.write("rm -rf craft.difx\n")
+    output.write("rm -rf log*\n")
+    output.write("errormon2 6 &\n")
+    output.write("export ERRORMONPID=$!\n")
+    output.write(
+        "mpirun -machinefile machines -np %d mpifxcorr craft.input\n"
+        % (nant + 2)
+    )
+    output.write("kill $ERRORMONPID\n")
+    output.write("rm -f craft.difxlog\n")
+    output.write("mv log craft.difxlog\n")
+    output.close()
+
+
+def get_askap2difx_cmd(
+    args: argparse.Namespace, antlist: "list[str]", npol: int
+) -> str:
+    """Determine the command (with arguments) to run the codif to difx
+    conversion
+
+    :param args: Command line arguments
+    :type args: :class:`argparse.Namespace`
+    :param antlist: List of antenna names as strings
+    :type antlist: list[str]
+    :param npol: Number of polarisations being processed
+    :type npol: int
+    :return: Command (with arguments) to run codif to difx conversion
+    :rtype: str
+    """
+    framesize = 8256 if args.bits == 4 else 8064
+
+    runline = (
+        f"{args.dir}/askap2difx.py fcm.txt obs.txt chandefs.txt "
+        f"--ants={antlist[:-1]} "
+        f"--bits={args.bits} "
+        f"--framesize={framesize} "
+        f"--npol={npol}"
+    )
+
+    if args.slurm:
+        runline += " --slurm"
+    if args.fpga is not None:
+        runline += f" --fpga {args.fpga}"
+    if args.polyco is not None:
+        runline += f" --polyco={args.polyco}"
+    if args.integration is not None:
+        runline += f" --integration={args.integration}"
+    if args.nchan is not None:
+        runline += f" --nchan={args.nchan}"
+    if args.calconly:
+        runline += " --calconly"
+    if args.forceFFT:
+        runline += " --forceFFT"
+    if args.gstar:
+        runline += " --gstar"
+    if args.large:
+        runline += " --large"
+    if args.numskylakenodes > 1:
+        runline += " --numskylakenodes=" + str(args.numskylakenodes)
+    runline += "\n"
+    return runline
 
 
 if __name__ == "__main__":
