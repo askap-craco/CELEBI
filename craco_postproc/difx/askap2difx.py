@@ -9,7 +9,419 @@ from astropy.time import Time
 from six import chr
 
 
-## Convenience function to parse java style properties file
+def _main():
+    args = get_args()
+
+    difxThreads = args.threads
+    if args.slurm:
+        difxThreads = 2
+    if difxThreads is None:
+        if "CRAFT_DIFXTHREADS" in os.environ:
+            difxThreads = os.environ["CRAFT_DIFXTHREADS"]
+        else:
+            difxThreads = 8
+    framesize = args.framesize
+
+    # Load configuration data
+    fcm = load_props(args.fcm)
+    obs = load_props(args.obs)
+
+    # Convert time to MJD
+    if "startmjd" in obs:
+        obs["startmjd"] = str2mjd(obs["startmjd"])
+    if "stopmjd" in obs:
+        obs["stopmjd"] = str2mjd(obs["stopmjd"])
+
+    targetants = args.ants.split(",")
+
+    # Look and see if there is a catalog directory defined
+    try:
+        craftcatalogbasedir = os.environ["CRAFTCATDIR"] + "/"
+        if not os.path.exists(craftcatalogbasedir):
+            raise NotADirectoryError(
+                f"{craftcatalogbasedir} specified by $CRAFTCATDIR doesn't exist"
+            )
+
+        craftcatalogdir = f"{craftcatalogbasedir}{os.getpid()}/"
+        if not os.path.exists(craftcatalogdir):
+            os.mkdir(craftcatalogdir)
+
+    except KeyError:
+        craftcatalogdir = os.getcwd() + "/"
+        if len(craftcatalogdir) >= 62:
+            raise ValueError(
+                "Catalog directory name is too long! Must be 61 characters or less"
+            )
+
+    # Write the SCHED freq and antenna files, and the craftfrb.datafiles
+    write_sched_files(craftcatalogdir, fcm, targetants, args.npol)
+
+    # Write sched running file
+    runsched = open("runsched.sh", "w")
+    runsched.write("#!/usr/bin/bash\n")
+    runsched.write(f"export CATDIR={craftcatalogdir}\n")
+    runsched.write("sched < craftfrb.key\n")
+    runsched.close()
+    os.system("chmod 775 runsched.sh")
+
+    # Write the key file
+    keyout = open("craftfrb.key", "w")
+    writekeyfile(keyout, obs, twoletterannames, craftcatalogdir, args.npol)
+    keyout.close()
+
+    # Run it through sched
+    ret = os.system("./runsched.sh")
+    if ret != 0:
+        print("Warning, Sched failed")
+        sys.exit(1)
+
+    # Replace Mark5B with VDIF in vex file
+    ret = os.system("sed -i 's/MARK5B/VDIF/g' craftfrb.vex")
+    if ret != 0:
+        exit(1)
+
+    # Run getEOP and save the results
+    if not os.path.exists("eop.txt"):
+        ret = os.system(
+            "getEOP.py -l " + str(int(float(obs["startmjd"]))) + " > eop.txt"
+        )
+        if ret != 0:
+            sys.exit(ret)
+    else:
+        print(
+            "Using existing EOP data - remove eop.txt if you want to get new data!"
+        )
+    eoplines = open("eop.txt").readlines()
+
+    # Write the v2d file
+    v2dout = open("craftfrb.v2d", "w")
+    startseries = 0
+    basename = "craftfrb"
+    if args.slurm:
+        startseries = os.getpid()
+        basename = f"craftfrb_{startseries:d}"
+    writev2dfile(
+        v2dout,
+        obs,
+        twoletterannames,
+        antennanames,
+        delays,
+        datafilelist,
+        args.fpga,
+        args.nchan,
+        args.forceFFT,
+        args.integration,
+        args.polyco,
+        args.npol,
+        startseries,
+    )
+    for line in eoplines:
+        if "xPole" in line or "downloaded" in line:
+            v2dout.write(line)
+    v2dout.close()
+
+    # Run updateFreqs
+    runline = f"updatefreqs.py craftfrb.vex --npol={args.npol} {args.chan}"
+    if args.nchan is not None:
+        runline += f" --nchan={args.nchan}"
+    print("Running: " + runline)
+    ret = os.system(runline)
+    if ret != 0:
+        sys.exit(1)
+
+    # Update the vex file to say "CODIF" rather than "VDIF"
+    ret = os.system(f"sed -i -e 's/VDIF5032/CODIFD{framesize}/g' craftfrb.vex")
+    if ret != 0:
+        sys.exit(1)
+
+    # Run vex2difx
+    ret = os.system("vex2difx craftfrb.v2d > vex2difxlog.txt")
+    if ret != 0:
+        print("vex2difx failed!")
+        sys.exit(1)
+
+    # Run difxcalc to generate the interferometer model
+    ret = os.system(f"\\rm -f {basename}.im")
+    if ret != 0:
+        sys.exit(1)
+    ret = os.system(f"difxcalc {basename}.calc")
+    if ret != 0:
+        sys.exit(1)
+
+    if args.calconly:
+        print(".calc and .im created - stopping now.")
+        sys.exit()
+
+    # Create the machines and threads file and a corresponding run script, or the slurm batch job, as appropriate
+    if args.slurm:
+        currentdir = os.getcwd()
+        currentuser = getpass.getuser()
+        numprocesses = args.npol * len(datafilelist[0]) + 5
+        print(("Approx number of processes", numprocesses))
+        numprocessingnodes = numprocesses - (
+            args.npol * len(datafilelist[0]) + 1
+        )
+
+        # Create a launchjob script that will handle the logging, etc
+        launchout = open("launchjob", "w")
+        launchout.write("#!/usr/bin/bash\n\n")
+        launchout.write("sbatch -W runparallel\n")
+        launchout.close()
+        os.chmod("launchjob", 0o775)
+        print("./launchjob")
+
+        # Create a run script that will actually be executed by sbatch
+        if args.gstar:
+            # NOTE: use either 192 or 384 for 16 or 32 node request
+            if args.large:
+                numnodes = 32
+                ntasks = 384
+            else:
+                numnodes = 16
+                ntasks = 192
+
+            numprocesses = int(
+                2 ** (math.floor(math.log(numprocesses, 2)) + 1)
+            )
+            print(("Rounded to next highest number of 2:", numprocesses))
+
+            batchout = open("runparallel", "w")
+            batchout.write("#!/bin/bash\n")
+            batchout.write("#\n")
+            batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
+            batchout.write(f"#SBATCH --output={basename}.mpilog\n")
+            batchout.write("#\n")
+            batchout.write(f"#SBATCH --nodes={numnodes}\n")
+            batchout.write(f"#SBATCH --ntasks={ntasks}\n")
+            batchout.write("#SBATCH --time=10:00\n")
+            # NOTE: use 46g for 11.5 or 23 GB of ram per node (16 or 32)
+            batchout.write("#SBATCH --mem=46g\n\n")
+            batchout.write(f". /home/{currentuser}/setup_difx.gstar\n\n")
+            batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
+            batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
+            batchout.write("date\n\n")
+            batchout.write(
+                "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(
+                    basename, currentdir
+                )
+            )
+            batchout.write(
+                f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n"
+            )
+            batchout.write("./runmergedifx\n")
+            batchout.close()
+        else:
+            batchout = open("runparallel", "w")
+            batchout.write("#!/bin/bash\n")
+            batchout.write("#\n")
+            batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
+            batchout.write(f"#SBATCH --output={basename}.mpilog\n")
+            batchout.write("#\n")
+            # Request 32xnumskylakenodes CPUs, so it will fit on numskylakenodes
+            batchout.write(f"#SBATCH --ntasks={32*args.numskylakenodes:d}\n")
+            batchout.write("#SBATCH --time=8:00\n")
+            batchout.write("#SBATCH --cpus-per-task=1\n")
+            batchout.write("#SBATCH --mem-per-cpu=4000\n\n")
+            batchout.write(f". /home/{currentuser}/setup_difx\n\n")
+            batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
+            batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
+            batchout.write("date\n\n")
+            batchout.write(
+                "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(
+                    basename, currentdir
+                )
+            )
+            batchout.write(
+                f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread\n"
+            )
+            batchout.write("./runmergedifx\n")
+            batchout.close()
+
+        # Write the threads file
+        threadsout = open(f"{basename}.threads", "w")
+        threadsout.write(f"NUMBER OF CORES:    {numprocessingnodes}\n")
+        for i in range(numprocessingnodes):
+            threadsout.write(f"{difxThreads}\n")
+        threadsout.close()
+    else:
+        # We just want Ndatastream processes, plus a head node, plus one computational node
+        numprocesses = args.npol * len(datafilelist[0]) + 2
+
+        # Write the machines file (all running on localhost)
+        machinesout = open("machines", "w")
+        for i in range(numprocesses):
+            machinesout.write("localhost\n")
+        machinesout.close()
+
+        # Write the threads file
+        threadsout = open("craftfrb.threads", "w")
+        threadsout.write("NUMBER OF CORES:    1\n")
+        threadsout.write(f"{difxThreads}\n")
+        threadsout.close()
+
+        # Create a little run file for running the observations
+        # This is used in preference to startdifx because startdifx uses some MPI options we don't want
+        runout = open("run.sh", "w")
+        runout.write("#!/bin/sh\n\n")
+        runout.write("rm -rf craftfrb.difx\n")
+        runout.write("rm -rf log*\n")
+        runout.write("errormon2 6 &\n")
+        runout.write("export ERRORMONPID=$!\n")
+        runout.write(
+            "mpirun -machinefile machines -np %d mpifxcorr craftfrb.input\n"
+            % (numprocesses)
+        )
+        runout.write("kill $ERRORMONPID\n")
+        runout.write("rm -f craftfrb.difxlog\n")
+        runout.write("mv log craftfrb.difxlog\n")
+        runout.close()
+        os.chmod("run.sh", 0o775)
+
+        print("# First run the correlation:")
+        runline = "./run.sh\n"
+        print(runline)
+
+    # Print the line needed to run the stitching and then subsequently difx2fits
+    print("Then run difx2fits")
+    runline = "rm -rf {0}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {0}.difx\n".format(
+        basename
+    )
+    print(runline)
+    with open("runmergedifx", "w") as runmerge:
+        runmerge.write(runline)
+    os.chmod("runmergedifx", 0o775)
+    runline = f"difx2fits {basename}D2D"
+    print(runline)
+
+    # Produce the little script needed to run difx2fits for the solveFPGA script
+    runline = f"difx2fits {basename}D2D\n"
+    with open("runfpgadifx2fits", "w") as rund2f:
+        rund2f.write(runline)
+    os.chmod("runfpgadifx2fits", 0o775)
+
+
+def get_args() -> argparse.Namespace:
+    """Parse command line arguments
+
+    :return: Command line arguments
+    :rtype: :class:`argparse.Namespace`
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("fcm", help="ASKAP .fcm file describing array")
+    parser.add_argument(
+        "obs",
+        help="Flat text .obs file containing start/stop time, source position, baseband files",
+    )
+    parser.add_argument(
+        "chan",
+        help="Flat text file containing 1 line per subband, centre freq, sideband, and bandwidth",
+    )
+    parser.add_argument(
+        "-a",
+        "--ants",
+        help="Comma separated list of antenna names e.g., ak01,ak02,ak03 etc.  All must be present in .fcm, and all must have a akxx.codif file present in this directory.",
+    )
+    parser.add_argument(
+        "-b",
+        "--bits",
+        help="Number of bits/sample. Default 1",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "-t", "--threads", help="Number of DIFX threads. Default 8", type=int
+    )
+    parser.add_argument(
+        "-F",
+        "--framesize",
+        help="Codif framesize. Default 8064",
+        type=int,
+        default=8064,
+    )
+    parser.add_argument(
+        "-f", "--fpga", help="FPGA and card for delay correction. E.g. c4_f0"
+    )
+    parser.add_argument(
+        "-p", "--polyco", help="Bin config file for pulsar gating"
+    )
+    parser.add_argument(
+        "-i",
+        "--integration",
+        default="1.3824",
+        help="Correlation integration time",
+    )
+    parser.add_argument(
+        "-n",
+        "--nchan",
+        type=int,
+        default=128,
+        help="Number of spectral channels",
+    )
+    parser.add_argument(
+        "-s",
+        "--slurm",
+        default=False,
+        action="store_true",
+        help="Use slurm batch jobs rather than running locally",
+    )
+    parser.add_argument(
+        "--forceFFT",
+        default=False,
+        action="store_true",
+        help="Force FFT size to equal number of channels (don't increase to 128)",
+    )
+    parser.add_argument(
+        "--npol",
+        help="Number of polarisations",
+        type=int,
+        choices=[1, 2],
+        default=1,
+    )
+    parser.add_argument(
+        "--gstar",
+        default=False,
+        action="store_true",
+        help="Set if using gstar for correlation",
+    )
+    parser.add_argument(
+        "--large",
+        default=False,
+        action="store_true",
+        help="Set if 32 nodes, 384 tasks are required (i.e., 23GB memory needed per task; else 16 nodes, 192 tasks will be used for 11.5GB per task",
+    )
+    parser.add_argument(
+        "--numskylakenodes", default=1, type=int, help="Use 32x this many CPUs"
+    )
+    parser.add_argument(
+        "--calconly",
+        default=False,
+        action="store_true",
+        help="Stop after creating .calc file",
+    )
+    args = parser.parse_args()
+
+    # Check arguments
+    if not os.path.exists(args.fcm):
+        parser.error("FCM file " + args.fcm + " does not exist")
+    if not os.path.exists(args.obs):
+        parser.error("obs file " + args.obs + " does not exist")
+    if not os.path.exists(args.chan):
+        parser.error("chan file " + args.chan + " does not exist")
+    if args.ants == "":
+        parser.error("you must supply a list of antennas")
+    if args.polyco is not None and not os.path.exists(args.polyco):
+        parser.error("binconfig file " + args.polyco + " does not exist")
+    if args.large and not args.gstar:
+        parser.error(
+            "You can't run large if runnning on skylake (the default, i.e. you didn't use --gstar"
+        )
+    if args.gstar and args.numskylakenodes > 1:
+        parser.error(
+            "You can't set the number of skylake nodes if you are running on gstar"
+        )
+    return args
+
+
 def load_props(filepath, sep="=", comment_char="#"):
     """
     Read the file passed as parameter as a properties file.
@@ -38,7 +450,7 @@ def load_props(filepath, sep="=", comment_char="#"):
     return props
 
 
-## Convenience function to convert MJD to YMDHMS
+# Convenience function to convert MJD to YMDHMS
 def mjd2ymdhms(mjd):
     imjd = int(mjd)
     fmjd = mjd - imjd
@@ -79,7 +491,7 @@ def str2mjd(t):
     return m.mjd
 
 
-## Function to write a SCHED frequency block
+# Function to write a SCHED frequency block
 def writefreqentry(freqout, antenna):
     freqout.write(
         "Name = v20cm_1  Station = ASKAP%s    Priority = 1\n" % (antenna[-2:])
@@ -91,7 +503,7 @@ def writefreqentry(freqout, antenna):
     )
 
 
-## Function to write a SCHED antenna block
+# Function to write a SCHED antenna block
 def writestatentry(statout, antenna, count, itrfpos):
     if count < 10:
         countcode = str(count)
@@ -450,471 +862,84 @@ exhaustiveAutocorrs = True
     v2dout.write("SOURCE %s { }\n\n" % obs["srcname"])
 
 
-## Argument parser
-parser = argparse.ArgumentParser()
-parser.add_argument("fcm", help="ASKAP .fcm file describing array")
-parser.add_argument(
-    "obs",
-    help="Flat text .obs file containing start/stop time, source position, baseband files",
-)
-parser.add_argument(
-    "chan",
-    help="Flat text file containing 1 line per subband, centre freq, sideband, and bandwidth",
-)
-parser.add_argument(
-    "-a",
-    "--ants",
-    help="Comma separated list of antenna names e.g., ak01,ak02,ak03 etc.  All must be present in .fcm, and all must have a akxx.codif file present in this directory.",
-)
-parser.add_argument(
-    "-b", "--bits", help="Number of bits/sample. Default 1", type=int
-)
-parser.add_argument(
-    "-t", "--threads", help="Number of DIFX threads. Default 8", type=int
-)
-parser.add_argument(
-    "-F", "--framesize", help="Codif framesize. Default 8064", type=int
-)
-parser.add_argument(
-    "-f", "--fpga", help="FPGA and card for delay correction. E.g. c4_f0"
-)
-parser.add_argument("-p", "--polyco", help="Bin config file for pulsar gating")
-parser.add_argument(
-    "-i",
-    "--integration",
-    default="1.3824",
-    help="Correlation integration time",
-)
-parser.add_argument(
-    "-n", "--nchan", type=int, default=128, help="Number of spectral channels"
-)
-parser.add_argument(
-    "-s",
-    "--slurm",
-    default=False,
-    action="store_true",
-    help="Use slurm batch jobs rather than running locally",
-)
-parser.add_argument(
-    "--forceFFT",
-    default=False,
-    action="store_true",
-    help="Force FFT size to equal number of channels (don't increase to 128)",
-)
-parser.add_argument(
-    "--npol",
-    help="Number of polarisations",
-    type=int,
-    choices=[1, 2],
-    default=1,
-)
-parser.add_argument(
-    "--gstar",
-    default=False,
-    action="store_true",
-    help="Set if using gstar for correlation",
-)
-parser.add_argument(
-    "--large",
-    default=False,
-    action="store_true",
-    help="Set if 32 nodes, 384 tasks are required (i.e., 23GB memory needed per task; else 16 nodes, 192 tasks will be used for 11.5GB per task",
-)
-parser.add_argument(
-    "--numskylakenodes", default=1, type=int, help="Use 32x this many CPUs"
-)
-parser.add_argument(
-    "--calconly",
-    default=False,
-    action="store_true",
-    help="Stop after creating .calc file",
-)
-args = parser.parse_args()
+def write_sched_files(
+    craftcatalogdir: str, fcm: dict, targetants: "list[str]", npol: int
+) -> None:
+    freqout = open(craftcatalogdir + "askapfreq.dat", "w")
+    statout = open(craftcatalogdir + "askapstation.dat", "w")
+    dataout = []
+    for i in range(npol):
+        dataout.append(open("craftfrb.p%d.datafiles" % i, "w"))
+    count = 0
+    antennanames = []
+    twoletterannames = []
+    delays = []
+    datafilelist = []
+    for i in range(npol):
+        datafilelist.append([])
+    cwd = os.getcwd()
 
-## Check arguments
-if not os.path.exists(args.fcm):
-    parser.error("FCM file " + args.fcm + " does not exist")
-if not os.path.exists(args.obs):
-    parser.error("obs file " + args.obs + " does not exist")
-if not os.path.exists(args.chan):
-    parser.error("chan file " + args.chan + " does not exist")
-if args.ants == "":
-    parser.error("you must supply a list of antennas")
-if args.polyco is not None and not os.path.exists(args.polyco):
-    parser.error("binconfig file " + args.polyco + " does not exist")
-if args.large and not args.gstar:
-    parser.error(
-        "You can't run large if runnning on skylake (the default, i.e. you didn't use --gstar"
-    )
-if args.gstar and args.numskylakenodes > 1:
-    parser.error(
-        "You can't set the number of skylake nodes if you are running on gstar"
-    )
-bits = args.bits
-if bits == None:
-    bits = 1
-difxThreads = args.threads
-if args.slurm:
-    difxThreads = 2
-if difxThreads is None:
-    if "CRAFT_DIFXTHREADS" in os.environ:
-        difxThreads = os.environ["CRAFT_DIFXTHREADS"]
-    else:
-        difxThreads = 8
-framesize = args.framesize
-if framesize == None:
-    framesize = 8064
+    def antnum(a):
+        if a == "ant":
+            return 0
+        return int(a[3:])
 
-## Load configuration data
-fcm = load_props(args.fcm)
-obs = load_props(args.obs)
-
-# Convert time to MJD
-if "startmjd" in obs:
-    obs["startmjd"] = str2mjd(obs["startmjd"])
-if "stopmjd" in obs:
-    obs["stopmjd"] = str2mjd(obs["stopmjd"])
-
-targetants = args.ants.split(",")
-
-# Look and see if there is a catalog directory defined
-try:
-    craftcatalogbasedir = os.environ["CRAFTCATDIR"] + "/"
-    if not os.path.exists(craftcatalogbasedir):
-        print((craftcatalogbasedir, "specified by $CRAFTCATDIR doesn't exist"))
-        sys.exit()
-    craftcatalogdir = craftcatalogbasedir + str(os.getpid()) + "/"
-    if not os.path.exists(craftcatalogdir):
-        os.mkdir(craftcatalogdir)
-except KeyError:
-    craftcatalogdir = os.getcwd() + "/"
-    if len(craftcatalogdir) >= 62:
-        print(
-            "Catalog directory name is too long! I'm sorry, but I have to abort, because other sched will."
-        )
-#        sys.exit()
-
-## Write the SCHED freq and antenna files, and the craftfrb.datafiles
-freqout = open(craftcatalogdir + "askapfreq.dat", "w")
-statout = open(craftcatalogdir + "askapstation.dat", "w")
-dataout = []
-for i in range(args.npol):
-    dataout.append(open("craftfrb.p%d.datafiles" % i, "w"))
-count = 0
-antennanames = []
-twoletterannames = []
-delays = []
-datafilelist = []
-for i in range(args.npol):
-    datafilelist.append([])
-cwd = os.getcwd()
-
-
-def antnum(a):
-    if a == "ant":
-        return 0
-    return int(a[3:])
-
-
-for antenna in sorted(list(fcm["common"]["antenna"].keys()), key=antnum):
-    if antenna == "ant":
-        continue
-    if not "name" in list(fcm["common"]["antenna"][antenna].keys()):
-        continue  # This one is probably a test antenna or something, ignore it
-    if not "location" in list(fcm["common"]["antenna"][antenna].keys()):
-        continue  # This one is probably a test antenna or something, ignore it
-    antennaname = fcm["common"]["antenna"][antenna]["name"]
-    if not antennaname in targetants:
-        print(
-            (
-                "Skipping antenna",
-                antennaname,
-                "from fcm file as it wasn't requested.",
-            )
-        )
-        continue
-    writefreqentry(freqout, antennaname)
-    # print fcm["common"]["antenna"][antenna]["location"].keys()
-    # print fcm["common"]["antenna"][antenna]["location"]["itrf"]
-    # if not "itrf" in fcm["common"]["antenna"][antenna]["location"].keys():
-    #    wgs84 = fcm["common"]["antenna"][antenna]["location"]["wgs84"]
-
-    twolettername = writestatentry(
-        statout,
-        antennaname,
-        count,
-        fcm["common"]["antenna"][antenna]["location"]["itrf"],
-    )
-    if "delay" in list(fcm["common"]["antenna"][antenna].keys()):
-        delay = fcm["common"]["antenna"][antenna]["delay"]
-    else:
-        delay = "0.0ns"
-    for i in range(args.npol):
-        print("Looking for %s/%s.p%d.codif" % (cwd, antennaname, i))
-        if os.path.exists("%s/%s.p%d.codif" % (cwd, antennaname, i)):
-            datafilelist[i].append(
-                "%s=%s/%s.p%d.codif" % (twolettername, cwd, antennaname, i)
-            )
-            dataout[i].write(datafilelist[i][-1] + "\n")
-        else:
-            # print "Skipping", antennaname, "as we don't have a data file for it"
+    for antenna in sorted(list(fcm["common"]["antenna"].keys()), key=antnum):
+        if antenna == "ant":
+            continue
+        if not "name" in list(fcm["common"]["antenna"][antenna].keys()):
+            continue  # This one is probably a test antenna or something, ignore it
+        if not "location" in list(fcm["common"]["antenna"][antenna].keys()):
+            continue  # This one is probably a test antenna or something, ignore it
+        antennaname = fcm["common"]["antenna"][antenna]["name"]
+        if not antennaname in targetants:
             print(
                 (
-                    "Couldn't find a codif file for",
+                    "Skipping antenna",
                     antennaname,
-                    "pol",
-                    i,
-                    "- aborting!",
+                    "from fcm file as it wasn't requested.",
                 )
             )
-            sys.exit()
-    antennanames.append(antennaname)
-    twoletterannames.append(twolettername)
-    delays.append(delay)
-    count += 1
-freqout.close()
-statout.close()
-for i in range(args.npol):
-    dataout[i].close()
+            continue
+        writefreqentry(freqout, antennaname)
 
-## Check how many datafiles we found
-# if len(datafilelist) == 0:
-#    print "Didn't find any matching .codif files! Aborting"
-#    sys.exit()
-# elif len(datafilelist) < len(antennanames):
-#    print "WARNING: Expected %d matching codif files, but only found %d" % (len(antennanames), len(datafilelist))
-
-## Write sched running file
-runsched = open("runsched.sh", "w")
-runsched.write("#!/usr/bin/bash\n")
-runsched.write(f"export CATDIR={craftcatalogdir}\n")
-runsched.write("sched < craftfrb.key\n")
-runsched.close()
-os.system("chmod 775 runsched.sh")
-
-## Write the key file
-keyout = open("craftfrb.key", "w")
-writekeyfile(keyout, obs, twoletterannames, craftcatalogdir, args.npol)
-keyout.close()
-
-## Run it through sched
-ret = os.system("./runsched.sh")
-if ret != 0:
-    print("Warning, Sched failed")
-    sys.exit(1)
-
-## Replace Mark5B with VDIF in vex file
-ret = os.system("sed -i 's/MARK5B/VDIF/g' craftfrb.vex")
-if ret != 0:
-    exit(1)
-
-## Run getEOP and save the results
-if not os.path.exists("eop.txt"):
-    ret = os.system(
-        "getEOP.py -l " + str(int(float(obs["startmjd"]))) + " > eop.txt"
-    )
-    if ret != 0:
-        sys.exit(ret)
-else:
-    print(
-        "Using existing EOP data - remove eop.txt if you want to get new data!"
-    )
-eoplines = open("eop.txt").readlines()
-
-## Write the v2d file
-v2dout = open("craftfrb.v2d", "w")
-startseries = 0
-basename = "craftfrb"
-if args.slurm:
-    startseries = os.getpid()
-    basename = f"craftfrb_{startseries:d}"
-writev2dfile(
-    v2dout,
-    obs,
-    twoletterannames,
-    antennanames,
-    delays,
-    datafilelist,
-    args.fpga,
-    args.nchan,
-    args.forceFFT,
-    args.integration,
-    args.polyco,
-    args.npol,
-    startseries,
-)
-for line in eoplines:
-    if "xPole" in line or "downloaded" in line:
-        v2dout.write(line)
-v2dout.close()
-
-## Run updateFreqs
-runline = f"updatefreqs.py craftfrb.vex --npol={args.npol} {args.chan}"
-if args.nchan is not None:
-    runline += f" --nchan={args.nchan}"
-print("Running: " + runline)
-ret = os.system(runline)
-if ret != 0:
-    sys.exit(1)
-
-## Update the vex file to say "CODIF" rather than "VDIF"
-ret = os.system(f"sed -i -e 's/VDIF5032/CODIFD{framesize}/g' craftfrb.vex")
-if ret != 0:
-    sys.exit(1)
-
-## Run vex2difx
-ret = os.system("vex2difx craftfrb.v2d > vex2difxlog.txt")
-if ret != 0:
-    print("vex2difx failed!")
-    sys.exit(1)
-
-## Run difxcalc to generate the interferometer model
-ret = os.system(f"\\rm -f {basename}.im")
-if ret != 0:
-    sys.exit(1)
-ret = os.system(f"difxcalc {basename}.calc")
-if ret != 0:
-    sys.exit(1)
-
-if args.calconly:
-    print(".calc and .im created - stopping now.")
-    sys.exit()
-
-## Create the machines and threads file and a corresponding run script, or the slurm batch job, as appropriate
-if args.slurm:
-    currentdir = os.getcwd()
-    currentuser = getpass.getuser()
-    numprocesses = args.npol * len(datafilelist[0]) + 5
-    print(("Approx number of processes", numprocesses))
-    numprocessingnodes = numprocesses - (args.npol * len(datafilelist[0]) + 1)
-
-    # Create a launchjob script that will handle the logging, etc
-    launchout = open("launchjob", "w")
-    launchout.write("#!/usr/bin/bash\n\n")
-    launchout.write("sbatch -W runparallel\n")
-    launchout.close()
-    os.chmod("launchjob", 0o775)
-    print("./launchjob")
-
-    # Create a run script that will actually be executed by sbatch
-    if args.gstar:
-        # NOTE: use either 192 or 384 for 16 or 32 node request
-        if args.large:
-            numnodes = 32
-            ntasks = 384
+        twolettername = writestatentry(
+            statout,
+            antennaname,
+            count,
+            fcm["common"]["antenna"][antenna]["location"]["itrf"],
+        )
+        if "delay" in list(fcm["common"]["antenna"][antenna].keys()):
+            delay = fcm["common"]["antenna"][antenna]["delay"]
         else:
-            numnodes = 16
-            ntasks = 192
+            delay = "0.0ns"
+        for i in range(npol):
+            print("Looking for %s/%s.p%d.codif" % (cwd, antennaname, i))
+            if os.path.exists("%s/%s.p%d.codif" % (cwd, antennaname, i)):
+                datafilelist[i].append(
+                    "%s=%s/%s.p%d.codif" % (twolettername, cwd, antennaname, i)
+                )
+                dataout[i].write(datafilelist[i][-1] + "\n")
+            else:
+                print(
+                    (
+                        "Couldn't find a codif file for",
+                        antennaname,
+                        "pol",
+                        i,
+                        "- aborting!",
+                    )
+                )
+                sys.exit()
+        antennanames.append(antennaname)
+        twoletterannames.append(twolettername)
+        delays.append(delay)
+        count += 1
+    freqout.close()
+    statout.close()
+    for i in range(npol):
+        dataout[i].close()
 
-        numprocesses = int(2 ** (math.floor(math.log(numprocesses, 2)) + 1))
-        print(("Rounded to next highest number of 2:", numprocesses))
 
-        batchout = open("runparallel", "w")
-        batchout.write("#!/bin/bash\n")
-        batchout.write("#\n")
-        batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
-        batchout.write(f"#SBATCH --output={basename}.mpilog\n")
-        batchout.write("#\n")
-        batchout.write(f"#SBATCH --nodes={numnodes}\n")
-        batchout.write(f"#SBATCH --ntasks={ntasks}\n")
-        batchout.write("#SBATCH --time=10:00\n")
-        # NOTE: use 46g for 11.5 or 23 GB of ram per node (16 or 32)
-        batchout.write("#SBATCH --mem=46g\n\n")
-        batchout.write(f". /home/{currentuser}/setup_difx.gstar\n\n")
-        batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
-        batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
-        batchout.write("date\n\n")
-        batchout.write(
-            "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(basename, currentdir)
-        )
-        batchout.write(
-            f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n"
-        )
-        batchout.write("./runmergedifx\n")
-        batchout.close()
-    else:
-        batchout = open("runparallel", "w")
-        batchout.write("#!/bin/bash\n")
-        batchout.write("#\n")
-        batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
-        batchout.write(f"#SBATCH --output={basename}.mpilog\n")
-        batchout.write("#\n")
-        # Request 32xnumskylakenodes CPUs, so it will fit on numskylakenodes
-        batchout.write(f"#SBATCH --ntasks={32*args.numskylakenodes:d}\n")
-        batchout.write("#SBATCH --time=8:00\n")
-        batchout.write("#SBATCH --cpus-per-task=1\n")
-        batchout.write("#SBATCH --mem-per-cpu=4000\n\n")
-        batchout.write(f". /home/{currentuser}/setup_difx\n\n")
-        batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
-        batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
-        batchout.write("date\n\n")
-        batchout.write(
-            "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(basename, currentdir)
-        )
-        batchout.write(
-            f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread\n"
-        )
-        batchout.write("./runmergedifx\n")
-        batchout.close()
-
-    # Write the threads file
-    threadsout = open(f"{basename}.threads", "w")
-    threadsout.write(f"NUMBER OF CORES:    {numprocessingnodes}\n")
-    for i in range(numprocessingnodes):
-        threadsout.write(f"{difxThreads}\n")
-    threadsout.close()
-else:
-    # We just want Ndatastream processes, plus a head node, plus one computational node
-    numprocesses = args.npol * len(datafilelist[0]) + 2
-
-    # Write the machines file (all running on localhost)
-    machinesout = open("machines", "w")
-    for i in range(numprocesses):
-        machinesout.write("localhost\n")
-    machinesout.close()
-
-    # Write the threads file
-    threadsout = open("craftfrb.threads", "w")
-    threadsout.write("NUMBER OF CORES:    1\n")
-    threadsout.write(f"{difxThreads}\n")
-    threadsout.close()
-
-    ## Create a little run file for running the observations
-    ## This is used in preference to startdifx because startdifx uses some MPI options we don't want
-    runout = open("run.sh", "w")
-    runout.write("#!/bin/sh\n\n")
-    runout.write("rm -rf craftfrb.difx\n")
-    runout.write("rm -rf log*\n")
-    runout.write("errormon2 6 &\n")
-    runout.write("export ERRORMONPID=$!\n")
-    runout.write(
-        "mpirun -machinefile machines -np %d mpifxcorr craftfrb.input\n"
-        % (numprocesses)
-    )
-    runout.write("kill $ERRORMONPID\n")
-    runout.write("rm -f craftfrb.difxlog\n")
-    runout.write("mv log craftfrb.difxlog\n")
-    runout.close()
-    os.chmod("run.sh", 0o775)
-
-    print("# First run the correlation:")
-    runline = "./run.sh\n"
-    print(runline)
-
-## Print the line needed to run the stitching and then subsequently difx2fits
-print("Then run difx2fits")
-runline = "rm -rf {0}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {0}.difx\n".format(
-    basename
-)
-print(runline)
-with open("runmergedifx", "w") as runmerge:
-    runmerge.write(runline)
-os.chmod("runmergedifx", 0o775)
-runline = f"difx2fits {basename}D2D"
-print(runline)
-
-## Produce the little script needed to run difx2fits for the solveFPGA script
-runline = f"difx2fits {basename}D2D\n"
-with open("runfpgadifx2fits", "w") as rund2f:
-    rund2f.write(runline)
-os.chmod("runfpgadifx2fits", 0o775)
+if __name__ == "__main__":
+    _main()
