@@ -14,7 +14,7 @@ from AIPSData import AIPSImage, AIPSUVData
 from AIPSTask import AIPSTask
 from astropy.time import Time
 
-# Global variables
+# Global constants
 try:
     AIPSVER = os.environ["PSRVLBAIPSVER"]
 except KeyError:
@@ -29,8 +29,15 @@ SOLINTMINS = 1  # Long enough that we just get one solutions
 SUMIFS = False
 SEQNO = 1
 
+# Global variables
+snversion = 1
+clversion = 1
+bpversion = 1
+
 
 def _main():
+    global snversion, clversion, bpversion
+
     args = get_args()
 
     do_target = not args.calibrateonly
@@ -39,11 +46,6 @@ def _main():
 
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
-
-    # TODO: reformat with these as global variables
-    snversion = 1
-    clversion = 1
-    bpversion = 1
 
     # Make path names absolute if needed
     targetpath = os.path.abspath(args.target)
@@ -91,14 +93,12 @@ def _main():
             vlbatasks.clcor_pang(caldata, clversion)
         if do_target:
             vlbatasks.clcor_pang(targetdata, clversion)
-        clversion = clversion + 1
+        clversion += 1
 
     # Run FRING
     if do_calibrate:
         run_FRING(
             caldata,
-            snversion,
-            clversion,
             args.sourcename,
             args.refant,
             fringsnfname,
@@ -127,8 +127,6 @@ def _main():
         if do_calibrate:
             correct_leakage(
                 caldata,
-                snversion,
-                clversion,
                 args.sourcename,
                 args.refant,
                 xpolmodelfile,
@@ -146,8 +144,6 @@ def _main():
     if do_calibrate:
         run_bandpass(
             caldata,
-            clversion,
-            bpversion,
             args.sourcename,
             bpfname,
             args.cpasspoly,
@@ -155,7 +151,7 @@ def _main():
         )
         # Plot the bandpass table
         if do_plot:
-            plot_bandpass(caldata, bpversion, bptableplotfname)
+            plot_bandpass(caldata, bptableplotfname)
 
     # Load up the bandpass to the target
     if do_target:
@@ -165,7 +161,6 @@ def _main():
     if do_calibrate:
         run_selfcal(
             caldata,
-            clversion,
             args.sourcename,
             args.refant,
             args.flux,
@@ -195,8 +190,6 @@ def _main():
         if do_plot:
             plot_xcor(
                 caldata,
-                clversion,
-                bpversion,
                 args.xcorplotsmooth,
                 uncalxcorplotfname,
                 allcalxcorplotfname,
@@ -204,11 +197,11 @@ def _main():
 
     # Run SPLIT and write output data for calibrator
     if do_calibrate:
-        run_split(caldata, caloutfname, clversion, args.sourcename)
+        run_split(caldata, caloutfname, args.sourcename)
 
     # Run SPLIT and write output data for target
     if do_target:
-        run_split(targetdata, targetoutfname, clversion, args.sourcename)
+        run_split(targetdata, targetoutfname, args.sourcename)
 
     # Create a README file and a tarball with it plus all the calibration
     if do_calibrate:
@@ -789,8 +782,6 @@ def get_ref_freqs(caldata) -> "list[float]":
 
 def run_FRING(
     caldata,
-    snversion: int,
-    clversion: int,
     sourcename: str,
     refant: int,
     fringsnfname: str,
@@ -799,10 +790,6 @@ def run_FRING(
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param snversion: TODO
-    :type snversion: int
-    :param clversion: TODO
-    :type clversion: int
     :param sourcename: Name of source
     :type sourcename: str
     :param refant: Reference antenna
@@ -844,8 +831,6 @@ def run_FRING(
 
 def correct_leakage(
     caldata,
-    snversion: int,
-    clversion: int,
     sourcename: str,
     refant: int,
     xpolmodelfile: str,
@@ -855,10 +840,6 @@ def correct_leakage(
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param snversion: TODO
-    :type snversion: int
-    :param clversion: TODO
-    :type clversion: int
     :param sourcename: Source name
     :type sourcename: str
     :param refant: Reference antenna
@@ -900,8 +881,6 @@ def correct_leakage(
 
 def run_bandpass(
     caldata,
-    clversion: int,
-    bpversion: int,
     sourcename: str,
     bpfname: str,
     cpasspoly: int,
@@ -912,10 +891,6 @@ def run_bandpass(
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param clversion: TODO
-    :type clversion: int
-    :param bpversion: TODO
-    :type bpversion: int
     :param sourcename: Source name
     :type sourcename: str
     :param bpfname: Filename to save bandpass corrections to
@@ -944,13 +919,11 @@ def run_bandpass(
     vlbatasks.writetable(caldata, "BP", bpversion, bpfname)
 
 
-def plot_bandpass(caldata, bpversion: int, bptableplotfname: str) -> None:
+def plot_bandpass(caldata, bptableplotfname: str) -> None:
     """Plot the bandpass corrections.
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param bpversion: TODO
-    :type bpversion: int
     :param bptableplotfname: File to save plots into
     :type bptableplotfname: str
     """
@@ -966,7 +939,6 @@ def plot_bandpass(caldata, bpversion: int, bptableplotfname: str) -> None:
 
 def run_selfcal(
     caldata,
-    clversion: int,
     sourcename: str,
     refant: int,
     flux: float,
@@ -976,8 +948,6 @@ def run_selfcal(
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param clversion: TODO
-    :type clversion: int
     :param sourcename: Source name
     :type sourcename: str
     :param refant: Reference antenna
@@ -1021,8 +991,6 @@ def run_selfcal(
 
 def plot_xcor(
     caldata,
-    clversion: int,
-    bpversion: int,
     xcorplotsmooth: int,
     uncalxcorplotfname: str,
     allcalxcorplotfname: str,
@@ -1031,10 +999,6 @@ def plot_xcor(
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :param clversion: TODO
-    :type clversion: int
-    :param bpversion: TODO
-    :type bpversion: int
     :param xcorplotsmooth: Length of the smoothing kernel in channels
         for xcor plotting
     :type xcorplotsmooth: int
@@ -1069,15 +1033,13 @@ def plot_xcor(
     )
 
 
-def run_split(data, outfname: str, clversion: int, sourcename: str) -> None:
+def run_split(data, outfname: str, sourcename: str) -> None:
     """Run SPLIT on provided data
 
     :param data: Data to operate on
     :type data: [type]
     :param outfname: Filename to save output to
     :type outfname: str
-    :param clversion: TODO
-    :type clversion: int
     :param sourcename: Source name
     :type sourcename: str
     """
