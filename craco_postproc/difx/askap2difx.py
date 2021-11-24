@@ -54,15 +54,12 @@ def _main():
             )
 
     # Write the SCHED freq and antenna files, and the craftfrb.datafiles
-    write_sched_files(craftcatalogdir, fcm, targetants, args.npol)
+    twoletterannames, antennanames, delays, datafilelist = write_sched_files(
+        craftcatalogdir, fcm, targetants, args.npol
+    )
 
     # Write sched running file
-    runsched = open("runsched.sh", "w")
-    runsched.write("#!/usr/bin/bash\n")
-    runsched.write(f"export CATDIR={craftcatalogdir}\n")
-    runsched.write("sched < craftfrb.key\n")
-    runsched.close()
-    os.system("chmod 775 runsched.sh")
+    write_runsched(craftcatalogdir)
 
     # Write the key file
     keyout = open("craftfrb.key", "w")
@@ -94,31 +91,23 @@ def _main():
     eoplines = open("eop.txt").readlines()
 
     # Write the v2d file
-    v2dout = open("craftfrb.v2d", "w")
-    startseries = 0
-    basename = "craftfrb"
     if args.slurm:
         startseries = os.getpid()
         basename = f"craftfrb_{startseries:d}"
-    writev2dfile(
-        v2dout,
+    else:
+        startseries = 0
+        basename = "craftfrb"
+
+    write_v2d(
         obs,
         twoletterannames,
         antennanames,
         delays,
         datafilelist,
-        args.fpga,
-        args.nchan,
-        args.forceFFT,
-        args.integration,
-        args.polyco,
-        args.npol,
+        args,
         startseries,
+        eoplines,
     )
-    for line in eoplines:
-        if "xPole" in line or "downloaded" in line:
-            v2dout.write(line)
-    v2dout.close()
 
     # Run updateFreqs
     runline = f"updatefreqs.py craftfrb.vex --npol={args.npol} {args.chan}"
@@ -183,59 +172,48 @@ def _main():
             numprocesses = int(
                 2 ** (math.floor(math.log(numprocesses, 2)) + 1)
             )
-            print(("Rounded to next highest number of 2:", numprocesses))
+            print(("Rounded to next highest power of 2:", numprocesses))
 
-            batchout = open("runparallel", "w")
-            batchout.write("#!/bin/bash\n")
-            batchout.write("#\n")
-            batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
-            batchout.write(f"#SBATCH --output={basename}.mpilog\n")
-            batchout.write("#\n")
-            batchout.write(f"#SBATCH --nodes={numnodes}\n")
-            batchout.write(f"#SBATCH --ntasks={ntasks}\n")
-            batchout.write("#SBATCH --time=10:00\n")
-            # NOTE: use 46g for 11.5 or 23 GB of ram per node (16 or 32)
-            batchout.write("#SBATCH --mem=46g\n\n")
-            batchout.write(f". /home/{currentuser}/setup_difx.gstar\n\n")
-            batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
-            batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
-            batchout.write("date\n\n")
-            batchout.write(
-                "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(
-                    basename, currentdir
-                )
-            )
-            batchout.write(
-                f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n"
-            )
-            batchout.write("./runmergedifx\n")
-            batchout.close()
+            sbatchparams = {
+                "job-name": f"difx_{basename}",
+                "output": f"{basename}.mpilog",
+                "nodes": numnodes,
+                "ntasks": ntasks,
+                "time": "10:00",
+                "mem": "46g",
+            }
+
+            sbatchcmds = [
+                f". /home/{currentuser}/setup_difx.gstar",
+                "export DIFX_MESSAGE_GROUP=`hostname -i`",
+                "export DIFX_BINARY_GROUP=`hostname -i`",
+                "date",
+                f"difxlog {basename} {currentdir}/{basename}.difxlog &",
+                f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
+                "./runmergedifx",
+            ]
+
         else:
-            batchout = open("runparallel", "w")
-            batchout.write("#!/bin/bash\n")
-            batchout.write("#\n")
-            batchout.write(f"#SBATCH --job-name=difx_{basename}\n")
-            batchout.write(f"#SBATCH --output={basename}.mpilog\n")
-            batchout.write("#\n")
-            # Request 32xnumskylakenodes CPUs, so it will fit on numskylakenodes
-            batchout.write(f"#SBATCH --ntasks={32*args.numskylakenodes:d}\n")
-            batchout.write("#SBATCH --time=8:00\n")
-            batchout.write("#SBATCH --cpus-per-task=1\n")
-            batchout.write("#SBATCH --mem-per-cpu=4000\n\n")
-            batchout.write(f". /home/{currentuser}/setup_difx\n\n")
-            batchout.write("export DIFX_MESSAGE_GROUP=`hostname -i`\n")
-            batchout.write("export DIFX_BINARY_GROUP=`hostname -i`\n")
-            batchout.write("date\n\n")
-            batchout.write(
-                "difxlog {0} {1}/{0}.difxlog 4 &\n\n".format(
-                    basename, currentdir
-                )
-            )
-            batchout.write(
-                f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread\n"
-            )
-            batchout.write("./runmergedifx\n")
-            batchout.close()
+            sbatchparams = {
+                "job-name": f"difx_{basename}",
+                "output": f"{basename}.mpilog",
+                "ntasks": 32 * args.numskylakenodes,
+                "time": "08:00",
+                "cpus-per-task": 1,
+                "mem-per-cpu": 4000,
+            }
+
+            sbatchcmds = [
+                f". /home/{currentuser}/setup_difx",
+                "export DIFX_MESSAGE_GROUP=`hostname -i`",
+                "export DIFX_BINARY_GROUP=`hostname -i`",
+                "date",
+                f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
+                f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
+                "./runmergedifx",
+            ]
+
+        write_sbatch("runparallel", sbatchparams, sbatchcmds)
 
         # Write the threads file
         threadsout = open(f"{basename}.threads", "w")
@@ -260,22 +238,7 @@ def _main():
         threadsout.close()
 
         # Create a little run file for running the observations
-        # This is used in preference to startdifx because startdifx uses some MPI options we don't want
-        runout = open("run.sh", "w")
-        runout.write("#!/bin/sh\n\n")
-        runout.write("rm -rf craftfrb.difx\n")
-        runout.write("rm -rf log*\n")
-        runout.write("errormon2 6 &\n")
-        runout.write("export ERRORMONPID=$!\n")
-        runout.write(
-            "mpirun -machinefile machines -np %d mpifxcorr craftfrb.input\n"
-            % (numprocesses)
-        )
-        runout.write("kill $ERRORMONPID\n")
-        runout.write("rm -f craftfrb.difxlog\n")
-        runout.write("mv log craftfrb.difxlog\n")
-        runout.close()
-        os.chmod("run.sh", 0o775)
+        write_run(numprocesses)
 
         print("# First run the correlation:")
         runline = "./run.sh\n"
@@ -865,6 +828,22 @@ exhaustiveAutocorrs = True
 def write_sched_files(
     craftcatalogdir: str, fcm: dict, targetants: "list[str]", npol: int
 ) -> None:
+    """Write the SCHED freq and antenna files, and the
+    craftfrb.datafiles
+
+    TODO: This could probably be done a lot better
+
+    :param craftcatalogdir: [description]
+    :type craftcatalogdir: str
+    :param fcm: [description]
+    :type fcm: dict
+    :param targetants: [description]
+    :type targetants: list[str]
+    :param npol: [description]
+    :type npol: int
+    :return: [description]
+    :rtype: [type]
+    """
     freqout = open(craftcatalogdir + "askapfreq.dat", "w")
     statout = open(craftcatalogdir + "askapstation.dat", "w")
     dataout = []
@@ -939,6 +918,123 @@ def write_sched_files(
     statout.close()
     for i in range(npol):
         dataout[i].close()
+
+    return twoletterannames, antennanames, delays, datafilelist
+
+
+def write_runsched(craftcatalogdir: str) -> None:
+    """Write the script that will run sched
+
+    :param craftcatalogdir: Directory of the CRAFT catalog
+    :type craftcatalogdir: str
+    """
+    runsched = open("runsched.sh", "w")
+    runsched.write("#!/usr/bin/bash\n")
+    runsched.write(f"export CATDIR={craftcatalogdir}\n")
+    runsched.write("sched < craftfrb.key\n")
+    runsched.close()
+    os.system("chmod 775 runsched.sh")
+
+
+def write_v2d(
+    obs: dict,
+    twoletterannames: list,
+    antennanames: list,
+    delays: list,
+    datafilelist: list,
+    args: argparse.Namespace,
+    startseries: int,
+    eoplines: list,
+) -> None:
+    """Write the craftfrb.v2d file
+
+    :param obs: [description]
+    :type obs: dict
+    :param twoletterannames: [description]
+    :type twoletterannames: list
+    :param antennanames: [description]
+    :type antennanames: list
+    :param delays: [description]
+    :type delays: list
+    :param datafilelist: [description]
+    :type datafilelist: list
+    :param args: [description]
+    :type args: argparse.Namespace
+    """
+    v2dout = open("craftfrb.v2d", "w")
+
+    writev2dfile(
+        v2dout,
+        obs,
+        twoletterannames,
+        antennanames,
+        delays,
+        datafilelist,
+        args.fpga,
+        args.nchan,
+        args.forceFFT,
+        args.integration,
+        args.polyco,
+        args.npol,
+        startseries,
+    )
+    for line in eoplines:
+        if "xPole" in line or "downloaded" in line:
+            v2dout.write(line)
+    v2dout.close()
+
+
+def write_sbatch(fname: str, params: dict, cmds: "list[str]") -> None:
+    """Write an SBATCH file for slurm.
+
+    :param fname: File name to write to
+    :type fname: str
+    :param params: SBATCH parameters in a dictionary, where the keys are
+    the parameter names (e.g. `job-name`) and the values are the value
+    to be given to that parameter
+    :type params: dict
+    :param cmds: Commands that make up the body of the SBATCH file. Each
+    string in the list should be a line of the script.
+    :type cmds: list[str]
+    """
+    batchout = open(fname, "w")
+    batchout.write("#!/bin/bash\n")
+    batchout.write("#\n")
+
+    for key, val in params.items():
+        batchout.write(f"#SBATCH --{key}={val}\n")
+
+    batchout.write("\n")
+
+    for cmd in cmds:
+        batchout.write(f"{cmd}\n")
+
+    batchout.close()
+
+
+def write_run(numprocesses: int) -> None:
+    """Write a script to run the observations.
+
+    This is used in preference to startdifx because startdifx uses
+    some MPI options we don't want.
+
+    :param numprocesses: Number of processes to be run in parallel
+    :type numprocesses: int
+    """
+    runout = open("run.sh", "w")
+    runout.write("#!/bin/sh\n\n")
+    runout.write("rm -rf craftfrb.difx\n")
+    runout.write("rm -rf log*\n")
+    runout.write("errormon2 6 &\n")
+    runout.write("export ERRORMONPID=$!\n")
+    runout.write(
+        f"mpirun -machinefile machines -np {numprocesses} mpifxcorr craftfrb.input\n"
+    )
+    runout.write("kill $ERRORMONPID\n")
+    runout.write("rm -f craftfrb.difxlog\n")
+    runout.write("mv log craftfrb.difxlog\n")
+    runout.close()
+    os.chmod("run.sh", 0o775)
 
 
 if __name__ == "__main__":
