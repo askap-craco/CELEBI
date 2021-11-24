@@ -57,20 +57,27 @@ def _main():
     targetoutfname, targetmsfname = out_fnames(targetpath)
     caloutfname, calmsfname = out_fnames(calpath)
 
-    # Solution output filenames
-    calsolnfnames = soln_fnames(xpolmodelfile, args.src)
+    bpfname = os.path.abspath(f"bandpasses{xpolmodelfile}{args.src}.bp.txt")
+    fringsnfname = os.path.abspath(f"delays{xpolmodelfile}{args.src}.sn.txt")
+    selfcalsnfname = os.path.abspath(
+        f"selfcal{xpolmodelfile}{args.src}.sn.txt"
+    )
+    xpolsnfname = os.path.abspath(f"xpolfring{xpolmodelfile}{args.src}.sn.txt")
+    bptableplotfname = os.path.abspath(f"bptable{xpolmodelfile}{args.src}.ps")
+    uncalxcorplotfname = os.path.abspath(
+        f"uncalxcor{xpolmodelfile}{args.src}.ps"
+    )
+    allcalxcorplotfname = os.path.abspath(
+        f"allcalxcor{xpolmodelfile}{args.src}.ps"
+    )
+    readmefname = os.path.abspath(
+        f"README{xpolmodelfile}{args.src}.calibration"
+    )
+    calibtarballfile = f"calibration{xpolmodelfile}{args.src}.tar.gz"
 
     # If we are running targetonly, check that all the calibration files exist
     if args.targetonly:
-        validate_soln_files(calsolnfnames)
-
-    bpfname = calsolnfnames[0]
-    fringsnfname = calsolnfnames[1]
-    selfcalsnfname = calsolnfnames[2]
-    xpolsnfname = calsolnfnames[3]
-    bptableplotfname = calsolnfnames[4]
-    uncalxcorplotfname = calsolnfnames[5]
-    allcalxcorplotfname = calsolnfnames[6]
+        validate_soln_files(bpfname, fringsnfname, selfcalsnfname, xpolsnfname)
 
     # Load and flag the target data if needed
     if do_target:
@@ -205,7 +212,17 @@ def _main():
 
     # Create a README file and a tarball with it plus all the calibration
     if do_calibrate:
-        write_readme(calsolnfnames, args.calibrator, xpolmodelfile, reffreqs)
+        write_readme(
+            bpfname,
+            fringsnfname,
+            selfcalsnfname,
+            xpolsnfname,
+            readmefname,
+            calibtarballfile,
+            args.calibrator,
+            xpolmodelfile,
+            reffreqs,
+        )
 
     # Convert to a measurement set
     if do_calibrate:
@@ -625,59 +642,19 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     return fitsfname, msfname
 
 
-def soln_fnames(xpol_prefix: str, src: str) -> "tuple[str]":
-    """Determine filenames for the calibration solutions.
-
-    :param xpol_prefix: `_xpol` if we have an xpolmodelfile, `_noxpol`
-        otherwise
-    :type xpol_prefix: str
-    :param src: Source name (i.e. FRB/Vela/etc.) with a "_" pre-appended
-    :type src: str
-    :return: A prefix specifilenames for:
-            - Bandpasses
-            - Fring delays
-            - Selcal solutions
-            - X polarisation fring delays
-            - Bandpass table plots
-            - Uncalibrated cross-correlation plots
-            - Calibrated cross-correlation plots
-            - README
-            - Tarball for calibration solutions
-    :rtype: tuple[str]
-    """
-    bpfname = os.path.abspath(f"bandpasses{xpol_prefix}{src}.bp.txt")
-    fringsnfname = os.path.abspath(f"delays{xpol_prefix}{src}.sn.txt")
-    selfcalsnfname = os.path.abspath(f"selfcal{xpol_prefix}{src}.sn.txt")
-    xpolsnfname = os.path.abspath(f"xpolfring{xpol_prefix}{src}.sn.txt")
-    bptableplotfname = os.path.abspath(f"bptable{xpol_prefix}{src}.ps")
-    uncalxcorplotfname = os.path.abspath(f"uncalxcor{xpol_prefix}{src}.ps")
-    allcalxcorplotfname = os.path.abspath(f"allcalxcor{xpol_prefix}{src}.ps")
-    readmefname = os.path.abspath(f"README{xpol_prefix}{src}.calibration")
-    calibtarballfile = f"calibration{xpol_prefix}{src}.tar.gz"
-
-    return (
-        xpol_prefix,
-        src,
-        bpfname,
-        fringsnfname,
-        selfcalsnfname,
-        xpolsnfname,
-        bptableplotfname,
-        uncalxcorplotfname,
-        allcalxcorplotfname,
-        readmefname,
-        calibtarballfile,
-    )
-
-
 def validate_soln_files(
-    calsolnfnames: "tuple[str, str, str, str, str, str, str]",
+    bpfname: str,
+    fringsnfname: str,
+    selfcalsnfname: str,
+    xpolsnfname: str,
 ) -> None:
     """Check that the calibration solution files already exist. If
     any mission-critical files are missing (i.e. not including plot
     files), abort.
 
     This should only be done when running the `targetonly` mode.
+
+    TODO update these imports
 
     :param calsolnfnames: Filenames for:
         - Bandpasses
@@ -689,10 +666,6 @@ def validate_soln_files(
         - Calibrated cross-correlation plots
     :type cal_soln_fnames: tuple[str, str, str, str, str, str, str]
     """
-    bpfname = calsolnfnames[0]
-    fringsnfname = calsolnfnames[1]
-    selfcalsnfname = calsolnfnames[2]
-    xpolsnfname = calsolnfnames[3]
     missingfiles = []
     if not os.path.exists(bpfname):
         missingfiles.append(bpfname)
@@ -1052,7 +1025,12 @@ def run_split(data, outfname: str, sourcename: str) -> None:
 
 
 def write_readme(
-    calsolnfnames: "tuple[str]",
+    bpfname: str,
+    fringsnfname: str,
+    selfcalsnfname: str,
+    xpolsnfname: str,
+    readmefname: str,
+    calibtarballfile: str,
     calibrator: str,
     xpolmodelfile: str,
     reffreqs: "list[float]",
@@ -1072,13 +1050,6 @@ def write_readme(
         the calibrator data
     :type reffreqs: list[float]
     """
-    bpfname = calsolnfnames[0]
-    fringsnfname = calsolnfnames[1]
-    selfcalsnfname = calsolnfnames[2]
-    xpolsnfname = calsolnfnames[3]
-    readmefname = calsolnfnames[7]
-    calibtarballfile = calsolnfnames[8]
-
     readmeout = open(readmefname, "w")
     tarinputfiles = "{} {} {}".format(
         fringsnfname.split("/")[-1],
