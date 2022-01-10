@@ -51,120 +51,6 @@ T = TypeVar("T")
 #   (5) Make as much as possible compatible with Python 3
 
 
-def process_chan(
-    chan: int,
-    corr: Correlator,
-    n_fine: int,
-    chan_raw_data: np.ndarray,
-    geom_delays_us: np.ndarray,
-    i_ant: int,
-) -> "tuple[np.ndarray, int, int]":
-    """Process a particular channel of an Antenna.
-
-    Processing includes:
-        - Applying fringe rotation to account for the Earth's rotation
-        - Trimming the edge of the spectral content of the raw data to
-          remove the oversampled regions
-        - Applying geometric delays to the data
-        - Applying calibration solutions to the data
-
-    :param chan: Channel index
-    :type chan: int
-    :param corr: Correlator object
-    :type corr: :class:`Correlator`
-    :param n_fine: Total number of fine channels
-    :type n_fine: int
-    :param chan_raw_data: Raw, oversampled fine spectrum for this
-        channel
-    :type chan_raw_data: :class:`numpy.ndarray`
-    :param geom_delays_us: Geometric delays as a function of frequency
-        in units of microseconds
-    :type geom_delays_us: :class:`numpy.ndarray`
-    :param i_ant: Antenna index
-    :type i_ant: int
-    :return: The processed fine spectrum of the channel, and the indexes
-        to be used to place the data in the full-band spectrum
-    :rtype: Tuple[:class:`np.ndarray`, int, int]
-    """
-
-    # TODO: (5)
-    # Channel frequency
-    centre_freq = corr.freqs[chan]
-
-    """
-    Array of fine channel frequencies relative to centre frequency
-    Goes from -0.5 to 0.5
-    """
-    delta_freq = corr.fine_chan_bwidth * (
-        np.arange(n_fine, dtype=np.float) - float(n_fine) / 2.0
-    )
-
-    # TODO: what is sideband?
-    if corr.sideband == -1:
-        delta_freq = -delta_freq
-
-    """
-    raw_data's shape: (n_samp, corr.ncoarse_chan)
-    n_samp = input.i * (64 * input.n)
-    """
-    x1 = chan_raw_data.reshape(-1, corr.n_fft)
-
-    """
-    fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
-    fixed_delay_us is contained in fcm.txt for each antenna
-    geom_delay_us = corr.get_geometric_delay_delayrate_us(self)[0]
-    geom_delay_us accounts for Earth's rotation
-    """
-    # Fringe rotation for Earth's rotation
-    turn_fringe = centre_freq * geom_delays_us
-    phasor_fringe = np.exp(2j * np.pi * turn_fringe, dtype=np.complex64)
-    x1 *= phasor_fringe
-
-    """
-    corr.nguard_chan = NUM_GUARD_CHAN * input.n 
-                     = number of fine channels on each side to cut off
-    xfguard is xf1 with the ends trimmed off
-    """
-    xf1 = np.fft.fft(x1, axis=1)
-    xf1 = np.fft.fftshift(xf1, axes=1)
-
-    # scale because otherwise it overflows
-    xfguard_f = xf1[:, corr.nguard_chan : corr.nguard_chan + n_fine :]
-
-    # Fractional sample phases
-    turn_frac = delta_freq * np.mean(geom_delays_us)
-
-    # phasors to rotate the data with constant amplitude = 1
-    phasor = np.exp(np.pi * 2j * turn_frac, dtype=np.complex64)
-
-    # get absolute frequencies in gigahertz
-    freq_ghz = (centre_freq + delta_freq) / 1e3
-
-    # get the calibration solutions and apply them to the phasors
-    mir_cor = corr.mir.get_solution(i_ant, 0, freq_ghz)
-
-    if mir_cor[0] == 0:  # if correction is 0, flag data
-        phasor *= 0
-    else:
-        phasor /= mir_cor
-
-    xfguard_f *= phasor
-
-    # select the channels for this coarse channel
-    fine_chan_start = chan * n_fine
-    fine_chan_end = (chan + 1) * n_fine
-
-    """
-    RECAP
-    xfguard is a "dynamic" spectrum of the current coarse 
-    channel in only the fine channels not trimmed 
-    (oversampled PFB).
-    xfguard.shape == (input.i, 64 * input.n)
-    """
-
-    return xfguard_f, fine_chan_start, fine_chan_end
-
-
 class AntennaSource:
     # TODO: (1, 2, 4, 5)
     # Possible refactor: include index and corr as fields
@@ -543,6 +429,120 @@ class Correlator:
             iant = an
             temp = ant.do_f_tab(self, iant)
             return temp
+
+
+def process_chan(
+    chan: int,
+    corr: Correlator,
+    n_fine: int,
+    chan_raw_data: np.ndarray,
+    geom_delays_us: np.ndarray,
+    i_ant: int,
+) -> "tuple[np.ndarray, int, int]":
+    """Process a particular channel of an Antenna.
+
+    Processing includes:
+        - Applying fringe rotation to account for the Earth's rotation
+        - Trimming the edge of the spectral content of the raw data to
+          remove the oversampled regions
+        - Applying geometric delays to the data
+        - Applying calibration solutions to the data
+
+    :param chan: Channel index
+    :type chan: int
+    :param corr: Correlator object
+    :type corr: :class:`Correlator`
+    :param n_fine: Total number of fine channels
+    :type n_fine: int
+    :param chan_raw_data: Raw, oversampled fine spectrum for this
+        channel
+    :type chan_raw_data: :class:`numpy.ndarray`
+    :param geom_delays_us: Geometric delays as a function of frequency
+        in units of microseconds
+    :type geom_delays_us: :class:`numpy.ndarray`
+    :param i_ant: Antenna index
+    :type i_ant: int
+    :return: The processed fine spectrum of the channel, and the indexes
+        to be used to place the data in the full-band spectrum
+    :rtype: Tuple[:class:`np.ndarray`, int, int]
+    """
+
+    # TODO: (5)
+    # Channel frequency
+    centre_freq = corr.freqs[chan]
+
+    """
+    Array of fine channel frequencies relative to centre frequency
+    Goes from -0.5 to 0.5
+    """
+    delta_freq = corr.fine_chan_bwidth * (
+        np.arange(n_fine, dtype=np.float) - float(n_fine) / 2.0
+    )
+
+    # TODO: what is sideband?
+    if corr.sideband == -1:
+        delta_freq = -delta_freq
+
+    """
+    raw_data's shape: (n_samp, corr.ncoarse_chan)
+    n_samp = input.i * (64 * input.n)
+    """
+    x1 = chan_raw_data.reshape(-1, corr.n_fft)
+
+    """
+    fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
+    fixed_delay_us is contained in fcm.txt for each antenna
+    geom_delay_us = corr.get_geometric_delay_delayrate_us(self)[0]
+    geom_delay_us accounts for Earth's rotation
+    """
+    # Fringe rotation for Earth's rotation
+    turn_fringe = centre_freq * geom_delays_us
+    phasor_fringe = np.exp(2j * np.pi * turn_fringe, dtype=np.complex64)
+    x1 *= phasor_fringe
+
+    """
+    corr.nguard_chan = NUM_GUARD_CHAN * input.n 
+                     = number of fine channels on each side to cut off
+    xfguard is xf1 with the ends trimmed off
+    """
+    xf1 = np.fft.fft(x1, axis=1)
+    xf1 = np.fft.fftshift(xf1, axes=1)
+
+    # scale because otherwise it overflows
+    xfguard_f = xf1[:, corr.nguard_chan : corr.nguard_chan + n_fine :]
+
+    # Fractional sample phases
+    turn_frac = delta_freq * np.mean(geom_delays_us)
+
+    # phasors to rotate the data with constant amplitude = 1
+    phasor = np.exp(np.pi * 2j * turn_frac, dtype=np.complex64)
+
+    # get absolute frequencies in gigahertz
+    freq_ghz = (centre_freq + delta_freq) / 1e3
+
+    # get the calibration solutions and apply them to the phasors
+    mir_cor = corr.mir.get_solution(i_ant, 0, freq_ghz)
+
+    if mir_cor[0] == 0:  # if correction is 0, flag data
+        phasor *= 0
+    else:
+        phasor /= mir_cor
+
+    xfguard_f *= phasor
+
+    # select the channels for this coarse channel
+    fine_chan_start = chan * n_fine
+    fine_chan_end = (chan + 1) * n_fine
+
+    """
+    RECAP
+    xfguard is a "dynamic" spectrum of the current coarse 
+    channel in only the fine channels not trimmed 
+    (oversampled PFB).
+    xfguard.shape == (input.i, 64 * input.n)
+    """
+
+    return xfguard_f, fine_chan_start, fine_chan_end
 
 
 def parse_delays(values: argparse.Namespace) -> dict:
