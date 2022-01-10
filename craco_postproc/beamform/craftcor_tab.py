@@ -431,6 +431,121 @@ class Correlator:
             return temp
 
 
+def _main():
+    values = get_args()
+
+    if values.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    sources = load_sources(values.calcfile)
+
+    antennas = get_antennas(values)
+
+    given_offset = values.offset
+    corr = Correlator(antennas, sources, values, abs_delay=given_offset)
+
+    t0 = time.time()
+    try:
+        print("PERFORMING TIED-ARRAY BEAMFORMING")
+
+        temp = corr.do_tab(values.an)
+        fn = values.outfile
+
+        print("saving output to " + fn)
+
+        np.save(fn, temp)
+    except Exception as e:
+        print("ERROR OCCURRED")
+        print(e)
+    finally:
+        print("craftcor_tab.py running time: " + str(time.time() - t0))
+        print("done")
+
+
+def get_args() -> argparse.Namespace:
+    """Parse command line arguments
+
+    :return: Command line argument parameters
+    :rtype: argparse.Namespace
+    """
+    parser = ArgumentParser(
+        description="Script description",
+        formatter_class=ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Be verbose",
+        default=True,
+    )
+    parser.add_argument(
+        "-o", "--outfile", help="Output fits/.npy file", default="corr.fits"
+    )
+    parser.add_argument(
+        "-c", "--channel", type=int, help="Channel to plot", default=0
+    )
+    parser.add_argument(
+        "-n",
+        "--fft-size",
+        type=int,
+        help="Multiple of 64 channels to make channels - " + "default=1",
+        default=1,
+    )
+    parser.add_argument(
+        "-t",
+        "--num-threads",
+        type=int,
+        help="Number of threads to run with",
+        default=1,
+    )
+    parser.add_argument("--calcfile", help="Calc file for fringe rotation")
+    parser.add_argument("-w", "--hwfile", help="Hw delay file")
+    parser.add_argument("-p", "--par_set", help="Parset for delays")
+    parser.add_argument(
+        "--show", help="Show plot", action="store_true", default=False
+    )
+    parser.add_argument(
+        "-i",
+        "--n_int",
+        help="Number of fine spectra to average",
+        type=int,
+        default=128,
+    )
+    parser.add_argument(
+        "-f",
+        "--freq_scrunch",
+        help="Frequency average by this factor",
+        default=1,
+        type=int,
+    )
+    parser.add_argument(
+        "--rfidelay",
+        type=int,
+        help="Delay in fine samples to add to second component"
+        + " to make an RFI data set",
+        default=0,
+    )
+    parser.add_argument(
+        "--mirsolutions", help="Root file name for miriad gain solutions"
+    )
+    parser.add_argument(
+        "--aips_c", help="AIPS bandpass polynomial fit coeffs", default=None
+    )
+    parser.add_argument(
+        "--an", type=int, help="Specific antenna", default=None
+    )
+    parser.add_argument(
+        "--offset", type=int, help="FFT offset to add", default=0
+    )
+    parser.add_argument(dest="files", nargs="+")
+
+    return parser.parse_args()
+
+
 def process_chan(
     chan: int,
     corr: Correlator,
@@ -647,112 +762,6 @@ def print_var(name: str, value: T) -> None:
 
     base_str = "{} : {}"
     print(base_str.format(name, value))
-
-
-def _main():
-    # TODO: (2, 5)
-    parser = ArgumentParser(
-        description="Script description",
-        formatter_class=ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        dest="verbose",
-        action="store_true",
-        help="Be verbose",
-        default=True,
-    )
-    parser.add_argument(
-        "-o", "--outfile", help="Output fits/.npy file", default="corr.fits"
-    )
-    parser.add_argument(
-        "-c", "--channel", type=int, help="Channel to plot", default=0
-    )
-    parser.add_argument(
-        "-n",
-        "--fft-size",
-        type=int,
-        help="Multiple of 64 channels to make channels - " + "default=1",
-        default=1,
-    )
-    parser.add_argument(
-        "-t",
-        "--num-threads",
-        type=int,
-        help="Number of threads to run with",
-        default=1,
-    )
-    parser.add_argument("--calcfile", help="Calc file for fringe rotation")
-    parser.add_argument("-w", "--hwfile", help="Hw delay file")
-    parser.add_argument("-p", "--par_set", help="Parset for delays")
-    parser.add_argument(
-        "--show", help="Show plot", action="store_true", default=False
-    )
-    parser.add_argument(
-        "-i",
-        "--n_int",
-        help="Number of fine spectra to average",
-        type=int,
-        default=128,
-    )
-    parser.add_argument(
-        "-f",
-        "--freq_scrunch",
-        help="Frequency average by this factor",
-        default=1,
-        type=int,
-    )
-    parser.add_argument(
-        "--rfidelay",
-        type=int,
-        help="Delay in fine samples to add to second component"
-        + " to make an RFI data set",
-        default=0,
-    )
-    parser.add_argument(
-        "--mirsolutions", help="Root file name for miriad gain solutions"
-    )
-    parser.add_argument(
-        "--aips_c", help="AIPS bandpass polynomial fit coeffs", default=None
-    )
-    parser.add_argument(
-        "--an", type=int, help="Specific antenna", default=None
-    )
-    parser.add_argument(
-        "--offset", type=int, help="FFT offset to add", default=0
-    )
-    parser.add_argument(dest="files", nargs="+")
-    values = parser.parse_args()
-
-    if values.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    sources = load_sources(values.calcfile)
-
-    antennas = get_antennas(values)
-
-    given_offset = values.offset
-    corr = Correlator(antennas, sources, values, abs_delay=given_offset)
-
-    t0 = time.time()
-    try:
-        print("PERFORMING TIED-ARRAY BEAMFORMING")
-
-        temp = corr.do_tab(values.an)
-        fn = values.outfile
-
-        print("saving output to " + fn)
-
-        np.save(fn, temp)
-    except Exception as e:
-        print("ERROR OCCURRED")
-        print(e)
-    finally:
-        print("craftcor_tab.py running time: " + str(time.time() - t0))
-        print("done")
 
 
 if __name__ == "__main__":
