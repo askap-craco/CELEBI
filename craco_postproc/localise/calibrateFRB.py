@@ -1236,37 +1236,45 @@ def write_outlier_file(pol: str, rmscenter: str, imsize: int) -> str:
     outlierfile.close()
     return f"outlierfield_Stokes{pol}.txt"
 
-def get_pixels_from_field(target: str, nsources: int, cutoff: float) -> str:
-    """Write out pixels corresponding to continuum sources in a field image for calibration
 
-    :target: field image (.image or .fits format) to search in
+def get_pixels_from_field(target: str, nsources: int, cutoff: float) -> str:
+    """Write out pixels corresponding to continuum sources in a field
+    image for calibration
+
+    :param target: field image (.image or .fits format) to search in
     :type target: str
     :param nsources: maximun number of sources to get back
     :type nsources: int
-    :param cutoff: limit in flux relative to strongest in field e.g. 0.05 (5%)
+    :param cutoff: limit in flux relative to strongest in field
+        e.g. 0.05 (5%)
     :type imsize: float
-    :return: Filename of file containing list of pixels of identified sources
+    :return: Filename of file containing list of pixels of identified
+        sources
     :rtype: str
     """
-    #import casa analysis scripts for converting component lists into a position and corresponding pixel
-    sys.path.append("casa_analysis_scripts/") #adjust if this changes!
+    # import casa analysis scripts for converting component lists into a position and corresponding pixel
+    sys.path.append("casa_analysis_scripts/")  # adjust if this changes!
     import analysisUtils as au
-    #open file, use casa task "findsources" to identify bright continuum sources
+
+    # open file, use casa task "findsources" to identify bright continuum sources
     ia.open(target)
-    clrec = ia.findsources(nmax=nsources,point=False,cutoff=cutoff)
-    pos_pix = 'ra,dec\n'
-    #loop through each source, extract relevant position, convert it
-    for i in range(len(clrec.keys())-1):
-        cl1 = clrec['component'+str(i)]
-        m0 = cl1['shape']['direction']['m0']['value'] #in rad
-        m1 = cl1['shape']['direction']['m1']['value'] #in rad
-        pos = str(au.rad2radec(m0,m1,hmsdms=True))
-        pos_pix += str(au.findRADec('frb_n1e4_15min.image',pos,round=True)) + '\n'
-    #write to file
-    with open('positions_pix.txt', 'w') as f:
+    clrec = ia.findsources(nmax=nsources, point=False, cutoff=cutoff)
+    pos_pix = "ra,dec\n"
+    # loop through each source, extract relevant position, convert it
+    for i in range(len(clrec.keys()) - 1):
+        cl1 = clrec["component" + str(i)]
+        m0 = cl1["shape"]["direction"]["m0"]["value"]  # in rad
+        m1 = cl1["shape"]["direction"]["m1"]["value"]  # in rad
+        pos = str(au.rad2radec(m0, m1, hmsdms=True))
+        pos_pix += (
+            str(au.findRADec("frb_n1e4_15min.image", pos, round=True)) + "\n"
+        )
+    # write to file
+    with open("positions_pix.txt", "w") as f:
         f.write(pos_pix)
-    
+
     return f"positions_pix.txt"
+
 
 if __name__ == "__main__":
     _main()
