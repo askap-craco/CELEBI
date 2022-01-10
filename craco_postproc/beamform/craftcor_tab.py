@@ -225,6 +225,21 @@ class FringeRotParams:
 
 
 class Correlator:
+    """A class to handle processingof raw ASKAP voltages to produce a
+    correlated, beamformed fine spectrum via polyphase filterbank (PFB)
+    inversion.
+
+    :param ants: A list of AntennaSource objects for the overall dataset
+    :type ants: List of AntennaSources
+    :param sources: List of sources as dicts
+    :type sources: List of dicts
+    :param values: Parsed command line arguments
+    :type values: :class:`argparse.Namespace`
+    :param abs_delay: Absolute delay to be applied uniformly to all
+        antennas. Defaults to 0
+    :type abs_delay: int
+    """
+
     # TODO: (1, 2, 4, 5)
     def __init__(self, ants, sources, values, abs_delay=0):
         # TODO: (1, 2, 4, 5)
