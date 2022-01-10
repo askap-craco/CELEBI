@@ -231,8 +231,6 @@ class Correlator:
 
     :param ants: A list of AntennaSource objects for the overall dataset
     :type ants: List of AntennaSources
-    :param sources: List of sources as dicts
-    :type sources: List of dicts
     :param values: Parsed command line arguments
     :type values: :class:`argparse.Namespace`
     :param abs_delay: Absolute delay to be applied uniformly to all
@@ -241,7 +239,7 @@ class Correlator:
     """
 
     # TODO: (1, 2, 4, 5)
-    def __init__(self, ants, sources, values, abs_delay=0):
+    def __init__(self, ants, values, abs_delay=0):
         # TODO: (1, 2, 4, 5)
         self.running = True
         signal.signal(signal.SIGINT, self.exit_gracefully)
@@ -454,12 +452,10 @@ def _main():
     else:
         logging.basicConfig(level=logging.INFO)
 
-    sources = load_sources(values.calcfile)
-
     antennas = get_antennas(values)
 
     given_offset = values.offset
-    corr = Correlator(antennas, sources, values, abs_delay=given_offset)
+    corr = Correlator(antennas, values, abs_delay=given_offset)
 
     t0 = time.time()
     try:
@@ -708,42 +704,6 @@ def parse_delays(values: argparse.Namespace) -> dict:
         logging.info("No delays loaded. %s does not exist", delay_file)
 
     return delays
-
-
-def load_sources(imfile: str) -> "list[dict]":
-    """Parse source from calcfile inferred from imfile name
-
-    :param imfile: Interferometer model filename
-    :type imfile: str
-    :return: List containing one source dictionary with the keys 'name',
-        'ra', and 'dec'
-    :rtype: list[dict]
-    """
-    # TODO: (2, 5)
-    calc_input = imfile.replace(".im", ".calc")
-
-    d = {}
-    for line in open(calc_input):
-        if len(line) == 0 or line.startswith("#"):
-            continue
-
-        bits = line.split(":")
-        if len(bits) != 2:
-            continue
-
-        k, v = bits
-
-        d[k.strip()] = v.strip()
-
-    assert d["NUM SOURCES"] == "1"
-    name = d["SOURCE 0 NAME"]
-    # ra/dec in radians
-    ra = float(d["SOURCE 0 RA"])
-    dec = float(d["SOURCE 0 DEC"])
-    pos = SkyCoord(ra, dec, unit=("rad", "rad"), frame="icrs")
-    sources = [{"name": name, "ra": pos.ra.deg, "dec": pos.dec.deg}]
-
-    return sources
 
 
 def get_antennas(values: argparse.Namespace) -> "list[AntennaSource]":
