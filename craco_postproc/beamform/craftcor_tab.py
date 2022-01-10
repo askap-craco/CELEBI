@@ -225,7 +225,7 @@ class FringeRotParams:
 
 
 class Correlator:
-    """A class to handle processingof raw ASKAP voltages to produce a
+    """A class to handle processing of raw ASKAP voltages to produce a
     correlated, beamformed fine spectrum via polyphase filterbank (PFB)
     inversion.
 
@@ -241,57 +241,79 @@ class Correlator:
     # TODO: (1, 2, 4, 5)
     def __init__(self, ants, values, abs_delay=0):
         # TODO: (1, 2, 4, 5)
-        self.running = True
+        self.running = True  # Used to exit gracefully if killed
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
-        self.ants = ants
-        self.values = values
-        self.pool = None
+        self.ants = ants  # All the AntennaSources of the dataset
+        self.values = (
+            values  # Command line arguments used to initialise this Correlator
+        )
+        self.pool = None  # If not None, a pool to use for parallelisation
         if self.values.num_threads > 1:
             self.pool = multiprocessing.Pool(processes=values.num_threads)
 
         self.parse_par_set()
 
         for ia, a in enumerate(self.ants):
-            a.ia = ia
-            a.antpos = self.get_ant_location(a.antno)
+            a.ia = ia  # Set antenna index
+            a.antpos = self.get_ant_location(a.antno)  # Get antenna position
 
-        self.abs_delay = abs_delay
-        self.ref_ant = ants[0]
-        self.calc_results = ResultsFile(values.calcfile)
-        self.d_utc = 0
-        self.mjd0 = self.ref_ant.mjd_start + self.d_utc / 86400.0
-        self.frame0 = self.ref_ant.trigger_frame
-        self.n_int = int(values.n_int)
-        self.n_fft = 64 * values.fft_size
-        self.nguard_chan = NUM_GUARD_CHAN * values.fft_size
-        self.oversamp = F_OS
+        self.abs_delay = abs_delay  # Absolute delay
+        self.ref_ant = ants[0]  # Reference Antenna
+        self.calc_results = ResultsFile(values.calcfile)  # Parsed calcfile
+        self.mjd0 = (
+            self.ref_ant.mjd_start
+        )  # MJD of data start in reference antenna
+        self.frame0 = self.ref_ant.trigger_frame  # ?
+        self.n_int = int(values.n_int)  # Number of integrations
+        self.n_fft = 64 * values.fft_size  # Number of fine channels to create
+        self.nguard_chan = (
+            NUM_GUARD_CHAN * values.fft_size
+        )  # Number of channels to be chopped off the ends of each coarse channel
+        self.oversamp = F_OS  # Oversampling factor
         self.fs = self.oversamp  # samples per microsecond
-        self.ncoarse_chan = len(self.ref_ant.vfile.freqs)
-        self.sideband = -1
-        self.coarse_chan_bwidth = 1.0
-        self.n_fine_per_coarse = self.n_fft - 2 * self.nguard_chan
-        self.n_fine_chan = int(self.ncoarse_chan * self.n_fine_per_coarse)
+        self.ncoarse_chan = len(
+            self.ref_ant.vfile.freqs
+        )  # Number of coarse channels
+        self.sideband = -1  # Coarse channel frequency step #?
+        self.coarse_chan_bwidth = 1.0  # Coarse channel bandwidth (MHz)
+        self.n_fine_per_coarse = (
+            self.n_fft - 2 * self.nguard_chan
+        )  # Number of fine channels per coarse channel
+        self.n_fine_chan = int(
+            self.ncoarse_chan * self.n_fine_per_coarse
+        )  # Total number of fine channels
         self.fine_chan_bwidth = self.coarse_chan_bwidth / float(
             self.n_fine_per_coarse
-        )
-        self.full_bw = self.fine_chan_bwidth * self.n_fine_chan
-        self.freq_scrunch = values.freq_scrunch
-        assert self.freq_scrunch >= 1
+        )  # Fine channel width (MHz)
+        self.full_bw = (
+            self.fine_chan_bwidth * self.n_fine_chan
+        )  # Full bandwidth (MHz)
+        self.freq_scrunch = values.freq_scrunch  # Frequency averaging factor
+        assert self.freq_scrunch >= 1, "Freq scrunch factor must be >= 1"
         assert self.n_fine_per_coarse % self.freq_scrunch == 0, (
             "Freq scrunch must yield an integer number of fine channels "
             "per coarse channel"
         )
-        self.n_fine_out_per_coarse = self.n_fine_per_coarse / self.freq_scrunch
-        self.n_fine_out_chan = self.n_fine_out_per_coarse * self.ncoarse_chan
+        self.n_fine_out_per_coarse = (
+            self.n_fine_per_coarse / self.freq_scrunch
+        )  # Output number of fine channels per coarse channel
+        self.n_fine_out_chan = (
+            self.n_fine_out_per_coarse * self.ncoarse_chan
+        )  # Output number of fine channels
         self.out_chan_bwidth = self.coarse_chan_bwidth / float(
             self.n_fine_out_per_coarse
-        )
-        self.n_pol_in = 1
-        self.n_pol_out = 1
-        self.f0 = self.ants[0].vfile.freqs[0]
-        self.freqs = self.ants[0].vfile.freqs
-        self.freq_mid = self.freqs.mean()
+        )  # Output fine channel bandwidth
+        self.n_pol_in = 1  # Number of polarisations in
+        self.f0 = self.ants[0].vfile.freqs[
+            0
+        ]  # TODO: is this top or bottom of band?
+        self.freqs = self.ants[
+            0
+        ].vfile.freqs  # Coarse channel frequencies (MHz)
+        self.freq_mid = (
+            self.freqs.mean()
+        )  # Central frequency of full band (MHz)
         self.int_time_secs = float(self.n_int * self.n_fft) / (self.fs * 1e6)
         self.int_time_days = self.int_time_secs / 86400.0
         self.curr_int_no = 0
