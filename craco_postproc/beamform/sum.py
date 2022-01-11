@@ -1,5 +1,8 @@
 """
 Sums time series together for a given FRB
+
+THIS ENTIRE FILE IS PROBABLY REDUNDANT - CAN PROCESS ALL ANTENNAS AND
+SUM THEM IN craftcor_tab.py
 """
 
 import glob
