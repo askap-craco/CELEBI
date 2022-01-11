@@ -314,19 +314,28 @@ class Correlator:
         self.freq_mid = (
             self.freqs.mean()
         )  # Central frequency of full band (MHz)
-        self.int_time_secs = float(self.n_int * self.n_fft) / (self.fs * 1e6)
-        self.int_time_days = self.int_time_secs / 86400.0
-        self.curr_int_no = 0
-        self.curr_samp = self.curr_int_no * self.n_int + 1000
+        self.int_time_secs = float(self.n_int * self.n_fft) / (
+            self.fs * 1e6
+        )  # Integration time in seconds
+        self.int_time_days = (
+            self.int_time_secs / 86400.0
+        )  # Integration time in days
+        self.curr_int_no = 0  # Index of currently processing integration
         self.calc_mjd()
         self.get_fringe_rot_data()
-        self.pol = self.ants[0].pol
+        self.pol = self.ants[0].pol  # Polarisation index
         self.parse_mir()
+
+        # TODO: Why are par_set and mir set to None after they're parsed
         self.par_set = None
         self.mir = None
+
+        # Start, mid, and end times of the data in MJD
         self.curr_mjd_start = None
         self.curr_mjd_mid = None
         self.curr_mjd_end = None
+
+        # These are also set to None after being set???
         self.fringe_rot_data_start = None
         self.fringe_rot_data_mid = None
         self.fringe_rot_data_end = None
