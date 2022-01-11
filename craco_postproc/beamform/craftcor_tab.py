@@ -240,6 +240,7 @@ class Correlator:
 
     # TODO: (1, 2, 4, 5)
     def __init__(self, ants, values, abs_delay=0):
+        """Constructor function"""
         # TODO: (1, 2, 4, 5)
         self.running = True  # Used to exit gracefully if killed
         signal.signal(signal.SIGINT, self.exit_gracefully)
@@ -349,11 +350,11 @@ class Correlator:
         )
 
     def exit_gracefully(self, signum, frame):
-        # TODO: (1, 2, 4, 5)
+        """Graceful death when e.g. a KeyboardInterrupt happens"""
         self.running = False
 
     def parse_par_set(self):
-        # TODO: (1, 2, 4, 5)
+        """Parse the delays parset into a dict for later use"""
         self.par_set = {}
 
         # open the fcm file
@@ -368,13 +369,21 @@ class Correlator:
                 self.par_set[name] = value
 
     def parse_mir(self):
-        # TODO: (1, 2, 4, 5)
+        """Parse calibration solutions and store in mir attribute"""
         self.mir = MiriadGainSolutions(
             self.values.mirsolutions, self.values.aips_c, self.pol, self.freqs
         )
 
     def get_ant_location(self, antno):
-        # TODO: (1, 2, 4, 5)
+        """Finds the location of the antenna with the given number as
+        an ITRF (International Terrestrial Reference Frame) coordinate.
+
+        :param antno: Absolute antenna number (i.e. not index of antenna
+            within this dataset)
+        :type antno: int
+        :return: An ITRF coordinate as a list of three floats [x, y, z]
+        :rtype: list
+        """
         key = f"common.antenna.ant{antno}.location.itrf"
         value = self.par_set[key]
         location = list(
@@ -383,7 +392,15 @@ class Correlator:
         return location
 
     def get_fixed_delay_usec(self, antno):
-        # TODO: (1, 2, 4, 5)
+        """Finds the absolute/hardware delay for the antenna with the
+        given number in microseconds.
+
+        :param antno: Absolute antenna number (i.e. not index of antenna
+            within this dataset)
+        :type antno: int
+        :return: Absolute delay for this antenna in microseconds
+        :rtype: float
+        """
         key = f"common.antenna.ant{antno}.delay"
         value = self.par_set[key]
         delay_ns = float(value.replace("ns", ""))
