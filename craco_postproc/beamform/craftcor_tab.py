@@ -241,7 +241,9 @@ class Correlator:
     """
 
     # TODO: (1, 2, 4, 5)
-    def __init__(self, ants, values, abs_delay=0):
+    def __init__(
+        self, ants: list, values: argparse.Namespace, abs_delay: int = 0
+    ):
         """Constructor function"""
         # TODO: (1, 2, 4, 5)
         self.running = True  # Used to exit gracefully if killed
@@ -355,7 +357,7 @@ class Correlator:
         """Graceful death when e.g. a KeyboardInterrupt happens"""
         self.running = False
 
-    def parse_par_set(self):
+    def parse_par_set(self) -> None:
         """Parse the delays parset into a dict for later use"""
         self.par_set = {}
 
@@ -370,13 +372,13 @@ class Correlator:
                 value = value.strip()
                 self.par_set[name] = value
 
-    def parse_mir(self):
+    def parse_mir(self) -> None:
         """Parse calibration solutions and store in mir attribute"""
         self.mir = MiriadGainSolutions(
             self.values.mirsolutions, self.values.aips_c, self.pol, self.freqs
         )
 
-    def get_ant_location(self, antno):
+    def get_ant_location(self, antno: int) -> list:
         """Finds the location of the antenna with the given number as
         an ITRF (International Terrestrial Reference Frame) coordinate.
 
@@ -393,7 +395,7 @@ class Correlator:
         )
         return location
 
-    def get_fixed_delay_usec(self, antno):
+    def get_fixed_delay_usec(self, antno: int) -> float:
         """Finds the absolute/hardware delay for the antenna with the
         given number in microseconds.
 
@@ -410,7 +412,7 @@ class Correlator:
 
         return delay_us
 
-    def get_geom_delay_delayrate_us(self, ant):
+    def get_geom_delay_delayrate_us(self, ant: AntennaSource) -> tuple:
         """Calculate the geometric delay and delayrate (in us) for a
         given antenna relative to the reference antenna
 
@@ -432,7 +434,7 @@ class Correlator:
 
         return delay, delayrate
 
-    def calc_mjd(self):
+    def calc_mjd(self) -> None:
         """Calculate and store the MJD of the start, middle, and end of
         the current integration.
         """
@@ -448,7 +450,7 @@ class Correlator:
             self.mjd0 + self.int_time_days * (i + 1.0) + abs_delay_days
         )
 
-    def get_calc_results(self, mjd):
+    def get_calc_results(self, mjd: float) -> dict:
         """Get the fringe rotation solutions for a particular MJD
 
         :param mjd: Time to evaluate the fringe rotation at in MJD
@@ -460,7 +462,7 @@ class Correlator:
 
         return res
 
-    def get_fringe_rot_data(self):
+    def get_fringe_rot_data(self) -> None:
         """Get and store the fringe rotation solutions for the start,
         middle, and end of the data.
         """
@@ -468,7 +470,7 @@ class Correlator:
         self.fringe_rot_data_mid = self.get_calc_results(self.curr_mjd_mid)
         self.fringe_rot_data_end = self.get_calc_results(self.curr_mjd_end)
 
-    def do_tab(self, an=None):
+    def do_tab(self, an: int = None) -> np.ndarray:
         """Perform the tied-array beamforming
 
         :param an: Absolute antenna number to be processed. If not
