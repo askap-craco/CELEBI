@@ -13,8 +13,6 @@ __author__ = [
     + "<danica.scott@postgrad.curtin.edu.au>",
 ]
 
-from typing import Tuple, TypeVar
-
 import argparse
 import logging
 import multiprocessing
@@ -25,7 +23,6 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 import numpy as np
 import vcraft
-from astropy.coordinates import SkyCoord
 from calc11 import ResultsFile
 from miriad import MiriadGainSolutions
 
@@ -35,195 +32,6 @@ CHAN_BWIDTH = 27.0  # Channel bandwidth
 OS_NYQ_BWIDTH = 32.0  # Oversampled Nyquist bandwidth
 F_OS = OS_NYQ_BWIDTH / CHAN_BWIDTH  # Oversampling factor
 NUM_GUARD_CHAN = OS_NYQ_BWIDTH - CHAN_BWIDTH  # Number of guard channels
-
-# generic type
-T = TypeVar("T")
-
-
-# TODO: Cleanup (not in any particular order)
-#   IN GENERAL: MAKE THINGS CONSISTENT AND NICE!
-#   (1) PEP-008ify everything
-#         - Probably do first, easiest to do the others with readable code!
-#   (2) Document all functions and classes
-#         - Includes docstrings and line comments
-#   (3) Ensure only necessary functions remain
-#   (4) Remove magic numbers!
-#   (5) Make as much as possible compatible with Python 3
-
-
-class AntennaSource:
-    # TODO: (1, 2, 4, 5)
-    # Possible refactor: include index and corr as fields
-
-    def __init__(self, vfile):
-        """Initialise the AntennaSource object.
-
-        Gets much of the information from the vfile, which is a data
-        structure representing the voltages in increasing frequency
-        order.
-
-        :param vfile: The vfile for this antenna
-
-        :field vfile: The vfile for this antenna
-        :field ant_name: Antenna name. Of the format 'AK**'
-        :field antno: Antenna number between 1-36. Note that this is the
-                      physical antenna number, and some antennas may not
-                      be present.
-        :field mjd_start: Start time of the voltages in MJD
-        :field trigger_frame: TODO: ?
-        :field hdr: Header file for the vfile
-        :field all_geom_delays: List of all geometric delays calculated
-                                for each channel
-        :field all_mjd_mids: List of all central MJDs calculated by the
-                             Correlator object
-        :field pol: Polarisation of this antenna
-
-        :func do_f_tab: Perform the tied-array beamforming for this
-                        antenna.
-        """
-        # TODO: (5)
-        self.vfile = vfile
-        self.ant_name = self.vfile.hdr["ANT"][0].lower()
-        self.antno = int(self.vfile.hdr["ANTENNA_NO"][0])
-        self.mjd_start = self.vfile.start_mjd
-        self.trigger_frame = self.vfile.start_frameid
-        self.hdr = self.vfile.hdr
-        self.all_geom_delays = []
-        self.all_mjd_mids = []
-        self.pol = self.vfile.pol.lower()
-        print(f"antenna {self.ant_name} {self.vfile.freqconfig}")
-
-    def do_f_tab(self, corr: Correlator, i_ant: int) -> np.ndarray:
-        """Perform tied-array beamforming and PFB inversion
-
-        :param corr: Correlator object with constants and functions for
-            this data set
-        :type corr: :class:`Correlator`
-        :param i_ant: Index of antenna
-        :type i_ant: int
-        :return: Beamformed, calibrated, PFB-inverted fine spectrum
-        :rtype: np.ndarray
-        """
-        # TODO: (2, 4, 5)
-
-        self.all_mjd_mids.append(corr.curr_mjd_mid)
-
-        # Initialise output data array
-        data_out = np.zeros(
-            (corr.n_int, corr.n_fine_chan, corr.n_pol_in), dtype=np.complex64
-        )
-
-        n_fine = corr.n_fft - 2 * corr.nguard_chan
-        n_samp = corr.n_int * corr.n_fft
-
-        whole_delay, geom_delays_us = self.get_delays(corr, n_samp)
-
-        print(("antenna #: ", i_ant, self.ant_name))
-        sample_offset = whole_delay + corr.abs_delay
-        frameid = self.vfile.start_frameid + sample_offset
-        print(
-            "FRAMEID: "
-            + str(frameid)
-            + ", remainder from 32: "
-            + str(frameid % 32)
-        )
-
-        """
-        To avoid iPFB fractional delay, set FRAMEID such that the 
-        remainder is 0
-        """
-
-        raw_data = self.vfile.read(sample_offset, n_samp)
-
-        assert raw_data.shape == (
-            n_samp,
-            corr.ncoarse_chan,
-        ), "Unexpected shape from vfile: {} expected ({},{})".format(
-            raw_data.shape, n_samp, corr.ncoarse_chan
-        )
-
-        for i, chan in enumerate(range(corr.ncoarse_chan)):
-            xfguard_f, fine_chan_start, fine_chan_end = process_chan(
-                chan, corr, n_fine, raw_data[:, chan], geom_delays_us, i_ant
-            )
-
-            """
-            Slot xfguard (a trimmed spectrum for this coarse channel) 
-            into the corresponding slice of the fine channels
-            """
-            data_out[:, fine_chan_start:fine_chan_end, 0] = xfguard_f
-
-        return data_out
-
-    def get_delays(
-        self, corr: Correlator, n_samp: int
-    ) -> "tuple[int, np.ndarray]":
-        """Parse and calculate delay for this Antenna from Correlator
-
-        :param corr: Correlator object for this data set
-        :type corr: :class:`Correlator`
-        :param n_samp: Number of samples in this data set
-        :type n_samp: int
-        :return: Whole delay and frequency-dependent geometric delay in
-            units of microseconds
-        :rtype: Tuple[int, :class:`numpy.ndarray`]
-        """
-        # TODO: (2, 5)
-
-        geom_delay_us, geom_delay_rate_us = corr.get_geom_delay_delayrate_us(
-            self
-        )
-
-        self.all_geom_delays.append(geom_delay_us)
-
-        fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
-
-        # calculate sample start
-        framediff_samp = corr.ref_ant.trigger_frame - self.trigger_frame
-        total_delay_samp = framediff_samp
-        whole_delay = int(np.round(total_delay_samp))
-
-        # time-dependent geometric delays
-        # np.linspace(0, 1, n_samp) == time in units of integrations
-        geom_delays_us = (
-            geom_delay_us
-            + geom_delay_rate_us * np.linspace(0, 1, n_samp)
-            - fixed_delay_us
-        )
-
-        return whole_delay, geom_delays_us
-
-
-class FringeRotParams:
-    # TODO: (2, 5)
-
-    def __init__(self, corr, ant):
-        # TODO: (2, 5)
-        mid_data = corr.fringe_rot_data_mid[ant.ant_name]
-        self.u = float(mid_data["U (m)"])
-        self.v = float(mid_data["V (m)"])
-        self.w = float(mid_data["W (m)"])
-        self.delay = float(mid_data["DELAY (us)"])
-        self.delay_start = float(
-            corr.fringe_rot_data_start[ant.ant_name]["DELAY (us)"]
-        )
-        self.delay_end = float(
-            corr.fringe_rot_data_end[ant.ant_name]["DELAY (us)"]
-        )
-        self.delay_rate = (self.delay_end - self.delay_start) / float(
-            corr.n_int
-        )
-        self.ant = ant
-        self.corr = corr
-
-    def __str__(self):
-        # TODO: (2, 5)
-        s = "FR {} uvw=({},{},{}) m = {} us".format(
-            self.ant.ant_name, self.u, self.v, self.w, self.delay
-        )
-        return s
-
-    __repr__ = __str__
 
 
 class Correlator:
@@ -240,12 +48,10 @@ class Correlator:
     :type abs_delay: int
     """
 
-    # TODO: (1, 2, 4, 5)
     def __init__(
         self, ants: list, values: argparse.Namespace, abs_delay: int = 0
     ):
         """Constructor function"""
-        # TODO: (1, 2, 4, 5)
         self.running = True  # Used to exit gracefully if killed
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
@@ -515,6 +321,183 @@ class Correlator:
             iant = an
             temp = ant.do_f_tab(self, iant)
             return temp
+
+
+class AntennaSource:
+    """A class to represent a single antenna and its data.
+
+    Gets much of the information from the vfile, which is a data
+    structure representing the voltages in increasing frequency
+    order.
+
+    :param vfile: The vfile for this antenna
+    :type vfile: str
+    :field vfile: The vfile for this antenna
+    :field ant_name: Antenna name. Of the format 'AK**'
+    :field antno: Antenna number between 1-36. Note that this is the
+                    physical antenna number, and some antennas may not
+                    be present.
+    :field mjd_start: Start time of the voltages in MJD
+    :field trigger_frame: TODO: ?
+    :field hdr: Header file for the vfile
+    :field all_geom_delays: List of all geometric delays calculated
+                            for each channel
+    :field all_mjd_mids: List of all central MJDs calculated by the
+                            Correlator object
+    :field pol: Polarisation of this antenna
+
+    :func do_f_tab: Perform the tied-array beamforming for this
+                    antenna.
+    """
+
+    # Possible refactor: include index and corr as fields
+
+    def __init__(self, vfile: str):
+        """Constructor function"""
+        self.vfile = vfile
+        self.ant_name = self.vfile.hdr["ANT"][0].lower()
+        self.antno = int(self.vfile.hdr["ANTENNA_NO"][0])
+        self.mjd_start = self.vfile.start_mjd
+        self.trigger_frame = self.vfile.start_frameid
+        self.hdr = self.vfile.hdr
+        self.all_geom_delays = []
+        self.all_mjd_mids = []
+        self.pol = self.vfile.pol.lower()
+        print(f"antenna {self.ant_name} {self.vfile.freqconfig}")
+
+    def do_f_tab(self, corr: Correlator, i_ant: int) -> np.ndarray:
+        """Perform tied-array beamforming and PFB inversion
+
+        :param corr: Correlator object with constants and functions for
+            this data set
+        :type corr: :class:`Correlator`
+        :param i_ant: Index of antenna
+        :type i_ant: int
+        :return: Beamformed, calibrated, PFB-inverted fine spectrum
+        :rtype: np.ndarray
+        """
+        self.all_mjd_mids.append(corr.curr_mjd_mid)
+
+        # Initialise output data array
+        data_out = np.zeros(
+            (corr.n_int, corr.n_fine_chan, corr.n_pol_in), dtype=np.complex64
+        )
+
+        n_fine = corr.n_fft - 2 * corr.nguard_chan
+        n_samp = corr.n_int * corr.n_fft
+
+        whole_delay, geom_delays_us = self.get_delays(corr, n_samp)
+
+        print(("antenna #: ", i_ant, self.ant_name))
+        sample_offset = whole_delay + corr.abs_delay
+        frameid = self.vfile.start_frameid + sample_offset
+        print(
+            "FRAMEID: "
+            + str(frameid)
+            + ", remainder from 32: "
+            + str(frameid % 32)
+        )
+
+        """
+        To avoid iPFB fractional delay, set FRAMEID such that the 
+        remainder is 0
+        """
+
+        raw_data = self.vfile.read(sample_offset, n_samp)
+
+        assert raw_data.shape == (
+            n_samp,
+            corr.ncoarse_chan,
+        ), "Unexpected shape from vfile: {} expected ({},{})".format(
+            raw_data.shape, n_samp, corr.ncoarse_chan
+        )
+
+        for i, chan in enumerate(range(corr.ncoarse_chan)):
+            xfguard_f, fine_chan_start, fine_chan_end = process_chan(
+                chan, corr, n_fine, raw_data[:, chan], geom_delays_us, i_ant
+            )
+
+            """
+            Slot xfguard (a trimmed spectrum for this coarse channel) 
+            into the corresponding slice of the fine channels
+            """
+            data_out[:, fine_chan_start:fine_chan_end, 0] = xfguard_f
+
+        return data_out
+
+    def get_delays(
+        self, corr: Correlator, n_samp: int
+    ) -> "tuple[int, np.ndarray]":
+        """Parse and calculate delay for this Antenna from Correlator
+
+        :param corr: Correlator object for this data set
+        :type corr: :class:`Correlator`
+        :param n_samp: Number of samples in this data set
+        :type n_samp: int
+        :return: Whole delay and frequency-dependent geometric delay in
+            units of microseconds
+        :rtype: Tuple[int, :class:`numpy.ndarray`]
+        """
+        geom_delay_us, geom_delay_rate_us = corr.get_geom_delay_delayrate_us(
+            self
+        )
+
+        self.all_geom_delays.append(geom_delay_us)
+
+        fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
+
+        # calculate sample start
+        framediff_samp = corr.ref_ant.trigger_frame - self.trigger_frame
+        total_delay_samp = framediff_samp
+        whole_delay = int(np.round(total_delay_samp))
+
+        # time-dependent geometric delays
+        # np.linspace(0, 1, n_samp) == time in units of integrations
+        geom_delays_us = (
+            geom_delay_us
+            + geom_delay_rate_us * np.linspace(0, 1, n_samp)
+            - fixed_delay_us
+        )
+
+        return whole_delay, geom_delays_us
+
+
+class FringeRotParams:
+    """Class to manage Fringe Rotation solutions.
+
+    :param corr: Correlator being used to process data
+    :type corr: :class:`Correlator`
+    :param ant: Antenna being processed
+    :type ant: :class:`AntennaSource`
+    """
+
+    def __init__(self, corr: Correlator, ant: AntennaSource):
+        """Constructor function"""
+        mid_data = corr.fringe_rot_data_mid[ant.ant_name]
+        self.u = float(mid_data["U (m)"])
+        self.v = float(mid_data["V (m)"])
+        self.w = float(mid_data["W (m)"])
+        self.delay = float(mid_data["DELAY (us)"])
+        self.delay_start = float(
+            corr.fringe_rot_data_start[ant.ant_name]["DELAY (us)"]
+        )
+        self.delay_end = float(
+            corr.fringe_rot_data_end[ant.ant_name]["DELAY (us)"]
+        )
+        self.delay_rate = (self.delay_end - self.delay_start) / float(
+            corr.n_int
+        )
+        self.ant = ant
+        self.corr = corr
+
+    def __str__(self) -> str:
+        """String representation"""
+        s = "FR {} uvw=({},{},{}) m = {} us".format(
+            self.ant.ant_name, self.u, self.v, self.w, self.delay
+        )
+        return s
+
+    __repr__ = __str__
 
 
 def _main():
