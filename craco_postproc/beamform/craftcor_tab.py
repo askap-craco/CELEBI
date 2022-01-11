@@ -13,6 +13,8 @@ __author__ = [
     + "<danica.scott@postgrad.curtin.edu.au>",
 ]
 
+from typing import Any, Tuple
+
 import argparse
 import logging
 import multiprocessing
@@ -218,7 +220,7 @@ class Correlator:
 
         return delay_us
 
-    def get_geom_delay_delayrate_us(self, ant: AntennaSource) -> tuple:
+    def get_geom_delay_delayrate_us(self, ant: AntennaSource) -> tuple[float]:
         """Calculate the geometric delay and delayrate (in us) for a
         given antenna relative to the reference antenna
 
@@ -427,7 +429,7 @@ class AntennaSource:
 
     def get_delays(
         self, corr: Correlator, n_samp: int
-    ) -> "tuple[int, np.ndarray]":
+    ) -> tuple[int, np.ndarray]:
         """Parse and calculate delay for this Antenna from Correlator
 
         :param corr: Correlator object for this data set
@@ -620,7 +622,7 @@ def process_chan(
     chan_raw_data: np.ndarray,
     geom_delays_us: np.ndarray,
     i_ant: int,
-) -> "tuple[np.ndarray, int, int]":
+) -> tuple[np.ndarray, int, int]:
     """Process a particular channel of an Antenna.
 
     Processing includes:
@@ -782,7 +784,7 @@ def get_antennas(values: argparse.Namespace) -> "list[AntennaSource]":
     return antennas
 
 
-def print_var(name: str, value: T) -> None:
+def print_var(name: str, value: Any) -> None:
     """Debugging function for output of variable content
 
     :param name: Name of variable
