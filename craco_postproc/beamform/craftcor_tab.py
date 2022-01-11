@@ -170,7 +170,9 @@ class AntennaSource:
         """
         # TODO: (2, 5)
 
-        geom_delay_us, geom_delay_rate_us = corr.get_delays(self)
+        geom_delay_us, geom_delay_rate_us = corr.get_geom_delay_delayrate_us(
+            self
+        )
 
         self.all_geom_delays.append(geom_delay_us)
 
