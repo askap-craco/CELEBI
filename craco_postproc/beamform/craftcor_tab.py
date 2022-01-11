@@ -411,6 +411,15 @@ class Correlator:
         return delay_us
 
     def get_geom_delay_delayrate_us(self, ant):
+        """Calculate the geometric delay and delayrate (in us) for a
+        given antenna relative to the reference antenna
+
+        :param ant: Antenna the geometroc delay is being calculated for
+        :type ant: :class:`AntennaSource`
+        :return: The geometric delay and delayrate of the given antenna
+            relative to the reference antenna
+        :rtype: Tuple[float]
+        """
         fr1 = FringeRotParams(self, ant)
         fr2 = FringeRotParams(self, self.ref_ant)
 
@@ -424,7 +433,9 @@ class Correlator:
         return delay, delayrate
 
     def calc_mjd(self):
-        # TODO: (1, 2, 4, 5)
+        """Calculate and store the MJD of the start, middle, and end of
+        the current integration.
+        """
         i = float(self.curr_int_no)
         abs_delay_days = float(self.abs_delay) / 86400.0 / (self.fs * 1e6)
         self.curr_mjd_start = (
@@ -438,20 +449,38 @@ class Correlator:
         )
 
     def get_calc_results(self, mjd):
-        # TODO: (1, 2, 4, 5)
+        """Get the fringe rotation solutions for a particular MJD
+
+        :param mjd: Time to evaluate the fringe rotation at in MJD
+        :type mjd: float
+        :return: Fringe rotation solutions
+        :rtype: dict
+        """
         res = self.calc_results.scans[0].eval_src0_poly(mjd)
 
         return res
 
     def get_fringe_rot_data(self):
-        # TODO: (1, 2, 4, 5)
+        """Get and store the fringe rotation solutions for the start,
+        middle, and end of the data.
+        """
         self.fringe_rot_data_start = self.get_calc_results(self.curr_mjd_start)
         self.fringe_rot_data_mid = self.get_calc_results(self.curr_mjd_mid)
         self.fringe_rot_data_end = self.get_calc_results(self.curr_mjd_end)
 
     def do_tab(self, an=None):
-        # TODO: (1, 2, 4, 5)
-        # Tied-array beamforming
+        """Perform the tied-array beamforming
+
+        :param an: Absolute antenna number to be processed. If not
+        provided, all antennas are processed. Defaults to None
+        :type an: int, optional
+        :raises KeyboardInterrupt: If processing is killed with a
+        keyboard interrupt and all antennas are being processed, the
+        currently-running antenna is completed first.
+        :return: Fine spectrum of the processed data. If all antennas
+        were processed, this is a sum across all antennas.
+        :rtype: :class:`numpy.ndarray`
+        """
 
         n_samp = int(self.n_int)
         n_chan = int(self.ncoarse_chan * self.n_fine_per_coarse)
