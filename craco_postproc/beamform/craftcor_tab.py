@@ -411,7 +411,6 @@ class Correlator:
         return delay_us
 
     def get_geom_delay_delayrate_us(self, ant):
-        # TODO: (1, 2, 4, 5)
         fr1 = FringeRotParams(self, ant)
         fr2 = FringeRotParams(self, self.ref_ant)
 
@@ -421,13 +420,6 @@ class Correlator:
         # Account for effects of Earth's rotation
         delay = fr1.delay_start - fr2.delay_start
         delayrate = fr1.delay_rate - fr2.delay_rate
-
-        with open(f"delays/{ant.antno}_ant_delays.dat", "w") as f:
-            f.write(f"#field fr1({ant}) fr2({self.ref_ant})\n")
-            f.write(f"delay_start {fr1.delay_start} {fr2.delay_start}\n")
-            f.write(f"delay {fr1.delay} {fr2.delay}\n")
-            f.write(f"delay_end {fr1.delay_end} {fr2.delay_end}\n")
-            f.write(f"delay_rate {fr1.delay_rate} {fr2.delay_rate}\n")
 
         return delay, delayrate
 
