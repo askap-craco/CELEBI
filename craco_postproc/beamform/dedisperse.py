@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 
-import time
-
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 import numpy as np
 
 
 def _main():
-    start = time.time()
     args = get_args()
-    f = load(args.f)
-    f_dd = dedisperse(f, args.DM, args.f0, args.bw)
-    save(f_dd, args.o)
-    end = time.time()
-    print(f"dedisperse.py finished in {end-start} s")
+    spec = np.load(args.f)
+    f_dd = dedisperse(spec, args.DM, args.f0, args.bw)
+    np.save(args.o, f_dd)
 
 
-def get_args():
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+def get_args() -> ArgumentParser:
+    """Parse command line arguments
 
+    :return: Command line argument parameters
+    :rtype: argparse.Namespace
+    """
     parser = ArgumentParser(
         description="Coherently dedisperses given fine spectrum",
         formatter_class=ArgumentDefaultsHelpFormatter,
@@ -40,45 +39,54 @@ def get_args():
     return parser.parse_args()
 
 
-def load(fname):
-    print(f"Loading {fname}")
-    return np.load(fname)
 
-
-def dedisperse(f, DM, f0, bw):
+def dedisperse(spec: np.ndarray, DM: float, f0: float, bw: float) -> np.ndarray:
     """
-    Takes heavy inspiration from Hyerin Cho's coh_dedisp function from freq2time.py
-    """
-    # print('Dedispersing')
+    Coherently dedisperse the given complex spectrum.
 
-    n_sam = len(f)
+    Coherent dedispersion is performed by applying the inverse of the
+    transfer function that acts on radiation as it travels through a
+    charged medium. This is detailed in Lorimer & Kramer's Handbook of
+    Pulsar Astronomy (2005, Cambridge University Press).
+
+    In practice, this is a frequency-dependent rotation of the complex
+    spectrum. None of the amplitudes are altered.
+
+    :param spec: Complex 1D-spectrum in a single polarisation
+    :type spec: :class:`np.ndarray`
+    :param DM: Dispersion measure to dedisperse to (pc/cm3)
+    :type DM: float
+    :param f0: Central frequency of the spectrum (MHz)
+    :type f0: float
+    :param bw: Bandwidth of the spectrum (MHz)
+    :type bw: float
+    :return: Coherently dedispersed complex spectrum
+    :rtype: :class:`np.ndarray`
+    """
+    n_sam = spec.shape[0]
 
     """
-	This value of k_DM is not the most precise available. It is used because to alter the commonly-used
-	value would make pulsar timing very difficult. Also, to quote Hobbs, Edwards, and Manchester 2006:
-		...ions and magnetic fields introduce a rather uncertain correction of the order of a part in
-		10^5 (Spitzer 1962), comparable to the uncertainty in some measured DM values...
+	This value of k_DM is not the most precise available. It is used 
+    because to alter the commonly-used value would make pulsar timing 
+    very difficult. Also, to quote Hobbs, Edwards, and Manchester 2006:
+		...ions and magnetic fields introduce a rather uncertain 
+        correction of the order of a part in 10^5 (Spitzer 1962), 
+        comparable to the uncertainty in some measured DM values...
 	"""
     k_DM = 2.41e-4
 
     f_min = f0 - float(bw) / 2
     f_max = f0 + float(bw) / 2
 
-    # TODO: figure out why Hyerin put f_max and f_min in this order
     freqs = np.linspace(f_max, f_min, n_sam)
 
     dedisp_phases = np.exp(
         2j * np.pi * DM / k_DM * ((freqs - f0) ** 2 / f0 ** 2 / freqs * 1e6)
     )
 
-    f *= dedisp_phases
+    spec *= dedisp_phases
 
-    return f
-
-
-def save(f_dd, fname):
-    print(f"Saving {fname}")
-    np.save(fname, f_dd)
+    return spec
 
 
 if __name__ == "__main__":
