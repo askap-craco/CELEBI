@@ -429,7 +429,7 @@ class AntennaSource:
 
     def get_delays(
         self, corr: Correlator, n_samp: int
-    ) -> tuple[int, np.ndarray]:
+    ) -> "tuple[int, np.ndarray]":
         """Parse and calculate delay for this Antenna from Correlator
 
         :param corr: Correlator object for this data set
@@ -622,7 +622,7 @@ def process_chan(
     chan_raw_data: np.ndarray,
     geom_delays_us: np.ndarray,
     i_ant: int,
-) -> tuple[np.ndarray, int, int]:
+) -> "tuple[np.ndarray, int, int]":
     """Process a particular channel of an Antenna.
 
     Processing includes:
