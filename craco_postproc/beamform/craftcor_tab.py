@@ -24,8 +24,8 @@ import time
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 import numpy as np
-import vcraft
-from calc11 import ResultsFile
+from craft import vcraft
+from craft.calc11 import ResultsFile
 from miriad import MiriadGainSolutions
 
 # constants

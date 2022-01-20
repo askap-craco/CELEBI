@@ -2,6 +2,7 @@ import os
 import warnings
 
 import numpy as np
+from craft.parse_aips import aipscor
 from scipy.interpolate import interp1d
 
 
@@ -127,7 +128,6 @@ class MiriadGainSolutions:
             if "polyfit_coeff" in bp_c_root:  # AIPS polyfit coefficient
                 self.bp_coeff = np.load(bp_c_root)
             else:
-                from parse_aips import aipscor
 
                 nant = None
                 nfreq = None
