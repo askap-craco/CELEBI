@@ -49,6 +49,7 @@ jobs:
 
     - name: Run tests
       run: |
+        pip install -U pytest
         pytest tests/
 
     - name: Run safety checks
