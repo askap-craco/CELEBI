@@ -42,7 +42,7 @@ jobs:
 
     - name: Run tests
       run: |
-        make test
+        pytest tests/
 
     - name: Run safety checks
       run: |
