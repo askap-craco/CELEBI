@@ -31,8 +31,10 @@ jobs:
     
     - name: Install psrvlbireduce
       run: |
+        cd ~
         git clone https://github.com/dingswin/psrvlbireduce.git
         export PATH=$PATH:~/psrvlbireduce/datareduction/
+        cd -
 
     - name: Install ParselTongue
       run: |
