@@ -40,10 +40,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install python3-parseltongue
 
-    - name: Run style checks
-      run: |
-        make check-codestyle
-
     - name: Run tests
       run: |
         make test
