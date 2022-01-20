@@ -31,10 +31,15 @@ jobs:
     
     - name: Install psrvlbireduce
       run: |
+        initdir=`pwd`
         cd ~
         git clone https://github.com/dingswin/psrvlbireduce.git
         export PATH=$PATH:~/psrvlbireduce/datareduction/
-        cd -
+        export PYTHONPATH=$PYTHONPATH:~/psrvlbireduce/datareduction/
+        cd psrvlbireduce/datareduction/
+        2to3 -w .
+        sed -i 's/\t/        /' *.py
+        cd $initdir
 
     - name: Install ParselTongue
       run: |
