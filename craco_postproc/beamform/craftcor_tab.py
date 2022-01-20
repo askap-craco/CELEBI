@@ -26,7 +26,8 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 import numpy as np
 from craft import vcraft
 from craft.calc11 import ResultsFile
-from miriad import MiriadGainSolutions
+
+from craco_postproc.beamform.miriad import MiriadGainSolutions
 
 # constants
 C_LIGHT = 299792458.0  # Speed of light (m/s)
