@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 from argparse import Namespace
 
 import numpy as np
@@ -8,6 +9,9 @@ from craco_postproc.beamform import dedisperse
 
 
 def test_get_args():
+    # Force argparse to see no arguments in case pytest is run with some
+    # arguments.
+    sys.argv = ["x"]
     default_namespace = Namespace(
         f=None,
         DM=None,
