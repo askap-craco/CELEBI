@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+
 import numpy as np
 
 
@@ -39,8 +40,35 @@ def get_args() -> ArgumentParser:
     return parser.parse_args()
 
 
+def get_freqs(f0: float, bw: float, nchan: int) -> np.ndarray:
+    """Create array of frequencies.
 
-def dedisperse(spec: np.ndarray, DM: float, f0: float, bw: float) -> np.ndarray:
+    The returned array is the central frequency of `nchan` channels
+    centred on `f0` with a bandwidth of `bw`.
+
+    :param f0: Central frequency (arb. units, must be same as `bw`)
+    :type f0: float
+    :param bw: Bandwidth (arb. units, must be same as `f0`)
+    :type bw: float
+    :param nchan: Number of channels
+    :type nchan: int
+    :return: Central frequencies of `nchan` channels centred on `f0`
+        over a bandwidth `bw`
+    :rtype: :class:`np.ndarray`
+    """
+    fmin = f0 - bw / 2
+    fmax = f0 + bw / 2
+
+    chan_width = bw / nchan
+
+    freqs = np.linspace(fmin, fmax, nchan, endpoint=False) + chan_width / 2
+
+    return freqs
+
+
+def dedisperse(
+    spec: np.ndarray, DM: float, f0: float, bw: float
+) -> np.ndarray:
     """
     Coherently dedisperse the given complex spectrum.
 
@@ -63,7 +91,7 @@ def dedisperse(spec: np.ndarray, DM: float, f0: float, bw: float) -> np.ndarray:
     :return: Coherently dedispersed complex spectrum
     :rtype: :class:`np.ndarray`
     """
-    n_sam = spec.shape[0]
+    nchan = spec.shape[0]
 
     """
 	This value of k_DM is not the most precise available. It is used 
@@ -78,7 +106,7 @@ def dedisperse(spec: np.ndarray, DM: float, f0: float, bw: float) -> np.ndarray:
     f_min = f0 - float(bw) / 2
     f_max = f0 + float(bw) / 2
 
-    freqs = np.linspace(f_max, f_min, n_sam)
+    freqs = get_freqs(f0, bw, nchan)
 
     dedisp_phases = np.exp(
         2j * np.pi * DM / k_DM * ((freqs - f0) ** 2 / f0 ** 2 / freqs * 1e6)
