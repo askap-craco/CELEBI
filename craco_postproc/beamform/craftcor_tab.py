@@ -220,7 +220,7 @@ class Correlator:
 
         return delay_us
 
-    def get_geom_delay_delayrate_us(self, ant: AntennaSource) -> tuple[float]:
+    def get_geom_delay_delayrate_us(self, ant: AntennaSource) -> "tuple[float]":
         """Calculate the geometric delay and delayrate (in us) for a
         given antenna relative to the reference antenna
 
