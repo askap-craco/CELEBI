@@ -324,7 +324,7 @@ def _main():
 
             casaout.close()
             os.system("chmod 775 imagescript.py")
-            os.system("runimagescript.sh")
+            os.system("casa --nologger -c imagescript.py")
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
@@ -339,7 +339,11 @@ def _main():
                 )
                 casaout.close()
                 os.system("chmod 775 exportfits.py")
-                os.system("runexportfits.sh")
+                os.system("casa --nologger -c exportfits.py")
+
+            # If desired, find sources in the image
+            if args.findsources:
+                a
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
@@ -599,6 +603,24 @@ def get_args() -> argparse.Namespace:
         type=float,
         default=None,
         help="Duration over which to iterate time steps",
+    )
+    parser.add_option(
+        "--findsources",
+        default=False,
+        action="store_true",
+        help="Find sources in image",
+    )
+    parser.add_option(
+        "--nmaxsources",
+        type=int,
+        default=20,
+        help="The maximum number of sources to return from source finding",
+    )
+    parser.add_option(
+        "--sourcecutoff",
+        type=float,
+        default=0.1,
+        help="Threshold for source finding as a fraction of the peak flux",
     )
 
     return parser.parse_args()
@@ -1118,7 +1140,7 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
         },
     )
     casaout.close()
-    os.system("runloadtarget.sh")
+    os.system("casa --nologger -c loadtarget.py")
 
 
 def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
