@@ -120,7 +120,15 @@ process difx2fits {
 
 process loadfits {
     /*******************************************************************
+    Combine the per-card FITS files into a single FITS file
 
+    Input:
+    per_card_fits - collection of paths
+        A FITS file for each card processed
+    
+    Output:
+    fits - path
+        A single FITS file containing data across all cards processed
     *******************************************************************/
     input:
     path per_card_fits
