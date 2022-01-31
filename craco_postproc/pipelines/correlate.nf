@@ -54,7 +54,7 @@ process process_time_step {
     tuple val(card), val(fpga)
 
     output:
-    path "c${card}_f${fpga}", emit: correlated_data
+    path "c${card}_f${fpga}"
 
     """
     export CRAFTCATDIR="."  # necessary?
