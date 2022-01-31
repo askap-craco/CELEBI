@@ -1,3 +1,6 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2   // Enable DSL2
+
 // Cards and FPGAs to be processed. Override these in a config file to cut out
 // data
 params.cards = ["1", "2", "3", "4", "5", "6", "7"]
@@ -48,12 +51,10 @@ process process_time_step {
     *******************************************************************/
     input:
     env startmjd
-    each card from cards
-    each fpga from fpgas
+    tuple val(card), val(fpga)
 
     output:
-    path "c${card}_f${fpga}" into correlated_data
-    path "c${card}_f${fpga}/*D2D.input" into D2D
+    path "c${card}_f${fpga}", emit: correlated_data
 
     """
     export CRAFTCATDIR="."  # necessary?
@@ -95,10 +96,10 @@ process difx2fits {
         A .FITS visibilities file for each card processed
     *******************************************************************/
     input:
-    path correlated_data from correlated_data.collect()
+    path correlated_data
 
     output:
-    path "*.FITS" into per_card_fits
+    path "*.FITS"
 
     """
     for c in `seq 1 7`; do
@@ -134,7 +135,7 @@ process loadfits {
     path per_card_fits
 
     output:
-    path "${params.label}.fits" into fits
+    path "${params.label}.fits"
 
     """
     antlist=`ls -d ${params.data}/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
@@ -148,4 +149,18 @@ process loadfits {
 
     loadfits.py \$args
     """
+}
+
+workflow correlate {
+    startmjd = get_startmjd()
+
+    // cards.combine(fpgas) kicks off an instance of process_time_step for
+    // every unique card-fpga pair, which are then collated with .collect()
+    correlated_data = process_time_step(startmjd, cards.combine(fpgas))
+    per_card_fits = difx2fits(correlated_data.collect())
+
+    loadfits(per_card_fits)
+    
+    emit:
+        fits = loadfits.out
 }
