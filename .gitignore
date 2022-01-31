@@ -615,3 +615,14 @@ healthchecksdb
 MigrationBackup/
 
 # End of https://www.gitignore.io/api/osx,python,pycharm,windows,visualstudio,visualstudiocode
+craco_postproc/pipelines/.nextflow.log.1
+craco_postproc/pipelines/.nextflow.log.2
+craco_postproc/pipelines/.nextflow.log.3
+craco_postproc/pipelines/.nextflow.log.4
+craco_postproc/pipelines/.nextflow.log.5
+craco_postproc/pipelines/.nextflow.log.6
+craco_postproc/pipelines/.nextflow.log.7
+craco_postproc/pipelines/.nextflow.log.8
+craco_postproc/pipelines/.nextflow.log.9
+craco_postproc/pipelines/work
+craco_postproc/pipelines/.nextflow
