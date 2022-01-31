@@ -20,10 +20,10 @@ process get_startmjd {
         The earliest start time found in the data headers
     *******************************************************************/
     output:
-    env startmjd
+    stdout startmjd
 
     """
-    startmjd=`python $baseDir/scripts/get_start_mjd.py $params.data
+    python $baseDir/scripts/get_start_mjd.py $params.data
     """
 }
 
@@ -50,7 +50,7 @@ process process_time_step {
         even if the process has started without completing.
     *******************************************************************/
     input:
-    env startmjd
+    val startmjd
     tuple val(card), val(fpga)
 
     output:
@@ -70,7 +70,7 @@ process process_time_step {
     args="\$args --card $card"
     args="\$args --freqlabel c${card}_f${fpga}"
     args="\$args --dir=$baseDir/difx"
-    args="\$args --startmjd=\$startmjd"
+    args="\$args --startmjd=$startmjd"
 
     if [ "$params.binconfig" != "" ]; then
         args="\$args -p $params.binconfig"
