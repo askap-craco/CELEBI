@@ -50,6 +50,13 @@ process process_time_step {
         even if the process has started without completing.
     *******************************************************************/
     input:
+    val label
+    val data
+    val fcm
+    val ra
+    val dec
+    path binconfig, stageAs: "craftfrb.binconfig"
+    val inttime
     val startmjd
     tuple val(card), val(fpga)
 
@@ -59,24 +66,27 @@ process process_time_step {
     """
     export CRAFTCATDIR="."  # necessary?
 
-    args="-f $params.fcm"
+    args="-f $fcm"
     args="\$args -b 4"
     args="\$args -k"
-    args="\$args --name=$params.label"
+    args="\$args --name=$label"
     args="\$args -o ."
-    args="\$args -t $params.data"
-    args="\$args --ra $params.ra"
-    args="\$args -d$params.dec"
+    args="\$args -t $data"
+    args="\$args --ra $ra"
+    args="\$args -d$dec"
     args="\$args --card $card"
     args="\$args --freqlabel c${card}_f${fpga}"
     args="\$args --dir=$baseDir/difx"
     args="\$args --startmjd=$startmjd"
 
-    if [ "$params.binconfig" != "" ]; then
-        args="\$args -p $params.binconfig"
+    # Only use binconfig if it's not empty
+    if [ `wc -c craftfrb.binconfig | awk '{print $1}'` != 0 ]; then
+        args="\$args -p craftfrb.binconfig"
     fi
-    if [ "$params.inttime" != "" ]; then
-        args="\$args -i $params.inttime"
+
+    # Only include inttime if non-zero
+    if [ "$inttime" != "0" ]; then
+        args="\$args -i $inttime"
     fi
 
     $baseDir/craco-postproc/localise/processTimeStep.py \$args
@@ -132,19 +142,20 @@ process loadfits {
         A single FITS file containing data across all cards processed
     *******************************************************************/
     input:
+    val label
     path per_card_fits
 
     output:
-    path "${params.label}.fits"
+    path "${label}.fits"
 
     """
-    antlist=`ls -d ${params.data}/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
+    antlist=`ls -d $label/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
 
     args="-u 1"
     args="\$args --antlist=\$antlist"
     args="\$args -s 27"
-    args="\$args -f ${params.label}.fits"
-    args="\$args -o ${params.label}"
+    args="\$args -f ${.label}.fits"
+    args="\$args -o $label"
     args="\$args CRAFT_CARD?.FITS"
 
     loadfits.py \$args
@@ -152,15 +163,26 @@ process loadfits {
 }
 
 workflow correlate {
+    take:
+        val label
+        val data
+        val fcm
+        val ra
+        val dec
+        path binconfig
+        val inttime
     main:
         startmjd = get_startmjd()
 
         // cards.combine(fpgas) kicks off an instance of process_time_step for
         // every unique card-fpga pair, which are then collated with .collect()
-        correlated_data = process_time_step(startmjd, cards.combine(fpgas))
+        correlated_data = process_time_step(
+            label, data, fcm, ra, dec, binconfig, startmjd, 
+            cards.combine(fpgas)
+        )
         per_card_fits = difx2fits(correlated_data.collect())
 
-        loadfits(per_card_fits)
+        loadfits(label, per_card_fits)
     
     emit:
         fits = loadfits.out
