@@ -152,14 +152,15 @@ process loadfits {
 }
 
 workflow correlate {
-    startmjd = get_startmjd()
+    main:
+        startmjd = get_startmjd()
 
-    // cards.combine(fpgas) kicks off an instance of process_time_step for
-    // every unique card-fpga pair, which are then collated with .collect()
-    correlated_data = process_time_step(startmjd, cards.combine(fpgas))
-    per_card_fits = difx2fits(correlated_data.collect())
+        // cards.combine(fpgas) kicks off an instance of process_time_step for
+        // every unique card-fpga pair, which are then collated with .collect()
+        correlated_data = process_time_step(startmjd, cards.combine(fpgas))
+        per_card_fits = difx2fits(correlated_data.collect())
 
-    loadfits(per_card_fits)
+        loadfits(per_card_fits)
     
     emit:
         fits = loadfits.out
