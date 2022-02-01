@@ -83,7 +83,7 @@ process process_time_step {
     args="\$args --startmjd=$startmjd"
 
     # Only use binconfig if it's not empty
-    if [ `wc -c craftfrb.binconfig | awk '{print $1}'` != 0 ]; then
+    if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
         args="\$args -p craftfrb.binconfig"
     fi
 
