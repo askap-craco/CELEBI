@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate } from './correlate'
 include { apply_flux_cal_solns } from './calibration'
-include { localise, apply_offset } from './localise'
+include { localise; apply_offset } from './localise'
 include { beamform } from './beamform'
 
 process generate_binconfig {
@@ -36,6 +36,11 @@ process subtract_rfi {
     
     output:
         path "rfi_subtracted.fits"
+    
+    script:
+        """
+        touch rfi_subtracted.fits
+        """
 }
 
 workflow process_frb {
