@@ -11,7 +11,7 @@ process create_empty_file {
         """
 }
 
-process get_num_ant {
+process get_num_ant{
     input:
         val data
 
