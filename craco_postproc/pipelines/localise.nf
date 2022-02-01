@@ -23,3 +23,16 @@ process localise {
         dec = reader.readLine()
         udec = reader.readLine()
 }
+
+process apply_offset {
+    input:
+        path field_image
+        tuple val(ra_askap), val(dec_askap)
+    
+    output:
+        tuple val(ra_true), val(dec_true)
+    
+    exec:
+        ra_true = 0
+        dec_true = 0
+}
