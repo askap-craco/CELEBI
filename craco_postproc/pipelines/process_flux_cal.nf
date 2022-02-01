@@ -6,13 +6,13 @@ include { determine_flux_cal_solns } from './calibration'
 
 workflow process_flux_cal {
     take:
-        val label
-        val target
-        val data
-        val fcm
-        val ra
-        val dec
-        val cpasspoly
+        label   // val
+        target  // val
+        data    // val
+        fcm // val
+        ra  // val
+        dec // val
+        cpasspoly   // val
     main:
         empty_binconfig = create_empty_file("binconfig")
         fits = correlate(
