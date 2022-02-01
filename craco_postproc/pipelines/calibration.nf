@@ -47,8 +47,11 @@ process apply_flux_cal_solns {
         args="\$args -a 16"
         args="\$args -u 500"
         args="\$args --skipplot"
-        args="\$args --tarflagfile=$flagfile"
         args="\$args --src=$target"
+
+        if [ `wc -c $flagfile | awk '{print \$1}'` != 0 ]; then
+            args="\$args --tarflagfile=$flagfile"
+        fi
 
         calibrateFRB.py \$args
         """    
