@@ -63,4 +63,9 @@ process determine_pol_cal_solns {
 
     output:
         path "polcal.dat"
+    
+    script:
+        """
+        touch polcal.dat
+        """
 }
