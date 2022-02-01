@@ -23,10 +23,10 @@ process get_startmjd {
     val data
     
     output:
-    stdout startmjd
+    env startmjd
 
     """
-    python $baseDir/scripts/get_start_mjd.py $data
+    startmjd=`python $baseDir/scripts/get_start_mjd.py $data`
     """
 }
 
@@ -157,7 +157,7 @@ process loadfits {
     args="-u 1"
     args="\$args --antlist=\$antlist"
     args="\$args -s 27"
-    args="\$args -f ${.label}.fits"
+    args="\$args -f ${label}.fits"
     args="\$args -o $label"
     args="\$args CRAFT_CARD?.FITS"
 
