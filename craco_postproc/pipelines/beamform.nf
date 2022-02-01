@@ -143,7 +143,7 @@ process deripple {
     """
 }
 
-process dedisperse_frb {
+process dedisperse {
     executor 'slurm'
     cpus 1
     time '5m'
@@ -191,7 +191,7 @@ process ifft {
     """
 }
 
-process generate_dynspecs_frb {
+process generate_dynspecs {
     executor 'slurm'
     cpus 1
     time '1h'
