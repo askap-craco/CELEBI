@@ -19,11 +19,14 @@ process get_startmjd {
     startmjd - environment variable
         The earliest start time found in the data headers
     *******************************************************************/
+    input:
+    val data
+    
     output:
     stdout startmjd
 
     """
-    python $baseDir/scripts/get_start_mjd.py $params.data
+    python $baseDir/scripts/get_start_mjd.py $data
     """
 }
 
@@ -172,7 +175,7 @@ workflow correlate {
         path binconfig
         val inttime
     main:
-        startmjd = get_startmjd()
+        startmjd = get_startmjd(data)
 
         // cards.combine(fpgas) kicks off an instance of process_time_step for
         // every unique card-fpga pair, which are then collated with .collect()
