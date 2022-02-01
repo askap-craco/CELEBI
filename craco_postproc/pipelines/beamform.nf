@@ -223,17 +223,17 @@ process generate_dynspecs_frb {
 
 workflow beamform {
     take:
-        val label
-        val data
-        val fcm
-        tuple val(ra), val(dec)
-        path flux_cal_solns
-        path pol_cal_solns
-        val num_ints
-        val int_len
-        val offset
-        val dm
-        val centre_freq
+        label   // val
+        data    // val
+        fcm // val
+        pos // tuple(val, val)
+        flux_cal_solns  // path
+        pol_cal_solns   // path
+        num_ints    // val
+        int_len // val
+        offset  // val
+        dm  // val
+        centre_freq // val
     
     main:
         // preliminaries

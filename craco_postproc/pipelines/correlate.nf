@@ -167,13 +167,13 @@ process loadfits {
 
 workflow correlate {
     take:
-        val label
-        val data
-        val fcm
-        val ra
-        val dec
-        path binconfig
-        val inttime
+        label   // val
+        data    // val
+        fcm // val
+        ra  // val
+        dec // val
+        binconfig   // path
+        inttime // val
     main:
         startmjd = get_startmjd(data)
 

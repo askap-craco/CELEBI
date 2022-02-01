@@ -71,19 +71,19 @@ process determine_pol_cal_solns {
 
 workflow process_pol_cal {
     take:
-        val label
-        val target
-        val data
-        val fcm
-        val ra0
-        val dec0
-        val cpasspoly
-        path flux_cal_solns
-        val num_ints
-        val int_len
-        val offset
-        val dm
-        val centre_freq
+        label   // val
+        target  // val
+        data    // val
+        fcm // val
+        ra0 // val
+        dec0    // val
+        cpasspoly   // val
+        flux_cal_solns  // path
+        num_ints    // val
+        int_len // val
+        offset  // val
+        dm  // val
+        centre_freq // val
 
     main:
         empty_binconfig = create_empty_file("binconfig")
