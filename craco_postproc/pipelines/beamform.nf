@@ -62,19 +62,24 @@ process do_beamform {
         """
         mkdir delays    # needed by craftcor_tab.py
 
-        args="-i $params.numints_frb"
-        args="\$args -n $params.intlen_frb"
-        args="\$args --offset $params.offset_frb"
-        args="\$args -d $params.data_frb"
-        args="\$args --parset $params.fcm"
+        args="-i $num_ints"
+        args="\$args -n $int_len"
+        args="\$args --offset $offset"
+        args="\$args -d $data"
+        args="\$args --parset $fcm"
         args="\$args --calcfile $imfile"
-        args="\$args --aips_c $params.bandpass"
+        args="\$args --aips_c $bandpass"
         args="\$args --an $antnum"
         args="\$args --pol $pol"
         args="\$args -o ${label}_frb_${antnum}_${pol}_f.npy"
         args="\$args --tab"
-        args="\$args --polcal_delay=\$polcal_delay"
-        args="\$args --polcal_offset=\$polcal_offset"
+
+        if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
+            polcal_delay=`head -1 $polcal_soln`
+            args="\$args --polcal_delay=\$polcal_delay"
+            polcal_offset=`head -2 $polcal_soln | tail -1`
+            args="\$args --polcal_offset=\$polcal_offset"
+        fi
 
         # Legacy compatibility: some very old FRBs need a hwfile
         if [ ! "$params.hwfile" = "" ]; then
@@ -221,9 +226,9 @@ workflow beamform {
         val label
         val data
         val fcm
-        val ra
-        val dec
+        tuple val(ra), val(dec)
         path flux_cal_solns
+        path pol_cal_solns
         val num_ints
         val int_len
         val offset
@@ -241,7 +246,7 @@ workflow beamform {
         // processing
         do_beamform(
             label, calcfiles, polarisations.combine(antennas), flux_cal_solns,
-            num_ints, int_len, offset, fcm
+            pol_cal_solns, num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.groupTuple())
         deripple(label, int_len, sum.out)
