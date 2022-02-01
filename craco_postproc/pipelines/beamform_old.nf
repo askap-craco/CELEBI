@@ -1,13 +1,4 @@
-#!/usr/bin/env nextflow
-
-params.user = "dscott"
-
-params.cal_file = "$baseDir/calibrators.dat"
-
-params.skip_polcal = false
-
-antennas_polcal = Channel
-    .from(0..params.nant_polcal-1)
+nextflow.enable.dsl=2
 
 antennas_frb = Channel
     .from(0..params.nant_frb-1)
