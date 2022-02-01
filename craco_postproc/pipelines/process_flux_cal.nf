@@ -1,7 +1,7 @@
 nextflow.enable.dsl=2
 
-include { create_empty_file } from 'utils'
-include { correlate } from 'correlate'
+include { create_empty_file } from './utils'
+include { correlate } from './correlate'
 
 process determine_flux_cal_solns {
     input:

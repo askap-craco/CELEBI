@@ -1,7 +1,7 @@
 nextflow.enable.dsl=2
 
-include { get_num_ants } from 'utils'
-include { get_startmjd } from 'correlate'
+include { get_num_ants } from './utils'
+include { get_startmjd } from './correlate'
 
 params.pols = ['x', 'y']
 polarisations = Channel

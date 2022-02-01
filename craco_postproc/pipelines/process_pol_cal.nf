@@ -1,8 +1,8 @@
 nextflow.enable.dsl=2
 
-include { create_empty_file } from 'utils'
-include { correlate } from 'correlate'
-include { beamform } from 'beamform'
+include { create_empty_file } from './utils'
+include { correlate } from './correlate'
+include { beamform } from './beamform'
 
 process apply_flux_cal_solns {
     input:
