@@ -7,13 +7,12 @@ params.pols = ['x', 'y']
 polarisations = Channel
     .fromList(params.pols)
 
-process create_calc {
+process create_calcfiles {
     input:
         val label
         val data
         val startmjd
-        val ra
-        val dec
+        tuple val(ra), val(dec)
         val fcm
 
     output:
@@ -238,7 +237,7 @@ workflow beamform {
     main:
         // preliminaries
         startmjd = get_startmjd(data)
-        calcfiles = create_calcfiles(label, data, startmjd, ra, dec, fcm)
+        calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
         num_ants = get_num_ants(data)
         antennas = Channel
             .from(0..num_ants-1)
