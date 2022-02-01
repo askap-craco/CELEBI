@@ -3,37 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate } from './correlate'
 include { beamform } from './beamform'
-
-process apply_flux_cal_solns {
-    input:
-        path polcal_fits
-        path cal_solns
-        path flagfile
-        val target
-        val cpasspoly
-
-    output:
-        path "*.image"
-
-    script:
-        """
-        tar -xzvf $cal_solns
-
-        args="--targetonly"
-        args="\$args -t $polcal_fits"
-        args="\$args -r 3"
-        args="\$args --cpasspoly=$cpasspoly"
-        args="\$args -i"
-        args="\$args --dirtymfs"
-        args="\$args -a 16"
-        args="\$args -u 500"
-        args="\$args --skipplot"
-        args="\$args --tarflagfile=$flagfile"
-        args="\$args --src=$target"
-
-        calibrateFRB.py \$args
-        """    
-}
+include { apply_flux_cal_solns, determine_pol_cal_solns } from './calibration'
 
 process localise {
     input:
@@ -59,14 +29,6 @@ process localise {
         ura = reader.readLine()
         dec = reader.readLine()
         udec = reader.readLine()
-}
-
-process determine_pol_cal_solns {
-    input:
-        path htr_data
-
-    output:
-        path "polcal.dat"
 }
 
 workflow process_pol_cal {
