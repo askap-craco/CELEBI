@@ -5,26 +5,27 @@ include { correlate } from 'correlate'
 
 process determine_flux_cal_solns {
     input:
-    path cal_fits
-    path flagfile
-    val target
-    val cpasspoly
+        path cal_fits
+        path flagfile
+        val target
+        val cpasspoly
 
     output:
-    path "calibration_noxpol_${target}.tar.gz"
+        path "calibration_noxpol_${target}.tar.gz"
 
-    """
-    args="--calibrateonly"
-    args="\$args -c $cal_fits"
-    args="\$args --uvsrt"
-    args="\$args -u 51"
-    args="\$args --src=$target"
-    args="\$args --cpasspoly=$cpasspoly"
-    args="\$args -f 15"
-    args="\$args --flagfile=$flagfile"
+    script:
+        """
+        args="--calibrateonly"
+        args="\$args -c $cal_fits"
+        args="\$args --uvsrt"
+        args="\$args -u 51"
+        args="\$args --src=$target"
+        args="\$args --cpasspoly=$cpasspoly"
+        args="\$args -f 15"
+        args="\$args --flagfile=$flagfile"
 
-    calibrateFRB.py \$args
-    """
+        calibrateFRB.py \$args
+        """
 }
 
 workflow process_flux_cal {
