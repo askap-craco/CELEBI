@@ -181,7 +181,7 @@ process ifft {
     tuple val(pol), path(spectrum)
 
     output:
-    path("${label}_frb_sum_${pol}_t.npy") into pol_time_series_frb
+    path("${label}_frb_sum_${pol}_t.npy")
 
     """
     args="-f $spectrum"
