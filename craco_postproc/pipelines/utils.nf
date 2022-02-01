@@ -10,3 +10,16 @@ process create_empty_file {
         touch $filename
         """
 }
+
+process get_num_ant {
+    input:
+        val data
+
+    output:
+        stdout num_ants
+    
+    script:
+        """
+        ls -d $data/ak* | wc -w
+        """
+}
