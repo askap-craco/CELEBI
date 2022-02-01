@@ -25,7 +25,7 @@ process determine_flux_cal_solns {
 
 process apply_flux_cal_solns {
     input:
-        path polcal_fits
+        path target_fits
         path cal_solns
         path flagfile
         val target
@@ -39,7 +39,7 @@ process apply_flux_cal_solns {
         tar -xzvf $cal_solns
 
         args="--targetonly"
-        args="\$args -t $polcal_fits"
+        args="\$args -t $target_fits"
         args="\$args -r 3"
         args="\$args --cpasspoly=$cpasspoly"
         args="\$args -i"
