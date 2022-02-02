@@ -1,7 +1,7 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate } from './correlate'
+include { correlate as correlate_fluxcal } from './correlate'
 include { determine_flux_cal_solns } from './calibration'
 
 workflow process_flux_cal {
@@ -15,7 +15,7 @@ workflow process_flux_cal {
         cpasspoly   // val
     main:
         empty_binconfig = create_empty_file("binconfig")
-        fits = correlate(
+        fits = correlate_fluxcal(
             label, data, fcm, ra, dec, empty_binconfig, 0
         )
 
