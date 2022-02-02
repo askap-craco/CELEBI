@@ -2,6 +2,7 @@
 
 import os
 import time
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -10,16 +11,19 @@ from scipy.interpolate import interp1d
 def _main():
     start = time.time()
     args = get_args()
-    sum_f = load(args.f)
-    sum_f_deripple = deripple(sum_f, args.coeffs, fftLength=args.l)
-    save(sum_f_deripple, args.o)
+    sum_f = np.load(args.f)
+    sum_f_deripple = deripple(sum_f, args.coeffs, args.l, args.bw)
+    np.save(args.o, sum_f_deripple)
     end = time.time()
     print(f"deripple.py finished in {end-start} s")
 
 
-def get_args():
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+def get_args() -> Namespace:
+    """Parse command line arguments
 
+    :return: Command line argument parameters
+    :rtype: :class:`argparse.Namespace`
+    """
     parser = ArgumentParser(
         description="Deripples fine spectrum",
         formatter_class=ArgumentDefaultsHelpFormatter,
@@ -28,24 +32,29 @@ def get_args():
     parser.add_argument("-l", type=int, help="FFT length")
     parser.add_argument("-o", help="Output file")
     parser.add_argument(
-        "-c", "--coeffs", help="Directory for derippling coefficients"
+        "-c", "--coeffs", help="Directory to store derippling coefficients"
+    )
+    parser.add_argument(
+        "--bw", type=float, help="Spectrum bandwidth in MHz", default=336
     )
     return parser.parse_args()
 
 
-def load(fname):
-    return np.load(fname)
+def deripple(
+    FFFF: np.ndarray, coeff_dir: str, fftLength: int, bw: float
+) -> np.ndarray:
+    """Deripple a fine spectrum.
 
-
-def deripple(FFFF, coeff_dir, fftLength=1048576, bw=336):
-    """
-    deripple input fine spectrum
-    Taken from freq2time.py, written by Hyerin Cho
-
-    :param FFFF: Input fine spectrum
-    :param fftLength: TODO: Figure out what this exactly is for
-    :param bw: Bandwidth of observation in MHz
+    :param FFFF: Fine spectrum to be derippled
+    :type FFFF: :class:`np.ndarray`
+    :param coeff_dir: Directory where derippling coefficients are stored
+    :type coeff_dir: str
+    :param fftLength: Probably can be inferred from shape of FFFF
+    :type fftLength: int
+    :param bw: Bandwidth of spectrum in MHz
+    :type bw: float
     :return: Derippled fine spectrum
+    :rtype: :class:`np.ndarray`
     """
     print("derippling....")
     FFFF = FFFF[0, :, 0]
@@ -57,16 +66,17 @@ def deripple(FFFF, coeff_dir, fftLength=1048576, bw=336):
     passbandLength = int(((fftLength / 2) * OS_De) / OS_Nu)
 
     # de-ripple coefficients
-    dr_c_file = coeff_dir + "/deripple_res6_nfft" + str(fftLength) + ".npy"
+    dr_c_file = f"{coeff_dir}/deripple_res6_nfft{fftLength}.npy"
     if os.path.exists(dr_c_file) == False:
         print("No derippling coefficient found. Generating one...")
         generate_deripple(fftLength, 6, coeff_dir)
-    print(f"loading {dr_c_file}")
+
     temp = np.load(dr_c_file)
-    print(f"{dr_c_file} loaded!")
     print("Interpolating...")
+
     interp = interp1d(6 * np.arange(len(temp)), temp)
     print("Calculating deripple...")
+
     deripple = np.ones(passbandLength + 1) / abs(
         interp(np.arange(passbandLength + 1))
     )
@@ -106,10 +116,6 @@ def generate_deripple(nfft, res, dir):
         )
     )
     np.save(dir + "/deripple_res" + str(res) + "_nfft" + str(nfft), temp)
-
-
-def save(f, fname):
-    np.save(fname, f)
 
 
 if __name__ == "__main__":
