@@ -55,20 +55,19 @@ workflow process_frb {
         rfi_fits = correlate(
             "${label}_rfi", data, fcm, ra0, dec0, binconfigs.rfi, binconfigs.int_time
         )
-        field_binconfig = create_empty_file("craftfrb.field.binconfig")
+        empty_file = create_empty_file("file")
         field_fits = correlate(
-            "${label}_field", data, fcm, ra0, dec0, field_binconfig, 0
+            "${label}_field", data, fcm, ra0, dec0, empty_file, 0
         )
 
         no_rfi_gate_fits = subtract_rfi(gate_fits, rfi_fits)
         no_rfi_field_fits = subtract_rfi(field_fits, rfi_fits)
 
-        flagfile = create_empty_file("flagfile.txt")
         gate_image = apply_flux_cal_solns(
-            no_rfi_gate_fits, flux_cal_solns, flagfile, label, cpasspoly
+            no_rfi_gate_fits, flux_cal_solns, empty_file, label, cpasspoly
         )
         field_image = apply_flux_cal_solns(
-            no_rfi_field_fits, flux_cal_solns, flagfile, label, cpasspoly
+            no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly
         )
 
         askap_frb_pos = localise(gate_image)
