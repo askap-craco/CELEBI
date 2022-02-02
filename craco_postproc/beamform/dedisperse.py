@@ -8,15 +8,15 @@ import numpy as np
 def _main():
     args = get_args()
     spec = np.load(args.f)
-    f_dd = dedisperse(spec, args.DM, args.f0, args.bw)
-    np.save(args.o, f_dd)
+    dedispersed_spec = dedisperse(spec, args.DM, args.f0, args.bw)
+    np.save(args.o, dedispersed_spec)
 
 
 def get_args() -> ArgumentParser:
     """Parse command line arguments
 
     :return: Command line argument parameters
-    :rtype: argparse.Namespace
+    :rtype: :class:`argparse.Namespace`
     """
     parser = ArgumentParser(
         description="Coherently dedisperses given fine spectrum",
@@ -94,17 +94,14 @@ def dedisperse(
     nchan = spec.shape[0]
 
     """
-	This value of k_DM is not the most precise available. It is used 
+    This value of k_DM is not the most precise available. It is used 
     because to alter the commonly-used value would make pulsar timing 
     very difficult. Also, to quote Hobbs, Edwards, and Manchester 2006:
-		...ions and magnetic fields introduce a rather uncertain 
+        ...ions and magnetic fields introduce a rather uncertain 
         correction of the order of a part in 10^5 (Spitzer 1962), 
         comparable to the uncertainty in some measured DM values...
-	"""
+    """
     k_DM = 2.41e-4
-
-    f_min = f0 - float(bw) / 2
-    f_max = f0 + float(bw) / 2
 
     freqs = get_freqs(f0, bw, nchan)
 
