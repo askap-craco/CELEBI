@@ -1,6 +1,6 @@
 nextflow.enable.dsl=2
 
-include { get_num_ants } from './utils'
+include { get_num_ants; create_range_channel } from './utils'
 include { get_startmjd } from './correlate'
 
 params.pols = ['x', 'y']
@@ -239,8 +239,7 @@ workflow beamform {
         startmjd = get_startmjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
         num_ants = get_num_ants(data)
-        antennas = Channel
-            .from(0..num_ants-1)
+        antennas = create_range_channel(num_ants)
 
         // processing
         do_beamform(

@@ -23,3 +23,14 @@ process get_num_ants {
         ls -d $data/ak* | wc -w
         """
 }
+
+process create_range_channel {
+    input:
+        val x
+    
+    output:
+        val range
+    
+    exec:
+        range = Channel.from(0..x-1)
+}
