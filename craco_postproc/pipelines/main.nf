@@ -6,7 +6,7 @@ include { process_frb } from './process_frb'
 
 params.cpasspoly_fluxcal = 5
 params.cpasspoly_polcal = 5
-params.cpasspoly_frbcal = 5
+params.cpasspoly_frb = 5
 
 workflow {
     flux_cal_solns = process_flux_cal(
