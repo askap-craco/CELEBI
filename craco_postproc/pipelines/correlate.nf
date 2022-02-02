@@ -165,6 +165,21 @@ process loadfits {
     """
 }
 
+process subtract_rfi {
+    input:
+        path target_fits
+        path rfi_fits
+    
+    output:
+        path "rfi_subtracted.fits"
+    
+    script:
+        """
+        #TODO: is the scale factor here a constant, or should it be calculated?
+        uvsubScaled.py $target_fits $rfi_fits 0.159380579 rfi_subtracted.fits
+        """
+}
+
 workflow correlate {
     take:
         label   // val
