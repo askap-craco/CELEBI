@@ -30,7 +30,7 @@ workflow process_pol_cal {
 
         if( params.polflagfile ) {
             image = apply_flux_cal_solns(
-                fits, flux_cal_solns, params.flagfile, target, cpasspoly
+                fits, flux_cal_solns, params.polflagfile, target, cpasspoly
             )
             pos = localise(image)
             empty_pol_cal_solns = create_empty_file("polcal.dat")
