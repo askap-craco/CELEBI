@@ -16,10 +16,10 @@ process get_num_ants {
         val data
 
     output:
-        stdout num_ants
+        env num_ants
     
     script:
         """
-        ls -d $data/ak* | wc -w
+        num_ants=`ls -d $data/ak* | wc -w`
         """
 }
