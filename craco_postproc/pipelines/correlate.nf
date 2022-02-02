@@ -23,10 +23,10 @@ process get_startmjd {
     val data
     
     output:
-    env startmjd
+    stdout
 
     """
-    startmjd=`python $baseDir/scripts/get_start_mjd.py $data`
+    python $baseDir/scripts/get_start_mjd.py $data
     """
 }
 
