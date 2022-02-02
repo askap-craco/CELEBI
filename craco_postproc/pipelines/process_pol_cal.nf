@@ -28,7 +28,7 @@ workflow process_pol_cal {
             label, data, fcm, ra0, dec0, empty_binconfig, 0
         )
 
-        if( params.flagfile ) {
+        if( params.polflagfile ) {
             image = apply_flux_cal_solns(
                 fits, flux_cal_solns, params.flagfile, target, cpasspoly
             )
