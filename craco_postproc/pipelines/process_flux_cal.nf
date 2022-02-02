@@ -19,10 +19,10 @@ workflow process_flux_cal {
             label, data, fcm, ra, dec, empty_binconfig, 0
         )
 
-        if( params.fluxflagfile )
-            determine_flux_cal_solns(fits, params.fluxflagfile, target, cpasspoly)
-        else
-            println "Please write flagfile for $fits!"
+        println "If you haven't already, you will need to write a flagfile for"
+        println "$fits and provide it with --fluxflagfile"
+
+        determine_flux_cal_solns(fits, params.fluxflagfile, target, cpasspoly)
     emit:
         flux_cal_solns = determine_flux_cal_solns.out
 }
