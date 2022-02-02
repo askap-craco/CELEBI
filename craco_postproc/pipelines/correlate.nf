@@ -180,7 +180,7 @@ workflow correlate {
         // cards.combine(fpgas) kicks off an instance of process_time_step for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = process_time_step(
-            label, data, fcm, ra, dec, binconfig, startmjd, 
+            label, data, fcm, ra, dec, binconfig, 0, startmjd, 
             cards.combine(fpgas)
         )
         per_card_fits = difx2fits(correlated_data.collect())
