@@ -39,7 +39,8 @@ process subtract_rfi {
     
     script:
         """
-        touch rfi_subtracted.fits
+        #TODO: is the scale factor here a constant, or should it be calculated?
+        uvsubScaled.py $target_fits $rfi_fits 0.159380579 rfi_subtracted.fits
         """
 }
 
