@@ -1,10 +1,10 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate } from './correlate'
-include { beamform } from './beamform'
+include { correlate as correlate_polcal } from './correlate'
+include { beamform as beamform_polcal } from './beamform'
 include { apply_flux_cal_solns; determine_pol_cal_solns } from './calibration'
-include { localise } from './localise'
+include { localise as localise_polcal } from './localise'
 
 workflow process_pol_cal {
     take:
@@ -32,9 +32,9 @@ workflow process_pol_cal {
             image = apply_flux_cal_solns(
                 fits, flux_cal_solns, params.polflagfile, target, cpasspoly
             )
-            pos = localise(image)
+            pos = localise_polcal(image)
             empty_pol_cal_solns = create_empty_file("polcal.dat")
-            htr_data = beamform(
+            htr_data = beamform_polcal(
                 label, data, fcm, pos, flux_cal_solns, empty_pol_cal_solns,
                 num_ints, int_len, offset, dm, centre_freq
             )
