@@ -314,7 +314,10 @@ def parse_vcraft_hdr(hdrfile: str) -> dict:
             # Split line into a list with field name as first value
             line = line.split()
 
-            vals[line[0]] = line[1:]
+            if len(line) > 2:
+                vals[line[0]] = line[1:]
+            else:
+                vals[line[0]] = line[1]
 
     # special field: FREQS
     vals["FREQS"] = vals["FREQS"][0].split(",")
