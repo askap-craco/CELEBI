@@ -241,7 +241,7 @@ workflow beamform {
         startmjd = get_startmjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
         num_ants = get_num_ants(data)
-        antennas = create_range_channel(num_ants)
+        antennas = create_range_channel(num_ants.toInteger())
 
         // processing
         do_beamform(
