@@ -24,18 +24,17 @@ workflow process_pol_cal {
         centre_freq // val
 
     main:
-        empty_binconfig = create_empty_file("binconfig")
+        empty_file = create_empty_file("file")
         fits = correlate_polcal(
-            label, data, fcm, ra0, dec0, empty_binconfig, 0, polflagfile
+            label, data, fcm, ra0, dec0, empty_file, 0, polflagfile
         )
 
         image = apply_flux_cal_solns(
             fits, flux_cal_solns, polflagfile, target, cpasspoly
         )
         pos = localise_polcal(image)
-        empty_pol_cal_solns = create_empty_file("polcal.dat")
         htr_data = beamform_polcal(
-            label, data, fcm, pos, flux_cal_solns, empty_pol_cal_solns,
+            label, data, fcm, pos, flux_cal_solns, empty_file,
             num_ints, int_len, offset, dm, centre_freq
         )
         determine_pol_cal_solns(htr_data)           
