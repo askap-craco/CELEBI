@@ -140,7 +140,6 @@ def get_args() -> argparse.Namespace:
         "-p",
         "--polyco",
         help="Bin config file for pulsar gating",
-        required=True,
     )
     parser.add_argument(
         "-c",
@@ -176,7 +175,6 @@ def get_args() -> argparse.Namespace:
         "--snoopylog",
         help="Snoopy log file, default blank, if not default "
         "will use this to correlate on-pulse",
-        required=True,
     )
     parser.add_argument(
         "--slurm",
