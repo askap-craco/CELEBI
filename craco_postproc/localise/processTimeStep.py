@@ -437,8 +437,8 @@ def runCommand(command: str, log: str) -> int:
         outs, errs = proc.communicate()
         print(outs)
         print(errs)
-        log_file.write(outs)
-        log_file.write(errs)
+        log_file.write(str(outs))
+        log_file.write(str(errs))
 
     return proc.returncode
 
