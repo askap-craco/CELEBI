@@ -23,7 +23,7 @@ process generate_binconfig {
     script:
         """
         tmp_file=".TMP_\$BASHPID"
-        $baseDir/craftpy2/getGeocentricDelay.py $data_frb $snoopy > \$tmp_file
+        $baseDir/craftpy2/getGeocentricDelay.py $data $snoopy > \$tmp_file
 
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="$baseDir/craftpy2/\$sl2f_cmd"
