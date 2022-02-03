@@ -9,7 +9,7 @@ include { apply_flux_cal_solns as apply_flux_cal_solns_gate;
 include { localise as localise_frb; apply_offset } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
-beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$baseDir/../localise/"
 
 process generate_binconfig {
     input:
@@ -25,7 +25,7 @@ process generate_binconfig {
     script:
         """
         tmp_file=".TMP_\$BASHPID"
-        $beamform_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
+        $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
 
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="$baseDir/craftpy2/\$sl2f_cmd"
