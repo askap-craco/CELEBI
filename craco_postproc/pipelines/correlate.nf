@@ -81,7 +81,7 @@ process process_time_step {
     args="\$args -d$dec"
     args="\$args --card $card"
     args="\$args --freqlabel c${card}_f${fpga}"
-    args="\$args --dir=$baseDir/difx"
+    args="\$args --dir=$baseDir/../difx"
     args="\$args --startmjd=$startmjd"
 
     # Only use binconfig if it's not empty
