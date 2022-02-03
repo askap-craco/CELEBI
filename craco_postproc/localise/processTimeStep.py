@@ -13,7 +13,10 @@ def _main():
 
     # A few useful paths
     datadir = os.path.abspath(args.timestep)
-    polyco = os.path.abspath(args.polyco)
+    if args.polyco:
+        polyco = os.path.abspath(args.polyco)
+    else:
+        polyco = None
     fcm = os.path.abspath(args.fcm)
     topdir = os.getcwd()
 
@@ -22,10 +25,7 @@ def _main():
         os.mkdir(outdir)
     os.chdir(outdir)
 
-    bins = get_nbins(polyco)
-
     beamdirs = find_vcraft(datadir, beam=args.beam, card=args.card)
-    npol = len(beamdirs)
 
     # select specific card/FPGA to process and process it
     freqlabel = args.freqlabel
