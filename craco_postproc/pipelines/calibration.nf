@@ -1,7 +1,7 @@
 process determine_flux_cal_solns {
     input:
         path cal_fits
-        path flagfile
+        val flagfile
         val target
         val cpasspoly
 
@@ -27,7 +27,7 @@ process apply_flux_cal_solns {
     input:
         path target_fits
         path cal_solns
-        path flagfile
+        val flagfile
         val target
         val cpasspoly
 

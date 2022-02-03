@@ -12,17 +12,15 @@ workflow process_flux_cal {
         fcm // val
         ra  // val
         dec // val
+        fluxflagfile    // val
         cpasspoly   // val
     main:
         empty_binconfig = create_empty_file("binconfig")
         fits = correlate_fluxcal(
-            label, data, fcm, ra, dec, empty_binconfig, 0
+            label, data, fcm, ra, dec, empty_binconfig, 0, fluxflagfile
         )
 
-        println "If you haven't already, you will need to write a flagfile for"
-        println "$fits and provide it with --fluxflagfile"
-
-        determine_flux_cal_solns(fits, params.fluxflagfile, target, cpasspoly)
+        determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly)
     emit:
         flux_cal_solns = determine_flux_cal_solns.out
 }

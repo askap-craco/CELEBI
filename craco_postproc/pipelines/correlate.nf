@@ -147,22 +147,28 @@ process loadfits {
     input:
     val label
     path per_card_fits
+    val flagfile
 
     output:
     path "${label}.fits"
 
-    """
-    antlist=`ls -d $label/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
+    script:
+        """
+        antlist=`ls -d $label/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
 
-    args="-u 1"
-    args="\$args --antlist=\$antlist"
-    args="\$args -s 27"
-    args="\$args -f ${label}.fits"
-    args="\$args -o $label"
-    args="\$args CRAFT_CARD?.FITS"
+        args="-u 1"
+        args="\$args --antlist=\$antlist"
+        args="\$args -s 27"
+        args="\$args -f ${label}.fits"
+        args="\$args -o $label"
+        args="\$args CRAFT_CARD?.FITS"
 
-    loadfits.py \$args
-    """
+        loadfits.py \$args
+
+        if [ "$flagfile" == "" ]; then
+            echo "You now need to write the flagfile for ${label}.fits!"
+            exit 2
+        """
 }
 
 process subtract_rfi {
@@ -189,6 +195,8 @@ workflow correlate {
         dec // val
         binconfig   // path
         inttime // val
+        flagfile    // val
+
     main:
         startmjd = get_startmjd(data)
 
@@ -200,7 +208,7 @@ workflow correlate {
         )
         per_card_fits = difx2fits(correlated_data.collect())
 
-        loadfits(label, per_card_fits)
+        loadfits(label, per_card_fits, flagfile)
     
     emit:
         fits = loadfits.out

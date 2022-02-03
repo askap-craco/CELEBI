@@ -17,6 +17,9 @@ params.num_ints_frb = 1
 params.int_len_frb = 44000
 params.offset_frb = 0
 
+params.fluxflagfile = ""
+params.polflagfile = ""
+
 workflow {
     flux_cal_solns = process_flux_cal(
         "${params.label}_fluxcal",
@@ -25,6 +28,7 @@ workflow {
         params.fcm,
         params.ra_fluxcal,
         params.dec_fluxcal,
+        params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
     pol_cal_solns = process_pol_cal(
@@ -34,6 +38,7 @@ workflow {
         params.fcm,
         params.ra_polcal,
         params.dec_polcal,
+        params.polflagfile,
         params.cpasspoly_polcal,
         flux_cal_solns,
         params.num_ints_polcal,
@@ -47,8 +52,8 @@ workflow {
         params.data_frb,
         params.snoopy,
         params.fcm,
-        params.ra0,
-        params.dec0,
+        params.ra_frb,
+        params.dec_frb,
         flux_cal_solns,
         pol_cal_solns,
         params.cpasspoly_frb,

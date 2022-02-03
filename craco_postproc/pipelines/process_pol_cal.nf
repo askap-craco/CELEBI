@@ -14,6 +14,7 @@ workflow process_pol_cal {
         fcm // val
         ra0 // val
         dec0    // val
+        polflagfile // val
         cpasspoly   // val
         flux_cal_solns  // path
         num_ints    // val
@@ -24,15 +25,12 @@ workflow process_pol_cal {
 
     main:
         empty_binconfig = create_empty_file("binconfig")
-        fits = correlate(
-            label, data, fcm, ra0, dec0, empty_binconfig, 0
+        fits = correlate_polcal(
+            label, data, fcm, ra0, dec0, empty_binconfig, 0, polflagfile
         )
 
-        println "If you haven't already, you will need to write a flagfile for"
-        println "$fits and provide it with --polflagfile"
-
         image = apply_flux_cal_solns(
-            fits, flux_cal_solns, params.polflagfile, target, cpasspoly
+            fits, flux_cal_solns, polflagfile, target, cpasspoly
         )
         pos = localise_polcal(image)
         empty_pol_cal_solns = create_empty_file("polcal.dat")

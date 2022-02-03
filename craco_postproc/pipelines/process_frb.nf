@@ -53,14 +53,14 @@ workflow process_frb {
         binconfigs = generate_binconfig(data, snoopy)
 
         gate_fits = correlate_gate(
-            "${label}_gate", data, fcm, ra0, dec0, binconfigs.gate, binconfigs.int_time
+            "${label}_gate", data, fcm, ra0, dec0, binconfigs.gate, binconfigs.int_time, "N/A"
         )
         rfi_fits = correlate_rfi(
-            "${label}_rfi", data, fcm, ra0, dec0, binconfigs.rfi, binconfigs.int_time
+            "${label}_rfi", data, fcm, ra0, dec0, binconfigs.rfi, binconfigs.int_time, "N/A"
         )
         empty_file = create_empty_file("file")
         field_fits = correlate_field(
-            "${label}_field", data, fcm, ra0, dec0, empty_file, 0
+            "${label}_field", data, fcm, ra0, dec0, empty_file, 0, "N/A"
         )
 
         no_rfi_gate_fits = subtract_rfi_gate(gate_fits, rfi_fits)
