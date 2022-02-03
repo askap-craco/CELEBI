@@ -8,6 +8,8 @@ cards = Channel.fromList(params.cards)
 params.fpgas = ["0", "1", "2", "3", "4", "5"]
 fpgas = Channel.fromList(params.fpgas)
 
+localise_dir = "$baseDir/../localise/"
+
 process get_startmjd {
     /*******************************************************************
     Find the start time of the data by finding the earliest listed 
@@ -26,7 +28,7 @@ process get_startmjd {
     stdout
 
     """
-    python $params.localise_dir/get_start_mjd.py $data
+    python $localise_dir/get_start_mjd.py $data
     """
 }
 
@@ -92,7 +94,7 @@ process process_time_step {
         args="\$args -i $inttime"
     fi
 
-    $params.localise_dir/processTimeStep.py \$args
+    $localise_dir/processTimeStep.py \$args
     """
 }
 
