@@ -3,7 +3,7 @@ process create_empty_file {
         val filename
 
     output: 
-        path $filename
+        path "$filename"
 
     script:
         """
