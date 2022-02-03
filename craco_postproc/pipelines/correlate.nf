@@ -26,7 +26,7 @@ process get_startmjd {
     stdout
 
     """
-    python $baseDir/../localise/get_start_mjd.py $data
+    python $params.localise_dir/get_start_mjd.py $data
     """
 }
 
@@ -92,7 +92,7 @@ process process_time_step {
         args="\$args -i $inttime"
     fi
 
-    $baseDir/craco-postproc/localise/processTimeStep.py \$args
+    $params.localise_dir/processTimeStep.py \$args
     """
 }
 

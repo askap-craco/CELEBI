@@ -20,6 +20,9 @@ params.offset_frb = 0
 params.fluxflagfile = ""
 params.polflagfile = ""
 
+params.localise_dir = "$baseDir/../localise/"
+params.beamform_dir = "$baseDir/../beamform/"
+
 workflow {
     flux_cal_solns = process_flux_cal(
         "${params.label}_fluxcal",

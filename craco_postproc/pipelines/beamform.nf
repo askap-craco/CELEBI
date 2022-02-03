@@ -34,11 +34,11 @@ process create_calcfiles {
         args="\$args --name=$label"
         args="\$args -o ."
         args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$baseDir/difx"
+        args="\$args --dir=$params.beamform_dir/difx"
         args="\$args --calconly"
         args="\$args --startmjd \$startmjd"
 
-        $baseDir/craftpy2/processTimeStep.py \$args
+        $params.localise_dir/processTimeStep.py \$args
         """    
 }
 
@@ -85,8 +85,7 @@ process do_beamform {
             args="\$args --hwfile $params.hwfile"
         fi
 
-        echo "python $sourceDir/craftcor_tab.py \$args"
-        python $sourceDir/craftcor_tab.py \$args
+        python $params.beamform_dir/craftcor_tab.py \$args
         """
 }
 
@@ -105,7 +104,7 @@ process sum {
         args="\$args -p $pol"
         args="\$args -o ${label}_frb_sum_${pol}_f.npy"
 
-        python3 $sourceDir/sum.py \$args
+        python3 $params.beamform_dir/sum.py \$args
         """
 }
 
@@ -130,16 +129,16 @@ process deripple {
 
     fftlen=\$(( $int_len * 64 ))
 
-    if [ ! -d $baseDir/.deripple_coeffs ]; then
-        mkdir $baseDir/.deripple_coeffs
+    if [ ! -d $params.beamform_dir/.deripple_coeffs ]; then
+        mkdir $params.beamform_dir/.deripple_coeffs
     fi
 
     args="-f $spectrum"
     args="\$args -l \$fftlen"
     args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
-    args="\$args -c $baseDir/.deripple_coeffs"
+    args="\$args -c $params.beamform_dir/.deripple_coeffs"
 
-    python $sourceDir/deripple.py \$args
+    python $params.beamform_dir/deripple.py \$args
     """
 }
 
@@ -171,7 +170,7 @@ process dedisperse {
         args="\$args --bw 336"
         args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed.npy"
 
-        python3 $sourceDir/dedisperse.py \$args
+        python3 $params.beamform_dir/dedisperse.py \$args
         """
 }
 
@@ -187,7 +186,7 @@ process ifft {
     args="-f $spectrum"
     args="\$args -o ${label}_frb_sum_${pol}_t.npy"
 
-    python3 $sourceDir/ifft.py \$args
+    python3 $params.beamform_dir/ifft.py \$args
     """
 }
 
@@ -214,7 +213,7 @@ process generate_dynspecs {
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
 
-    python3 $sourceDir/dynspecs.py \$args
+    python3 $params.beamform_dir/dynspecs.py \$args
 
     tar -czvhf ${label}_frb_fulltimeres.tar.gz *.npy
     """
