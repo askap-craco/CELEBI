@@ -413,7 +413,7 @@ def create_v2oargs(
 
     for beamdir in beamdirs:
         beamname = os.path.basename(beamdir)
-        v2oargs += f'"{datadir}/ak*/{beamname}/*{args.freqlabel}*vcraft"'
+        v2oargs += f' "{datadir}/ak*/{beamname}/*{args.freqlabel}*vcraft"'
 
     return v2oargs
 
