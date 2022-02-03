@@ -259,13 +259,13 @@ def verify_args(
             f"Target directory (timestep) {args.timestep} doesn't exist"
         )
 
-    if not os.path.exists(args.snoopylog):
+    if args.snoopylog and not os.path.exists(args.snoopylog):
         parser.error(f"Snoopy log file {args.snoopylog} doesn't exist")
 
     if not os.path.exists(args.fcm):
         parser.error(f"{args.fcm} doesn't exist")
 
-    if not os.path.exists(args.polyco):
+    if args.polyco and not os.path.exists(args.polyco):
         parser.error(f"binconfig file {args.polyco} does not exist")
 
 
