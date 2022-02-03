@@ -26,7 +26,7 @@ process get_startmjd {
     stdout
 
     """
-    python $baseDir/scripts/get_start_mjd.py $data
+    python $baseDir/../localise/get_start_mjd.py $data
     """
 }
 
