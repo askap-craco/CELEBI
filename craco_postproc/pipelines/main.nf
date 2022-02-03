@@ -4,9 +4,18 @@ include { process_flux_cal } from './process_flux_cal'
 include { process_pol_cal } from './process_pol_cal'
 include { process_frb } from './process_frb'
 
+// Defaults
 params.cpasspoly_fluxcal = 5
 params.cpasspoly_polcal = 5
 params.cpasspoly_frb = 5
+
+params.num_ints_polcal = 1
+params.int_len_polcal = 44000
+params.offset_polcal = 0
+
+params.num_ints_frb = 1
+params.int_len_frb = 44000
+params.offset_frb = 0
 
 workflow {
     flux_cal_solns = process_flux_cal(
