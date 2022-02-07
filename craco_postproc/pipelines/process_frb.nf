@@ -28,7 +28,7 @@ process generate_binconfig {
         $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
 
         sl2f_cmd=`tail -1 \$tmp_file`
-        sl2f_cmd="$baseDir/craftpy2/\$sl2f_cmd"
+        sl2f_cmd="$localise_dir/\$sl2f_cmd"
         \$sl2f_cmd > sl2f.out
         int_time=`cat sl2f.out`
         """
