@@ -106,7 +106,8 @@ def _main():
         args,
         startseries,
         eoplines,
-        framesize
+        framesize,
+        args.bits
     )
 
     # Run updateFreqs
