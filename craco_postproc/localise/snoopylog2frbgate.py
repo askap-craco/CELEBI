@@ -249,7 +249,7 @@ def write_polyco(
         )
         polycoout.close()
 
-    return f"{os.cwd}/craftfrb.polyco"
+    return f"{os.curdir}/craftfrb.polyco"
 
 
 def write_binconfig(
