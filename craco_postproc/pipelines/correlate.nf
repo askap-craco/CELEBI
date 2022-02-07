@@ -121,7 +121,7 @@ process difx2fits {
         D2Ds=""
         dirs=`find c\$c* 2> /dev/null`
         for d in \$dirs; do
-           D2Dinput=`ls \$dir/*D2D.input`
+           D2Dinput=`ls \$d/*D2D.input`
            D2Ds="\$D2Ds \$D2Dinput"
         done
         difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
