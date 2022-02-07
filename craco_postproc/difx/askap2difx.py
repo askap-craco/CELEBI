@@ -6,7 +6,6 @@ import os
 import sys
 
 from astropy.time import Time
-from six import chr
 
 
 def _main():
