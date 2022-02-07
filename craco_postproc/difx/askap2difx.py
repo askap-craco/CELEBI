@@ -106,6 +106,7 @@ def _main():
         args,
         startseries,
         eoplines,
+        framesize
     )
 
     # Run updateFreqs
@@ -696,6 +697,8 @@ def writev2dfile(
     polyco,
     npol,
     startseries,
+    framesize,
+    bits
 ):
     if fpga is not None:
         fpga_delay = getFPGAdelays(fpga)
@@ -804,7 +807,7 @@ exhaustiveAutocorrs = True
     v2dout.write(f"  nChan =  {nchan}\n")
     v2dout.write("  doPolar = True # Full stokes\n")
     if polyco is not None:
-        v2dout.write(f"  binConfig = {args.polyco} # Pulsar Setup\n")
+        v2dout.write(f"  binConfig = {polyco} # Pulsar Setup\n")
     v2dout.write("}\n")
     v2dout.write("\n")
     v2dout.write(
@@ -944,6 +947,8 @@ def write_v2d(
     args: argparse.Namespace,
     startseries: int,
     eoplines: list,
+    framesize,
+    bits
 ) -> None:
     """Write the craftfrb.v2d file
 
@@ -976,6 +981,8 @@ def write_v2d(
         args.polyco,
         args.npol,
         startseries,
+        framesize,
+        bits
     )
     for line in eoplines:
         if "xPole" in line or "downloaded" in line:
