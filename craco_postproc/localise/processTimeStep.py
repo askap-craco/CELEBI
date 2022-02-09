@@ -435,8 +435,8 @@ def runCommand(command: str, log: str) -> int:
 
     with open(log, "w") as log_file:
         outs, errs = proc.communicate()
-        print(outs)
-        print(errs)
+        print(outs.decode("utf-8"))
+        print(errs.decode("utf-8"))
         log_file.write(outs.decode("utf-8"))
         log_file.write(errs.decode("utf-8"))
 
