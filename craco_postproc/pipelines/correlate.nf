@@ -54,6 +54,8 @@ process process_time_step {
         completed or not, since the correlated_data directory will exist
         even if the process has started without completing.
     *******************************************************************/
+    cpus 5
+    
     input:
     val label
     val data
@@ -83,6 +85,7 @@ process process_time_step {
     args="\$args --freqlabel c${card}_f${fpga}"
     args="\$args --dir=$baseDir/../difx"
     args="\$args --startmjd=$startmjd"
+    args="\$args --ts=5"
 
     # Only use binconfig if it's not empty
     if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
