@@ -150,6 +150,7 @@ process loadfits {
         A single FITS file containing data across all cards processed
     *******************************************************************/
     input:
+    val data
     val label
     path per_card_fits
     val flagfile
@@ -159,7 +160,7 @@ process loadfits {
 
     script:
         """
-        antlist=`ls -d $label/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
+        antlist=`ls -d $data/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
 
         args="-u 1"
         args="\$args --antlist=\$antlist"
@@ -214,7 +215,7 @@ workflow correlate {
         )
         per_card_fits = difx2fits(correlated_data.collect())
 
-        loadfits(label, per_card_fits, flagfile)
+        loadfits(data, label, per_card_fits, flagfile)
     
     emit:
         fits = loadfits.out
