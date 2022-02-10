@@ -1,3 +1,28 @@
+localise_dir = "$baseDir/../localise/"
+
+process generate_binconfig {
+    input:
+        val data
+        path snoopy
+
+    output:
+        path "craftfrb.gate.binconfig", emit: gate
+        path "craftfrb.rfi.binconfig", emit: rfi
+        path "craftfrb.polyco", emit: polyco
+        env int_time, emit: int_time
+
+    script:
+        """
+        tmp_file=".TMP_\$BASHPID"
+        $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
+
+        sl2f_cmd=`tail -1 \$tmp_file`
+        sl2f_cmd="$localise_dir/\$sl2f_cmd"
+        \$sl2f_cmd > sl2f.out
+        int_time=`cat sl2f.out`
+        """
+}
+
 process localise {
     input:
         path image

@@ -199,6 +199,7 @@ workflow correlate {
         ra  // val
         dec // val
         binconfig   // path
+        polyco  // path
         inttime // val
         flagfile    // val
 

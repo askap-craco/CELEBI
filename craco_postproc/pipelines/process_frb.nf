@@ -9,36 +9,14 @@ include { apply_flux_cal_solns as apply_flux_cal_solns_gate;
 include { localise as localise_frb; apply_offset } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
-localise_dir = "$baseDir/../localise/"
-
-process generate_binconfig {
-    input:
-        val data
-        path snoopy
-
-    output:
-        path "craftfrb.gate.binconfig", emit: gate
-        path "craftfrb.rfi.binconfig", emit: rfi
-        path "craftfrb.polyco", emit: polyco
-        env int_time, emit: int_time
-
-    script:
-        """
-        tmp_file=".TMP_\$BASHPID"
-        $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
-
-        sl2f_cmd=`tail -1 \$tmp_file`
-        sl2f_cmd="$localise_dir/\$sl2f_cmd"
-        \$sl2f_cmd > sl2f.out
-        int_time=`cat sl2f.out`
-        """
-}
-
 workflow process_frb {
     take:
         label   // val
         data    // val
-        snoopy  // path
+        binconfig_gate  // val
+        binconfig_rfi   // val
+        polyco  // val
+        int_time    // val
         fcm // val
         ra0 // val
         dec0    // val
@@ -52,17 +30,15 @@ workflow process_frb {
         centre_freq // val
 
     main:
-        binconfigs = generate_binconfig(data, snoopy)
-
         gate_fits = correlate_gate(
-            "${label}_gate", data, fcm, ra0, dec0, binconfigs.gate, binconfigs.int_time, "N/A"
+            "${label}_gate", data, fcm, ra0, dec0, binconfig_gate, polyco, int_time, "N/A"
         )
         rfi_fits = correlate_rfi(
-            "${label}_rfi", data, fcm, ra0, dec0, binconfigs.rfi, binconfigs.int_time, "N/A"
+            "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A"
         )
         empty_file = create_empty_file("file")
         field_fits = correlate_field(
-            "${label}_field", data, fcm, ra0, dec0, empty_file, 0, "N/A"
+            "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A"
         )
 
         no_rfi_gate_fits = subtract_rfi_gate(gate_fits, rfi_fits)
