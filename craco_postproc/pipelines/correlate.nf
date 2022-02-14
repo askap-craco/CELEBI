@@ -68,7 +68,8 @@ process process_time_step {
     tuple val(card), val(fpga)
 
     output:
-    path "c${card}_f${fpga}"
+    path "c${card}_f${fpga}", emit: cx_fy
+    path "c${card}_f${fpga}/*D2D.input"
 
     """
     export CRAFTCATDIR="."  # necessary?
@@ -213,7 +214,7 @@ workflow correlate {
             label, data, fcm, ra, dec, binconfig, 0, startmjd, 
             cards.combine(fpgas)
         )
-        per_card_fits = difx2fits(correlated_data.collect())
+        per_card_fits = difx2fits(correlated_data.cx_fy.collect())
 
         loadfits(data, label, per_card_fits, flagfile)
     
