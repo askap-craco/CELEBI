@@ -84,10 +84,14 @@ process process_time_step {
     args="\$args --ra $ra"
     args="\$args -d$dec"
     args="\$args --card $card"
-    args="\$args --freqlabel c${card}_f${fpga}"
+    freqlabel="c${card}_f${fpga}"
+    args="\$args --freqlabel \$freqlabel"
     args="\$args --dir=$baseDir/../difx"
     args="\$args --startmjd=$startmjd"
     args="\$args --ts=5"
+
+    mkdir \$freqlabel
+    cp craftfrb.polyco \$freqlabel
 
     # Only use binconfig if it's not empty
     if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
