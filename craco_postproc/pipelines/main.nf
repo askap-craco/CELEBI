@@ -54,7 +54,7 @@ workflow {
     process_frb(
         params.label,
         params.data_frb,
-        binconfig.gate,
+        binconfig.finder,
         binconfig.rfi,
         binconfig.polyco,
         binconfig.int_time,

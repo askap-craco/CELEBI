@@ -1,10 +1,10 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate as correlate_gate; correlate as correlate_rfi;
-    correlate as correlate_field; subtract_rfi as subtract_rfi_gate;
+include { correlate as correlate_finder; correlate as correlate_rfi;
+    correlate as correlate_field; subtract_rfi as subtract_rfi_finder;
     subtract_rfi as subtract_rfi_field } from './correlate'
-include { apply_flux_cal_solns as apply_flux_cal_solns_gate;
+include { apply_flux_cal_solns as apply_flux_cal_solns_finder;
     apply_flux_cal_solns as apply_flux_cal_solns_field } from './calibration'
 include { localise as localise_frb; apply_offset } from './localise'
 include { beamform as beamform_frb } from './beamform'
@@ -13,7 +13,7 @@ workflow process_frb {
     take:
         label   // val
         data    // val
-        binconfig_gate  // val
+        binconfig_finder  // val
         binconfig_rfi   // val
         polyco  // val
         int_time    // val
@@ -30,8 +30,8 @@ workflow process_frb {
         centre_freq // val
 
     main:
-        gate_fits = correlate_gate(
-            "${label}_gate", data, fcm, ra0, dec0, binconfig_gate, polyco, int_time, "N/A"
+        finder_fits = correlate_finder(
+            "${label}_finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A"
         )
         rfi_fits = correlate_rfi(
             "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A"
@@ -41,17 +41,17 @@ workflow process_frb {
             "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A"
         )
 
-        no_rfi_gate_fits = subtract_rfi_gate(gate_fits, rfi_fits)
+        no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits)
         no_rfi_field_fits = subtract_rfi_field(field_fits, rfi_fits)
 
-        gate_image = apply_flux_cal_solns_gate(
-            no_rfi_gate_fits, flux_cal_solns, empty_file, label, cpasspoly
+        finder_image = apply_flux_cal_solns_finder(
+            no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly
         )
         field_image = apply_flux_cal_solns_field(
             no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly
         )
 
-        askap_frb_pos = localise_frb(gate_image)
+        askap_frb_pos = localise_frb(finder_image)
         apply_offset(field_image, askap_frb_pos)
 
         beamform_frb(

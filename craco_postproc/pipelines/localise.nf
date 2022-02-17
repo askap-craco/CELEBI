@@ -6,7 +6,7 @@ process generate_binconfig {
         path snoopy
 
     output:
-        path "craftfrb.gate.binconfig", emit: gate
+        path "craftfrb.finder.binconfig", emit: finder
         path "craftfrb.rfi.binconfig", emit: rfi
         path "craftfrb.polyco", emit: polyco
         env int_time, emit: int_time
