@@ -54,7 +54,7 @@ process process_time_step {
         completed or not, since the correlated_data directory will exist
         even if the process has started without completing.
     *******************************************************************/
-    cpus 5
+    cpus 15
     
     input:
     val label
