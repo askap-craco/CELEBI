@@ -168,6 +168,9 @@ process loadfits {
         """
         antlist=`ls -d $data/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
 
+        label=$label
+        label=\${label:0:12}    # Truncate label to fit in AIPS
+
         args="-u 1"
         args="\$args --antlist=\$antlist"
         args="\$args -s 27"
