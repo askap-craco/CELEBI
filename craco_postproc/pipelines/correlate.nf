@@ -175,7 +175,7 @@ process loadfits {
         args="\$args --antlist=\$antlist"
         args="\$args -s 27"
         args="\$args -f ${label}.fits"
-        args="\$args -o $label"
+        args="\$args -o \$label"
         args="\$args CRAFT_CARD?.FITS"
 
         loadfits.py \$args
