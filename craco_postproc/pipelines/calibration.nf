@@ -10,6 +10,11 @@ process determine_flux_cal_solns {
 
     script:
         """
+        if [ "$flagfile" == "" ]; then
+            echo "You now need to write the flagfile for ${cal_fits} and provide it with --fluxflagfile!"
+            exit 2
+        fi        
+
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
@@ -36,6 +41,10 @@ process apply_flux_cal_solns {
 
     script:
         """
+        if [ "$flagfile" == "" ]; then
+            echo "You now need to write the flagfile for ${target_fits} and provide it with --polflagfile!"
+            exit 2
+        fi    
         tar -xzvf $cal_solns
 
         args="--targetonly"

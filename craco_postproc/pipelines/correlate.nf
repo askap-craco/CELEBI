@@ -179,11 +179,6 @@ process loadfits {
         args="\$args CRAFT_CARD?.FITS"
 
         loadfits.py \$args
-
-        if [ "$flagfile" == "" ]; then
-            echo "You now need to write the flagfile for ${label}.fits!"
-            exit 2
-        fi
         """
 }
 
