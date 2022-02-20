@@ -183,6 +183,7 @@ process loadfits {
         if [ "$flagfile" == "" ]; then
             echo "You now need to write the flagfile for ${label}.fits!"
             exit 2
+        fi
         """
 }
 
