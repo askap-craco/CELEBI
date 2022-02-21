@@ -121,7 +121,7 @@ process difx2fits {
     *******************************************************************/
     input:
     path correlated_data
-    path polyco, stageAs "craftfrb.polyco"
+    path polyco, stageAs: "craftfrb.polyco"
 
     output:
     path "*.FITS"
