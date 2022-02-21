@@ -38,7 +38,7 @@ def _main():
 
     # Gate binconfig
     gatebinedges, gateweights = calc_gate_bins(
-        cand, args.timediff, polycorefmjd
+        cand, timediffsec, polycorefmjd
     )
     write_binconfig(
         "craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights
@@ -311,7 +311,7 @@ def calc_gate_bins(
     :type cand: list[str]
     :param timediff: The time difference between the VCRAFT and snoopy
         log arrival times for the pulse, including geometric delay, in
-        ms
+        s
     :type timediff: float
     :param polycorefmjd: Polyco reference time in MJD
     :type polycorefmjd: float
@@ -328,10 +328,10 @@ def calc_gate_bins(
         gatestartmjd + (pulsewidthms + 200) / 86400000.0
     )  # pulse width is in ms at this point
     gatestartphase = (
-        86400.0 * (gatestartmjd - polycorefmjd) + timediff * 1e3
+        86400.0 * (gatestartmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod
     gateendphase = (
-        86400.0 * (gateendmjd - polycorefmjd) + timediff * 1e3
+        86400.0 * (gateendmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod
 
     binedges = [gatestartphase, gateendphase]
