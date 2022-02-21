@@ -121,6 +121,7 @@ process difx2fits {
     *******************************************************************/
     input:
     path correlated_data
+    path polyco, stageAs "craftfrb.polyco"
 
     output:
     path "*.FITS"
@@ -218,7 +219,7 @@ workflow correlate {
             label, data, fcm, ra, dec, binconfig, polyco, 0, startmjd, 
             cards.combine(fpgas)
         )
-        per_card_fits = difx2fits(correlated_data.cx_fy.collect())
+        per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco)
 
         loadfits(data, label, per_card_fits, flagfile)
     
