@@ -190,7 +190,7 @@ process subtract_rfi {
     input:
         path target_fits
         path rfi_fits
-        value dummy // only exists to force field to wait for finder
+        val dummy // only exists to force field to wait for finder
     
     output:
         path "rfi_subtracted.fits"
