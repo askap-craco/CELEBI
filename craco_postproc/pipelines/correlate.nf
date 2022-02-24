@@ -179,6 +179,7 @@ process loadfits {
         args="\$args -o \$label"
         args="\$args CRAFT_CARD?.FITS"
 
+        echo "loadfits.py \$args"
         loadfits.py \$args
         """
 }
