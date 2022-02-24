@@ -172,7 +172,7 @@ process loadfits {
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
 
-        args="-u \${BASHPID: -5}"   // get randomly-generated user id
+        args="-u \${BASHPID: -5}"   # get randomly-generated user id
         args="\$args --antlist=\$antlist"
         args="\$args -s 27"
         args="\$args -f ${label}.fits"
