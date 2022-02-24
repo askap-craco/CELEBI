@@ -129,14 +129,16 @@ process difx2fits {
     """
     for c in `seq 1 7`; do
         D2Ds=""
-        dirs=`find c\$c* 2> /dev/null`
-        for d in \$dirs; do
-           D2Dinput=`ls \$d/*D2D.input`
-           D2Ds="\$D2Ds \$D2Dinput"
-        done
-        difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
-        echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-        echo "mv CRAFTFR.0.bin0000.source0000.FITS CRAFT_CARD\$c.FITS" >> runalldifx2fits
+        if find c\$c*; then
+            dirs=`find c\$c* 2> /dev/null`
+            for d in \$dirs; do
+                D2Dinput=`ls \$d/*D2D.input`
+                D2Ds="\$D2Ds \$D2Dinput"
+            done
+            difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
+            echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
+            echo "mv CRAFTFR.0.bin0000.source0000.FITS CRAFT_CARD\$c.FITS" >> runalldifx2fits
+        fi
     done
     chmod 775 runalldifx2fits
     ./runalldifx2fits
