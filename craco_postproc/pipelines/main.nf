@@ -34,23 +34,23 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    pol_cal_solns = process_pol_cal(
-        "${params.label}_polcal",
-        params.label,
-        params.data_polcal,
-        binconfig.polyco,
-        params.fcm,
-        params.ra_polcal,
-        params.dec_polcal,
-        params.polflagfile,
-        params.cpasspoly_polcal,
-        flux_cal_solns,
-        params.num_ints_polcal,
-        params.int_len_polcal,
-        params.offset_polcal,
-        params.dm_polcal,
-        params.centre_freq_polcal
-    )
+    // pol_cal_solns = process_pol_cal(
+    //     "${params.label}_polcal",
+    //     params.label,
+    //     params.data_polcal,
+    //     binconfig.polyco,
+    //     params.fcm,
+    //     params.ra_polcal,
+    //     params.dec_polcal,
+    //     params.polflagfile,
+    //     params.cpasspoly_polcal,
+    //     flux_cal_solns,
+    //     params.num_ints_polcal,
+    //     params.int_len_polcal,
+    //     params.offset_polcal,
+    //     params.dm_polcal,
+    //     params.centre_freq_polcal
+    // )
     process_frb(
         params.label,
         params.data_frb,
@@ -62,7 +62,7 @@ workflow {
         params.ra_frb,
         params.dec_frb,
         flux_cal_solns,
-        pol_cal_solns,
+        // pol_cal_solns,
         params.cpasspoly_frb,
         params.num_ints_frb,
         params.int_len_frb,

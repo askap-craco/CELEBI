@@ -21,7 +21,7 @@ workflow process_frb {
         ra0 // val
         dec0    // val
         flux_cal_solns  // path
-        pol_cal_solns // path
+        // pol_cal_solns // path
         cpasspoly   // val
         num_ints    // val
         int_len // val
@@ -51,15 +51,15 @@ workflow process_frb {
             no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly
         )
 
-        askap_frb_pos = localise_frb(finder_image)
-        apply_offset(field_image, askap_frb_pos)
+        // askap_frb_pos = localise_frb(finder_image)
+        // apply_offset(field_image, askap_frb_pos)
 
-        beamform_frb(
-            label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-            num_ints, int_len, offset, dm, centre_freq
-        )
+        // beamform_frb(
+        //     label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
+        //     num_ints, int_len, offset, dm, centre_freq
+        // )
 
-    emit:
-        true_pos = apply_offset.out
-        frb_htr_data = beamform_frb.out
+    // emit:
+        // true_pos = apply_offset.out
+        // frb_htr_data = beamform_frb.out
 }
