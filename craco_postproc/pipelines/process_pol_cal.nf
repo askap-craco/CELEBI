@@ -31,7 +31,7 @@ workflow process_pol_cal {
         )
 
         image = apply_flux_cal_solns(
-            fits, flux_cal_solns, polflagfile, target, cpasspoly
+            fits, flux_cal_solns, polflagfile, target, cpasspoly, ""
         )
         pos = localise_polcal(image)
         htr_data = beamform_polcal(

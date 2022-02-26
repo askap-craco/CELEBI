@@ -45,10 +45,10 @@ workflow process_frb {
         no_rfi_field_fits = subtract_rfi_field(field_fits, rfi_fits, no_rfi_finder_fits)
 
         finder_image = apply_flux_cal_solns_finder(
-            no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly
+            no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly, ""
         )
         field_image = apply_flux_cal_solns_field(
-            no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly
+            no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly, finder_image
         )
 
         // askap_frb_pos = localise_frb(finder_image)

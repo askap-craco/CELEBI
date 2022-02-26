@@ -35,6 +35,7 @@ process apply_flux_cal_solns {
         val flagfile
         val target
         val cpasspoly
+        val dummy   // so we can force only one instance to go at a time
 
     output:
         path "*.image"
