@@ -67,8 +67,8 @@ def _main():
     selfcalsnfname = os.path.abspath(
         f"selfcal_{xpol}_{args.src}.sn.txt"
     )
-    xpolsnfname = os.path.abspath(f"xpolfring{xpol}{args.src}.sn.txt")
-    bptableplotfname = os.path.abspath(f"bptable{xpol}{args.src}.ps")
+    xpolsnfname = os.path.abspath(f"xpolfring_{xpol}_{args.src}.sn.txt")
+    bptableplotfname = os.path.abspath(f"bptable_{xpol}_{args.src}.ps")
     uncalxcorplotfname = os.path.abspath(
         f"uncalxcor_{xpol}_{args.src}.ps"
     )
@@ -255,7 +255,7 @@ def _main():
             "cell": f"{pxsize}arcsec",
             "phasecenter": phasecenter,
             "gridder": "widefield",
-            "wprojplanes": -1,
+            "wprojplanes": 1024,
             "pblimit": -1,
             "deconvolver": "multiscale",
             "weighting": "natural",
@@ -700,14 +700,14 @@ def validate_soln_files(
         missingfiles.append(fringsnfname)
     if not os.path.exists(selfcalsnfname):
         missingfiles.append(selfcalsnfname)
-    if not os.path.exists(xpolsnfname):
-        missingfiles.append(xpolsnfname)
+    # if not os.path.exists(xpolsnfname):   Not actually necessary?
+    #     missingfiles.append(xpolsnfname)
     if len(missingfiles) > 0:
         print(
             "Running targetonly but the following files are missing:",
             missingfiles,
         )
-        sys.exit()
+        sys.exit(1)
 
 
 def load_data(fits: str, uvsrt: bool):
@@ -1177,7 +1177,7 @@ def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
             valstr += "]"
         else:
             valstr = str(val)
-        cmdstr += f"{key}={valstr}, "
+        cmdstr += f"{key}={valstr},\n"
     cmdstr += ")\n"
     casaout.write(cmdstr)
 
