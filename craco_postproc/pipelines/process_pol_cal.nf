@@ -27,7 +27,7 @@ workflow process_pol_cal {
     main:
         empty_file = create_empty_file("file")
         fits = correlate_polcal(
-            label, data, fcm, ra0, dec0, empty_file, polyco, 0, polflagfile
+            label, data, fcm, ra0, dec0, empty_file, polyco, 0, polflagfile, "polcal"
         )
 
         image = apply_flux_cal_solns(

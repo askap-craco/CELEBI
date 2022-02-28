@@ -122,6 +122,7 @@ process difx2fits {
     input:
     path correlated_data
     path polyco, stageAs: "craftfrb.polyco"
+    val mode
 
     output:
     path "*.FITS"
@@ -135,9 +136,20 @@ process difx2fits {
                 D2Dinput=`ls \$d/*D2D.input`
                 D2Ds="\$D2Ds \$D2Dinput"
             done
-            difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
-            echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-            echo "mv CRAFTFR.0.bin0000.source0000.FITS CRAFT_CARD\$c.FITS" >> runalldifx2fits
+
+            if [ "$mode" == "finder" ]; then
+                for b in `seq 0 20`; do
+                    bin2="\$(printf "%02d" \$b)"
+                    bin4="\$(printf "%04d" \$b)"
+                    difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
+                    echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
+                    echo "mv CRAFTFR.0.bin\${bin4}.source0000.FITS CRAFT_CARD\${c}_BIN\${bin2}.FITS" >> runalldifx2fits
+                done
+            else
+                difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
+                echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
+                echo "mv CRAFTFR.0.bin0000.source0000.FITS CRAFT_CARD\$c.FITS" >> runalldifx2fits
+            fi
         fi
     done
     chmod 775 runalldifx2fits
@@ -213,6 +225,7 @@ workflow correlate {
         polyco  // path
         inttime // val
         flagfile    // val
+        mode    // val
 
     main:
         startmjd = get_startmjd(data)
@@ -223,7 +236,7 @@ workflow correlate {
             label, data, fcm, ra, dec, binconfig, polyco, 0, startmjd, 
             cards.combine(fpgas)
         )
-        per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco)
+        per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco, mode)
 
         loadfits(data, label, per_card_fits, flagfile)
     

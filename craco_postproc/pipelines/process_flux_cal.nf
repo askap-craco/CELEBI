@@ -20,7 +20,7 @@ workflow process_flux_cal {
         empty_binconfig = create_empty_file("binconfig")
         fits = correlate_fluxcal(
             label, data, fcm, ra, dec, empty_binconfig, polyco, 0, 
-            fluxflagfile
+            fluxflagfile, "fluxcal"
         )
 
         determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly)

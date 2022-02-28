@@ -31,14 +31,14 @@ workflow process_frb {
 
     main:
         finder_fits = correlate_finder(
-            "${label}_finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A"
+            "${label}_finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
         )
         rfi_fits = correlate_rfi(
-            "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A"
+            "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
         )
         empty_file = create_empty_file("file")
         field_fits = correlate_field(
-            "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A"
+            "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "rfi"
         )
 
         no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, "")
