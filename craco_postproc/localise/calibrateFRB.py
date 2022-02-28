@@ -52,6 +52,9 @@ def _main():
     calpath = os.path.abspath(args.calibrator)
     if xpolmodelfile != "":
         xpolmodelfile = os.path.abspath(xpolmodelfile)
+        xpol = "xpol"
+    else:
+        xpol = "noxpol"
 
     # Calibrated output filenames
     if do_target:
@@ -59,23 +62,23 @@ def _main():
     if do_calibrate:
         caloutfname, calmsfname = out_fnames(calpath)
 
-    bpfname = os.path.abspath(f"bandpasses{xpolmodelfile}{args.src}.bp.txt")
-    fringsnfname = os.path.abspath(f"delays{xpolmodelfile}{args.src}.sn.txt")
+    bpfname = os.path.abspath(f"bandpasses_{xpol}_{args.src}.bp.txt")
+    fringsnfname = os.path.abspath(f"delays_{xpol}_{args.src}.sn.txt")
     selfcalsnfname = os.path.abspath(
-        f"selfcal{xpolmodelfile}{args.src}.sn.txt"
+        f"selfcal_{xpol}_{args.src}.sn.txt"
     )
-    xpolsnfname = os.path.abspath(f"xpolfring{xpolmodelfile}{args.src}.sn.txt")
-    bptableplotfname = os.path.abspath(f"bptable{xpolmodelfile}{args.src}.ps")
+    xpolsnfname = os.path.abspath(f"xpolfring{xpol}{args.src}.sn.txt")
+    bptableplotfname = os.path.abspath(f"bptable{xpol}{args.src}.ps")
     uncalxcorplotfname = os.path.abspath(
-        f"uncalxcor{xpolmodelfile}{args.src}.ps"
+        f"uncalxcor_{xpol}_{args.src}.ps"
     )
     allcalxcorplotfname = os.path.abspath(
-        f"allcalxcor{xpolmodelfile}{args.src}.ps"
+        f"allcalxcor_{xpol}_{args.src}.ps"
     )
     readmefname = os.path.abspath(
-        f"README{xpolmodelfile}{args.src}.calibration"
+        f"README_{xpol}_{args.src}.calibration"
     )
-    calibtarballfile = f"calibration{xpolmodelfile}{args.src}.tar.gz"
+    calibtarballfile = f"calibration_{xpol}_{args.src}.tar.gz"
 
     # If we are running targetonly, check that all the calibration files exist
     if args.targetonly:
@@ -83,13 +86,13 @@ def _main():
 
     # Load and flag the target data if needed
     if do_target:
-        targetdata = load_data(args.target, args.uvsrt)
+        targetdata = load_data(targetpath, args.uvsrt)
         if args.tarflagfile != "":
             flag_data(targetdata, args.tarflagfile, args.shadow)
 
     # Load and flag the calibrator data if needed
     if do_calibrate:
-        caldata = load_data(args.calibrator, args.uvsrt)
+        caldata = load_data(calpath, args.uvsrt)
         if args.flagfile != "":
             flag_data(caldata, args.flagfile, args.shadow)
 
@@ -653,9 +656,9 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
 
     fitsbase = fitspath.split("/")[-1]
     if ".uvfits" in fitspath:
-        fitsfname = f"{os.getcwd}/{fitsbase[:-7]}_calibrated_uv.fits"
+        fitsfname = f"{os.getcwd()}/{fitsbase[:-7]}_calibrated_uv.fits"
     else:
-        fitsfname = f"{os.getcwd}/{fitsbase[:-5]}_calibrated_uv.fits"
+        fitsfname = f"{os.getcwd()}/{fitsbase[:-5]}_calibrated_uv.fits"
 
     msfname = fitsfname[:-4] + "ms"
 
@@ -1162,19 +1165,18 @@ def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
 
     cmdstr = f"{cmd}("
     for key, val in vals.items():
-        if val is str:
+        if isinstance(val, str):
             valstr = val2str(val)
-        elif val is list:
+        elif isinstance(val, list):
             valstr = "["
             for v in val:
-                if v is str:
+                if isinstance(v, str):
                     valstr += f"{val2str(v)}, "
                 else:
                     valstr += f"{v}, "
             valstr += "]"
         else:
             valstr = str(val)
-
         cmdstr += f"{key}={valstr}, "
     cmdstr += ")\n"
     casaout.write(cmdstr)
