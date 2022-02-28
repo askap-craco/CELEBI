@@ -1,3 +1,5 @@
+localise_dir = "$baseDir/../localise/"
+
 process determine_flux_cal_solns {
     input:
         path cal_fits
@@ -24,7 +26,7 @@ process determine_flux_cal_solns {
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
 
-        calibrateFRB.py \$args
+        $localise_dir/calibrateFRB.py \$args
         """
 }
 
@@ -63,7 +65,7 @@ process apply_flux_cal_solns {
             args="\$args --tarflagfile=$flagfile"
         fi
 
-        calibrateFRB.py \$args
+        $localise_dir/calibrateFRB.py \$args
         """    
 }
 
