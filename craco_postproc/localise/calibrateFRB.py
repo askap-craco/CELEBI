@@ -648,7 +648,7 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     :rtype: str
     """
     assert (
-        fitspath[:-5:] == ".fits" or fitspath[-7:] == ".uvfits"
+        fitspath[-5:] == ".fits" or fitspath[-7:] == ".uvfits"
     ), f"fits filename must end in either .fits or .uvfits! This one is '{fitspath}'"
 
     fitsbase = fitspath.split("/")[-1]
