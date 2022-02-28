@@ -499,7 +499,7 @@ def write_subtractions_script(
             )
         for i in range(numfinderbins):
             subout.write(
-                f"uvsubScaled.py *_finderbin{i:02d}.fits *_rfi.fits {finderbinscale:.9f} finderbin{i:02d}_norfi.fits\n"
+                f"uvsubScaled.py finderbin{i:02d}.fits *_rfi.fits {finderbinscale:.9f} finderbin{i:02d}_norfi.fits\n"
             )
         subout.close()
 
