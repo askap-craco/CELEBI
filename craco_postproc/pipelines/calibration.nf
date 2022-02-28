@@ -69,7 +69,7 @@ process apply_flux_cal_solns {
 
             $localise_dir/calibrateFRB.py \$args
         else
-            for b in `seq 0 20`; do
+            for b in `seq 0 19`; do
                 bin="\$(printf "%02d" \$b)"
 
                 args="--targetonly"
