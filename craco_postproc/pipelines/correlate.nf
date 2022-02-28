@@ -178,7 +178,7 @@ process loadfits {
     val mode
 
     output:
-    path "${label}.fits"
+    path "${label}*.fits"
 
     script:
         """
