@@ -491,17 +491,15 @@ def write_subtractions_script(
     )
     with open("dosubtractions.sh", "w") as subout:
         subout.write(
-            "uvsubScaled.py *_gate.fits *_rfi.fits %.9f\n" % (gatescale)
+            f"uvsubScaled.py *_gate.fits *_rfi.fits {gatescale:.9f} gate_norfi.fits\n"
         )
         for i in range(numbins):
             subout.write(
-                "uvsubScaled.py *_bin%02d.fits *_rfi.fits %.9f\n"
-                % (i, binscale)
+                f"uvsubScaled.py *_bin{i:02d}.fits *_rfi.fits {binscale:.9f} bin{i:02d}_norfi.fits\n"
             )
         for i in range(numfinderbins):
             subout.write(
-                "uvsubScaled.py *_finderbin%02d.fits *_rfi.fits %.9f\n"
-                % (i, finderbinscale)
+                f"uvsubScaled.py *_finderbin{i:02d}.fits *_rfi.fits {finderbinscale:.9f} finderbin{i:02d}_norfi.fits\n"
             )
         subout.close()
 
