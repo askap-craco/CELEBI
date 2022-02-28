@@ -13,13 +13,15 @@ workflow process_frb {
     take:
         label   // val
         data    // val
-        binconfig_finder  // val
-        binconfig_rfi   // val
+        binconfig_finder  // path
+        binconfig_rfi     // path
+        subtractions    // path
         polyco  // val
         int_time    // val
         fcm // val
         ra0 // val
         dec0    // val
+        fieldflagfile
         flux_cal_solns  // path
         // pol_cal_solns // path
         cpasspoly   // val
@@ -41,14 +43,13 @@ workflow process_frb {
             "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "rfi"
         )
 
-        no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, "")
-        no_rfi_field_fits = subtract_rfi_field(field_fits, rfi_fits, no_rfi_finder_fits)
+        no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder", "")
 
         finder_image = apply_flux_cal_solns_finder(
             no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly, ""
         )
         field_image = apply_flux_cal_solns_field(
-            no_rfi_field_fits, flux_cal_solns, empty_file, label, cpasspoly, finder_image
+            no_rfi_field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, finder_image
         )
 
         // askap_frb_pos = localise_frb(finder_image)

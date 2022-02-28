@@ -10,6 +10,7 @@ process generate_binconfig {
         path "craftfrb.gate.binconfig", emit: gate
         path "craftfrb.rfi.binconfig", emit: rfi
         path "craftfrb.polyco", emit: polyco
+        path "dosubtractions.sh", emit: subtractions
         env int_time, emit: int_time
 
     script:

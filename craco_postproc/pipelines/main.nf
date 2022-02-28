@@ -20,6 +20,7 @@ params.offset_frb = 0
 
 params.fluxflagfile = ""
 params.polflagfile = ""
+params.fieldflagfile = ""
 
 workflow {
     binconfig = generate_binconfig(params.data_frb, params.snoopy)
@@ -56,11 +57,13 @@ workflow {
         params.data_frb,
         binconfig.finder,
         binconfig.rfi,
+        binconfig.subtractions,
         binconfig.polyco,
         binconfig.int_time,
         params.fcm,
         params.ra_frb,
         params.dec_frb,
+        params.fieldflagfile,
         flux_cal_solns,
         // pol_cal_solns,
         params.cpasspoly_frb,
