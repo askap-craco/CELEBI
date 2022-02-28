@@ -141,7 +141,7 @@ process difx2fits {
                 for b in `seq 0 20`; do
                     bin2="\$(printf "%02d" \$b)"
                     bin4="\$(printf "%04d" \$b)"
-                    difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
+                    difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
                     echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
                     echo "mv CRAFTFR.0.bin\${bin4}.source0000.FITS CRAFT_CARD\${c}_BIN\${bin2}.FITS" >> runalldifx2fits
                 done
@@ -175,6 +175,7 @@ process loadfits {
     val label
     path per_card_fits
     val flagfile
+    val mode
 
     output:
     path "${label}.fits"
@@ -186,31 +187,48 @@ process loadfits {
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
 
-        args="-u \${BASHPID: -5}"   # get randomly-generated user id
-        args="\$args --antlist=\$antlist"
-        args="\$args -s 27"
-        args="\$args -f ${label}.fits"
-        args="\$args -o \$label"
-        args="\$args CRAFT_CARD?.FITS"
+        if [ "$mode" != "finder" ]; then
+            args="-u \${BASHPID: -5}"   # get randomly-generated user id
+            args="\$args --antlist=\$antlist"
+            args="\$args -s 27"
+            args="\$args -f ${label}.fits"
+            args="\$args -o \$label"
+            args="\$args CRAFT_CARD?.FITS"
 
-        echo "loadfits.py \$args"
-        loadfits.py \$args
+            echo "loadfits.py \$args"
+            loadfits.py \$args
+        else
+            for i in `seq 0 20`; do
+                bin="\$(printf "%02d" \$i)"
+                args="-u \${BASHPID: -5}"   # get randomly-generated user id
+                args="\$args --antlist=\$antlist"
+                args="\$args -s 27"
+                args="\$args -f ${label}bin\${bin}.fits"
+                args="\$args -o \${label}bin\${bin}"
+                args="\$args CRAFT_CARD?_BIN\${bin}.FITS"
+
+                echo "loadfits.py \$args"
+                loadfits.py \$args
+            done
+        fi
         """
 }
 
 process subtract_rfi {
     input:
-        path target_fits
+        path finder_fits
         path rfi_fits
+        path subtractions
+        val mode
         val dummy // only exists to force field to wait for finder
     
     output:
-        path "rfi_subtracted.fits"
+        path "*.fits"
     
     script:
         """
-        #TODO: is the scale factor here a constant, or should it be calculated?
-        uvsubScaled.py $target_fits $rfi_fits 0.159380579 rfi_subtracted.fits
+        grep $mode $subtractions > thissub.sh
+        bash thissub.sh
         """
 }
 
@@ -238,7 +256,7 @@ workflow correlate {
         )
         per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco, mode)
 
-        loadfits(data, label, per_card_fits, flagfile)
+        loadfits(data, label, per_card_fits, flagfile, mode)
     
     emit:
         fits = loadfits.out
