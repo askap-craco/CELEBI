@@ -50,22 +50,42 @@ process apply_flux_cal_solns {
         fi    
         tar -xzvf $cal_solns
 
-        args="--targetonly"
-        args="\$args -t $target_fits"
-        args="\$args -r 3"
-        args="\$args --cpasspoly=$cpasspoly"
-        args="\$args -i"
-        args="\$args --dirtymfs"
-        args="\$args -a 16"
-        args="\$args -u 500"
-        args="\$args --skipplot"
-        args="\$args --src=$target"
+        if [ "$dummy" != "finder" ]; then
+            args="--targetonly"
+            args="\$args -t $target_fits"
+            args="\$args -r 3"
+            args="\$args --cpasspoly=$cpasspoly"
+            args="\$args -i"
+            args="\$args --cleanmfs"
+            args="\$args -a 16"
+            args="\$args -u 500"
+            args="\$args --skipplot"
+            args="\$args --src=$target"
 
-        if [ `wc -c $flagfile | awk '{print \$1}'` != 0 ]; then
-            args="\$args --tarflagfile=$flagfile"
+            if [ `wc -c $flagfile | awk '{print \$1}'` != 0 ]; then
+                args="\$args --tarflagfile=$flagfile"
+            fi
+
+            $localise_dir/calibrateFRB.py \$args
+        else
+            for b in `seq 0 20`; do
+                bin="\$(printf "%02d" \$b)"
+
+                args="--targetonly"
+                args="\$args -t finderbin\${bin}_norfi.fits"
+                args="\$args -r 3"
+                args="\$args --cpasspoly=$cpasspoly"
+                args="\$args -i"
+                args="\$args --cleanmfs"
+                args="\$args --imagename=finderbin\${bin}"
+                args="\$args -a 16"
+                args="\$args -u 500"
+                args="\$args --skipplot"
+                args="\$args --src=$target"
+
+                $localise_dir/calibrateFRB.py \$args
+            done
         fi
-
-        $localise_dir/calibrateFRB.py \$args
         """    
 }
 
