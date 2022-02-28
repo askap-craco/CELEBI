@@ -275,7 +275,7 @@ def _main():
                     pol, args.noisecenter, args.imsize
                 )
             else:
-                outlierfields = "[]"
+                outlierfields = []
 
             tcleanvals["outlierfile"] = outlierfields
 
