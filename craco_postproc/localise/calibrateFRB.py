@@ -54,8 +54,10 @@ def _main():
         xpolmodelfile = os.path.abspath(xpolmodelfile)
 
     # Calibrated output filenames
-    targetoutfname, targetmsfname = out_fnames(targetpath)
-    caloutfname, calmsfname = out_fnames(calpath)
+    if do_target:
+        targetoutfname, targetmsfname = out_fnames(targetpath)
+    if do_calibrate:
+        caloutfname, calmsfname = out_fnames(calpath)
 
     bpfname = os.path.abspath(f"bandpasses{xpolmodelfile}{args.src}.bp.txt")
     fringsnfname = os.path.abspath(f"delays{xpolmodelfile}{args.src}.sn.txt")
