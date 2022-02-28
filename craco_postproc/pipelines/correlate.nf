@@ -220,7 +220,6 @@ process subtract_rfi {
         path rfi_fits
         path subtractions
         val mode
-        val dummy // only exists to force field to wait for finder
     
     output:
         path "*.fits"

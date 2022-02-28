@@ -43,7 +43,7 @@ workflow process_frb {
             "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "rfi"
         )
 
-        no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder", "")
+        no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
 
         finder_image = apply_flux_cal_solns_finder(
             no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly, ""
