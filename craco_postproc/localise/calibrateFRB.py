@@ -390,233 +390,233 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_option(
+    parser.add_argument(
         "-t",
         "--target",
         default="",
         help="The target FITS file, to be calibrated and optionally imaged",
     )
-    parser.add_option(
+    parser.add_argument(
         "-c",
         "--calibrator",
         default="",
         help="The calibrator FITS file (usually on 0407)",
     )
-    parser.add_option(
+    parser.add_argument(
         "-r",
         "--refant",
         type=int,
         default=3,
         help="The reference antenna to use.",
     )
-    parser.add_option(
+    parser.add_argument(
         "-u",
         "--userno",
         type=int,
         default=2,
         help="The AIPS user number",
     )
-    parser.add_option(
+    parser.add_argument(
         "-s",
         "--sourcename",
         default="CRAFTSRC",
         help="The name of the source in the FITS files",
     )
-    parser.add_option(
+    parser.add_argument(
         "-f",
         "--flux",
         type=float,
         default=9.5,  # 0407 flux
         help="Calibrator flux in Jy,  Defaulted to correct value for 0407",
     )
-    parser.add_option(
+    parser.add_argument(
         "-i",
         "--imagecube",
         default=False,
         action="store_true",
         help="Image the FRB in chunks (i.e., make a cube)",
     )
-    parser.add_option(
+    parser.add_argument(
         "--dirtyonly",
         default=False,
         action="store_true",
         help="Just make a dirty image, cube",
     )
-    parser.add_option(
+    parser.add_argument(
         "--dirtymfs",
         default=False,
         action="store_true",
         help="Just make a dirty image, mfs",
     )
-    parser.add_option(
+    parser.add_argument(
         "--cleanmfs",
         default=False,
         action="store_true",
         help="Make a clean image, mfs",
     )
-    parser.add_option(
+    parser.add_argument(
         "--imagename",
         default="TARGET",
         help="The name of the image files for the cleaned MFS images. Default:"
         " TARGET",
     )
-    parser.add_option(
+    parser.add_argument(
         "--exportfits",
         default=False,
         action="store_true",
         help="Export image as FITS file",
     )
-    parser.add_option(
+    parser.add_argument(
         "--spwrange",
         type=str,
         default="''",
         help="The spw range used for imaging if selected. CASA format: '0:0~42' for spectral window 0, channels 0 to 42. Default is all channels.",
     )
-    parser.add_option(
+    parser.add_argument(
         "--calibrateonly",
         default=False,
         action="store_true",
         help="Only generate the calibration files, don't do anything with target",
     )
-    parser.add_option(
+    parser.add_argument(
         "--targetonly",
         default=False,
         action="store_true",
         help="Use saved calibration files",
     )
-    parser.add_option(
+    parser.add_argument(
         "--bpass",
         default=False,
         action="store_true",
         help="Use BPASS rather than CPASS to do the bandpass correction",
     )
-    parser.add_option(
+    parser.add_argument(
         "-j",
         "--imagejmfit",
         default=False,
         action="store_true",
         help="Jmfit the individual slices of the cube",
     )
-    parser.add_option(
+    parser.add_argument(
         "--cpasspoly",
         default=10,
         type=int,
         help="Number of polynomial terms in CPASS",
     )
-    parser.add_option(
+    parser.add_argument(
         "-a",
         "--averagechannels",
         type=int,
         default=24,
         help="Number of channels to average together per cube slice",
     )
-    parser.add_option(
+    parser.add_argument(
         "-F",
         "--flagfile",
         default="",
         help="Flag file to apply to calibrator data only, if desired. Used to ensure RFI doesn't corrupt FRING or BPASS.",
     )
-    parser.add_option(
+    parser.add_argument(
         "-g",
         "--tarflagfile",
         default="",
         help="Flag file to apply to target data only, if desired. Used to flag any necessary channels for, e.g., RFI or missing data",
     )
-    parser.add_option(
+    parser.add_argument(
         "--shadow",
         nargs=2,
         default=None,
         help="Set if flagging due to shadowing is desired. Takes two arguments: arg1 > 0 flag for shadowing; shadow diameter in m. arg2 flag for cross-talk; baseline (BL) in m",
     )
-    parser.add_option(
+    parser.add_argument(
         "-p",
         "--phasecenter",
         default="",
         help="phase center for the target field (blank will leave it at correlation centre)",
     )
-    # parser.add_option("-l", "--leakagecorrect", default=False, action="store_true",
+    # parser.add_argument("-l", "--leakagecorrect", default=False, action="store_true",
     #                  help="Run lpcal to try and correct any leakage present")
-    parser.add_option(
+    parser.add_argument(
         "-x",
         "--xpoldelaymodelfile",
         default="",
         help="Model to use for xpol delay correction (blank = no correction)",
     )
-    parser.add_option(
+    parser.add_argument(
         "--imagesize", type=int, default=128, help="Size of the image to make"
     )
-    parser.add_option(
+    parser.add_argument(
         "--xcorplotsmooth",
         type=int,
         default=32,
         help="Length of the smoothing kernel in channels for xcor plotting",
     )
-    parser.add_option(
+    parser.add_argument(
         "--skipplot",
         default=False,
         action="store_true",
         help="Skip the plotting to save time",
     )
-    parser.add_option(
+    parser.add_argument(
         "--pixelsize", type=float, default=1, help="Pixel size in arcseconds"
     )
-    parser.add_option(
+    parser.add_argument(
         "--uvsrt",
         default=False,
         action="store_true",
         help="Run UVSRT on the data after loading",
     )
-    parser.add_option(
+    parser.add_argument(
         "--noisecentre",
         default="",
         help="CASA format position at which noise should be estimated, blank=don't make an off-source image",
     )
-    parser.add_option(
+    parser.add_argument(
         "--src", default="", help="Name of the target (e.g., FRB or Vela)"
     )
-    parser.add_option(
+    parser.add_argument(
         "--pols",
         type=str,
         default="XX,YY,I,Q,U,V",
         help='The polarisations to be imaged if --imagecube is set. Defaulted to all. Input as a list of strings: e.g., "XX,YY"',
     )
-    parser.add_option(
+    parser.add_argument(
         "--dotimesteps",
         default=False,
         action="store_true",
         help="Iterate over time steps to produce multiple images",
     )
-    parser.add_option(
+    parser.add_argument(
         "--timestep",
         type=int,
         default=None,
         help="If provided with --dotimesteps, only the single timestep with the index provided will be imaged",
     )
-    parser.add_option(
+    parser.add_argument(
         "--start", type=float, default=None, help="Start of time range as MJD"
     )
-    parser.add_option(
+    parser.add_argument(
         "--inttime", type=float, default=None, help="Time step duration in s"
     )
-    parser.add_option(
+    parser.add_argument(
         "--duration",
         type=float,
         default=None,
         help="Duration over which to iterate time steps",
     )
-    parser.add_option(
+    parser.add_argument(
         "--findsources",
         default=False,
         action="store_true",
         help="Find sources in image",
     )
-    parser.add_option(
+    parser.add_argument(
         "--nmaxsources",
         type=int,
         default=20,
         help="The maximum number of sources to return from source finding",
     )
-    parser.add_option(
+    parser.add_argument(
         "--sourcecutoff",
         type=float,
         default=0.1,
