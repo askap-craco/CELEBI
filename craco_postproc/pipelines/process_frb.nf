@@ -33,7 +33,7 @@ workflow process_frb {
 
     main:
         finder_fits = correlate_finder(
-            "${label}_finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
+            "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
         )
         rfi_fits = correlate_rfi(
             "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
