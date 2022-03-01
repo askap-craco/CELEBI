@@ -101,6 +101,7 @@ process process_time_step {
     args="\$args --freqlabel \$freqlabel"
     args="\$args --dir=$baseDir/../difx"
     args="\$args --startmjd=$startmjd"
+    args="\$args --ts 16"
 
     mkdir \$freqlabel
     cp craftfrb.polyco \$freqlabel
