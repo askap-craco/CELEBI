@@ -112,6 +112,7 @@ def _main():
                 if args.slurm:
                     convertlines.append(runline)
                 else:
+                    print(runline)
                     ret = os.system(runline)
                     if ret != 0:
                         sys.exit(ret)
