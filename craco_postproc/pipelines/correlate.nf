@@ -188,7 +188,7 @@ process loadfits {
         label=\${label:0:12}    # Truncate label to fit in AIPS
 
         if [ "$mode" != "finder" ]; then
-            args="-u \${BASHPID: -5}"   # get randomly-generated user id
+            args="-u \${BASHPID: -4}"   # get randomly-generated user id
             args="\$args --antlist=\$antlist"
             args="\$args -s 27"
             args="\$args -f ${label}.fits"
@@ -200,7 +200,7 @@ process loadfits {
         else
             for i in `seq 0 20`; do
                 bin="\$(printf "%02d" \$i)"
-                args="-u \${BASHPID: -5}"   # get randomly-generated user id
+                args="-u \${BASHPID: -4}"   # get randomly-generated user id
                 args="\$args --antlist=\$antlist"
                 args="\$args -s 27"
                 args="\$args -f ${label}bin\${bin}.fits"

@@ -290,7 +290,7 @@ def _main():
 
             elif args.dirtymfs:
                 tcleanvals = deftcleanvals.copy()
-                tcleanvals["imagename"] = f"TARGET.mfs.dirim.{pol}"
+                tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
                 tcleanvals["niter"] = 0
                 tcleanvals["width"] = args.averagechannels
@@ -358,32 +358,27 @@ def _main():
                     "exportfits",
                     {
                         "imagename": f"{tcleanvals['imagename']}.image",
-                        "fitsimage": f"{tcleanvals['imagename']}.fits,",
+                        "fitsimage": f"{tcleanvals['imagename']}.fits",
                     },
                 )
                 casaout.close()
                 os.system(
                     "casa --nologger -c imagescript.py"
-                )  # Get the number of channels in the dataset
-                numchannels = vlbatasks.getNumChannels(targetdata)
-                for i in range(numchannels / args.averagechannels):
-                    locstring = "%d,%d,%d,%d,%d,%d" % (
-                        imsize / 2 - 12,
-                        imsize / 2 - 12,
-                        i,
-                        imsize / 2 + 12,
-                        imsize / 2 + 12,
-                        i,
+                )
+                locstring = "%d,%d,%d,%d" % (
+                    imsize / 2 - 12,
+                    imsize / 2 - 12,
+                    imsize / 2 + 12,
+                    imsize / 2 + 12,
+                )
+                os.system(
+                    "jmfitfromfile.py %s.fits %s.jmfit.stats %s"
+                    % (
+                        tcleanvals["imagename"],
+                        tcleanvals["imagename"],
+                        locstring,
                     )
-                    os.system(
-                        "jmfitfromfile.py %s.fits %s.slice%03d.jmfit.stats %s"
-                        % (
-                            tcleanvals["imagename"],
-                            tcleanvals["imagename"],
-                            i,
-                            locstring,
-                        )
-                    )
+                )
 
 
 def get_args() -> argparse.Namespace:
