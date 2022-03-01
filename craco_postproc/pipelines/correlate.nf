@@ -32,6 +32,18 @@ process get_startmjd {
     """
 }
 
+process create_bat0 {
+    input:
+    val data
+
+    output:
+    path ".bat0"
+
+    """
+    bat0.pl `find $data/*/*/*vcraft | head -1`
+    """
+}
+
 process process_time_step {
     /*******************************************************************
     Correlate the data using DiFX
@@ -67,6 +79,7 @@ process process_time_step {
     val inttime
     val startmjd
     tuple val(card), val(fpga)
+    path bat0
 
     output:
     path "c${card}_f${fpga}", emit: cx_fy
@@ -91,6 +104,7 @@ process process_time_step {
 
     mkdir \$freqlabel
     cp craftfrb.polyco \$freqlabel
+    cp .bat0 \$freqlabel
 
     # Only use binconfig if it's not empty
     if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
@@ -245,12 +259,13 @@ workflow correlate {
 
     main:
         startmjd = get_startmjd(data)
+        bat0 = create_bat0(data)
 
         // cards.combine(fpgas) kicks off an instance of process_time_step for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = process_time_step(
             label, data, fcm, ra, dec, binconfig, polyco, 0, startmjd, 
-            cards.combine(fpgas)
+            cards.combine(fpgas), bat0
         )
         per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco, mode)
 

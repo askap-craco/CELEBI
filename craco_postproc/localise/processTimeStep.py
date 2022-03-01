@@ -34,11 +34,6 @@ def _main():
         os.mkdir(freqlabel)
     os.chdir(freqlabel)
     os.system(f"cp {fcm} fcm.txt")
-    if os.path.exists("../../eopjunk.txt"):
-        os.system("cp ../../eopjunk.txt .")
-    # Copy .bat0 file if it exists
-    if os.path.exists("../../.bat0"):
-        os.system("cp ../../.bat0 .")
 
     v2oargs = create_v2oargs(args, polyco, datadir, beamdirs)
     v2ocmd = f"{args.dir}/vcraft2obs.py {v2oargs}"
