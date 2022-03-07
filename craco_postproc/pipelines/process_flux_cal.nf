@@ -25,5 +25,5 @@ workflow process_flux_cal {
 
         determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly)
     emit:
-        flux_cal_solns = determine_flux_cal_solns.out
+        flux_cal_solns = determine_flux_cal_solns.out.solns
 }

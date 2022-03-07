@@ -1,6 +1,8 @@
 localise_dir = "$baseDir/../localise/"
 
 process determine_flux_cal_solns {
+    publishDir "${params.publish_dir}/${params.label}/${task.process.replaceAll(':', '_')}", mode: "copy"
+
     input:
         path cal_fits
         val flagfile
@@ -8,7 +10,8 @@ process determine_flux_cal_solns {
         val cpasspoly
 
     output:
-        path "calibration_noxpol_${target}.tar.gz"
+        path "calibration_noxpol_${target}.tar.gz", emit: solns
+        path "*_calibrated_uv.ms", emit: ms
 
     script:
         """
@@ -31,6 +34,8 @@ process determine_flux_cal_solns {
 }
 
 process apply_flux_cal_solns {
+    publishDir "${params.publish_dir}/${params.label}/${task.process.replaceAll(':', '_')}", mode: "copy"
+
     input:
         path target_fits
         path cal_solns
@@ -40,7 +45,8 @@ process apply_flux_cal_solns {
         val dummy   // so we can force only one instance to go at a time
 
     output:
-        path "*.image"
+        path "*.image", emit: image
+        path "*_calibrated_uv.ms", emit: ms
 
     script:
         """
@@ -95,6 +101,8 @@ process apply_flux_cal_solns {
 }
 
 process determine_pol_cal_solns {
+    publishDir "${params.publish_dir}/${params.label}/${task.process.replaceAll(':', '_')}", mode: "copy"
+    
     input:
         path htr_data
 

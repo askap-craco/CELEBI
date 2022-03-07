@@ -47,10 +47,10 @@ workflow process_frb {
 
         finder_image = apply_flux_cal_solns_finder(
             no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly, "finder"
-        )
+        ).image
         field_image = apply_flux_cal_solns_field(
             field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, finder_image
-        )
+        ).image
 
         // askap_frb_pos = localise_frb(finder_image)
         // apply_offset(field_image, askap_frb_pos)
