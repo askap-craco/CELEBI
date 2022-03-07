@@ -4,14 +4,15 @@ include { create_empty_file } from './utils'
 include { correlate as correlate_polcal } from './correlate'
 include { beamform as beamform_polcal } from './beamform'
 include { apply_flux_cal_solns; determine_pol_cal_solns } from './calibration'
-include { localise as localise_polcal } from './localise'
+include { localise; generate_binconfig } from './localise'
 
 workflow process_pol_cal {
     take:
         label   // val
         target  // val
         data    // val
-        polyco  // path
+        data_frb
+        snoopy
         fcm // val
         ra0 // val
         dec0    // val
@@ -25,9 +26,10 @@ workflow process_pol_cal {
         centre_freq // val
 
     main:
+        binconfig = generate_binconfig(data_frb, snoopy)
         empty_file = create_empty_file("file")
         fits = correlate_polcal(
-            label, data, fcm, ra0, dec0, empty_file, polyco, 0, polflagfile, "polcal"
+            label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
         )
 
         image = apply_flux_cal_solns(

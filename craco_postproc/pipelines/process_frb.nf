@@ -6,18 +6,14 @@ include { correlate as correlate_finder; correlate as correlate_rfi;
     subtract_rfi as subtract_rfi_field } from './correlate'
 include { apply_flux_cal_solns as apply_flux_cal_solns_finder;
     apply_flux_cal_solns as apply_flux_cal_solns_field } from './calibration'
-include { localise as localise_frb; apply_offset } from './localise'
+include { localise; apply_offset; generate_binconfig } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
 workflow process_frb {
     take:
         label   // val
         data    // val
-        binconfig_finder  // path
-        binconfig_rfi     // path
-        subtractions    // path
-        polyco  // val
-        int_time    // val
+        snoopy
         fcm // val
         ra0 // val
         dec0    // val
@@ -32,6 +28,13 @@ workflow process_frb {
         centre_freq // val
 
     main:
+        binconfig = generate_binconfig(data, snoopy)
+        binconfig_finder = binconfig.finder
+        binconfig_rfi = binconfig.rfi
+        subtractions = binconfig.subtractions
+        polyco = binconfig.polyco
+        int_time = binconfig.int_time
+
         finder_fits = correlate_finder(
             "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
         )
