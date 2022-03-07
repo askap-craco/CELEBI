@@ -48,6 +48,7 @@ process apply_flux_cal_solns {
     output:
         path "*.image", emit: image
         path "*_calibrated_uv.ms", emit: ms
+        path "*stats", emit: posfits
 
     script:
         """
@@ -77,6 +78,7 @@ process apply_flux_cal_solns {
             fi
 
             $localise_dir/calibrateFRB.py \$args
+            touch empty.stats
         else
             for b in `seq 0 19`; do
                 bin="\$(printf "%02d" \$b)"
