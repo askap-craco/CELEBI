@@ -3,7 +3,6 @@ nextflow.enable.dsl=2
 include { process_flux_cal } from './process_flux_cal'
 include { process_pol_cal } from './process_pol_cal'
 include { process_frb } from './process_frb'
-include { generate_binconfig } from './localise'
 
 // Defaults
 params.cpasspoly_fluxcal = 5
@@ -23,7 +22,6 @@ params.polflagfile = ""
 params.fieldflagfile = ""
 
 workflow {
-    binconfig = generate_binconfig(params.data_frb, params.snoopy)
     flux_cal_solns = process_flux_cal(
         "${params.label}_fluxcal",
         params.label,
