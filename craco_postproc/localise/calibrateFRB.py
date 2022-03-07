@@ -247,7 +247,7 @@ def _main():
         polarisations = ["I"]
 
     if args.imagecube:
-        maskstr = "circle[[{0}pix,{0}pix], 5pix ]".format(imsize / 2)
+        maskstr = "circle[[{0}pix,{0}pix], 10pix ]".format(imsize / 2)
         phasecenter = f"{args.phasecenter}"  # .encode()   Not sure why encode
         deftcleanvals = {  # Default values to be passed to tclean
             "vis": targetmsfname,
@@ -299,7 +299,8 @@ def _main():
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
-                tcleanvals["niter"] = 0
+                tcleanvals["niter"] = 500
+                tcleanvals["cycleniter"] = 100
                 tcleanvals["savemodel"] = "modelcolumn"
 
             # Default: produce a cleaned cube image

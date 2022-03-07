@@ -87,7 +87,7 @@ process apply_flux_cal_solns {
                 args="\$args --cpasspoly=$cpasspoly"
                 args="\$args -i"
                 args="\$args -j"
-                args="\$args --dirtymfs"
+                args="\$args --cleanmfs"
                 args="\$args --pols=I"
                 args="\$args --imagename=finderbin\${bin}"
                 args="\$args -a 16"
