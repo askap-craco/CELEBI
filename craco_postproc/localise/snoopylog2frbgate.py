@@ -303,7 +303,7 @@ def calc_gate_bins(
     """Determine the bins for the gate binconfig
 
     The gate mode has two bins:
-        > On-pulse (from 50 milliseconds before to 150 milliseconds
+        > On-pulse (from 50 milliseconds before to 50 milliseconds
             after the burst)
         > Off-pulse (everything else) - weighted 0
 
@@ -325,7 +325,7 @@ def calc_gate_bins(
         2 * 86400000.0
     )  # pulse width is in ms at this point
     gateendmjd = (
-        gatestartmjd + (pulsewidthms + 200) / 86400000.0
+        gatestartmjd + (pulsewidthms + 100) / 86400000.0
     )  # pulse width is in ms at this point
     gatestartphase = (
         86400.0 * (gatestartmjd - polycorefmjd) + timediff
