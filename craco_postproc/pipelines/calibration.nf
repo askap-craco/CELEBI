@@ -12,6 +12,7 @@ process determine_flux_cal_solns {
     output:
         path "calibration_noxpol_${target}.tar.gz", emit: solns
         path "*_calibrated_uv.ms", emit: ms
+        path "*ps", emit: plots
 
     script:
         """
