@@ -260,7 +260,8 @@ def _main():
             "pblimit": -1,
             "deconvolver": "multiscale",
             "weighting": "natural",
-            "mask": maskstr,
+            #"mask": maskstr,
+            "usemask": "auto-thresh2",
         }
 
         # Do the cube
@@ -282,6 +283,7 @@ def _main():
 
             # Determine values to be passed to tclean based on required
             # image type
+            casacmd = "tclean"
             if args.dirtyonly:
                 tcleanvals["imagename"] = f"TARGET.cube.dirim.{pol}"
                 tcleanvals["specmode"] = "cube"
@@ -300,7 +302,7 @@ def _main():
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
-                tcleanvals["niter"] = 500
+                tcleanvals["niter"] = 5000
                 tcleanvals["cycleniter"] = 100
                 tcleanvals["savemodel"] = "modelcolumn"
 
@@ -327,7 +329,7 @@ def _main():
                     timestep=args.timestep,
                 )
             else:
-                write_casa_cmd(casaout, "tclean", tcleanvals)
+                write_casa_cmd(casaout, casacmd, tcleanvals)
 
             casaout.close()
             os.system("chmod 775 imagescript.py")
