@@ -65,6 +65,7 @@ process apply_flux_cal_solns {
             args="\$args -r 3"
             args="\$args --cpasspoly=$cpasspoly"
             args="\$args -i"
+            args="\$args -j"
             args="\$args --dirtymfs"
             args="\$args --pols=I"
             args="\$args --imagename=field"
