@@ -379,7 +379,7 @@ def _main():
                     for i, source in enumerate(source_pixs):
                         x, y = source
                         # fit source within a 20" by 20" box
-                        boxsize = (pxsize / 10)
+                        boxsize = (10 // pxsize)
                         locstring = "%d,%d,%d,%d" % (
                             x - boxsize,
                             y - boxsize,
