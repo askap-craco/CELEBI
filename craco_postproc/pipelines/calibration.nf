@@ -47,8 +47,9 @@ process apply_flux_cal_solns {
 
     output:
         path "*.image", emit: image
+        path "f*.fits", emit: fitsimage
         path "*_calibrated_uv.ms", emit: ms
-        path "*stats", emit: posfits
+        path "*jmfit", emit: jmfit
 
     script:
         """
@@ -66,6 +67,7 @@ process apply_flux_cal_solns {
             args="\$args -i"
             args="\$args --dirtymfs"
             args="\$args --pols=I"
+            args="\$args --imagename=field"
             args="\$args -a 16"
             args="\$args -u 500"
             args="\$args --skipplot"

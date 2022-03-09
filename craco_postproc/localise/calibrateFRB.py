@@ -8,6 +8,7 @@ import socket
 import sys
 
 import astropy.units as un
+import numpy as np
 import vlbatasks
 from AIPS import AIPS
 from AIPSData import AIPSImage, AIPSUVData
@@ -347,12 +348,9 @@ def _main():
                 os.system("chmod 775 exportfits.py")
                 os.system("casa --nologger -c exportfits.py")
 
-            # If desired, find sources in the image
-            if args.findsources:
-                a
-
             # If desired, also make the JMFIT output
             if args.imagejmfit:
+                # Convert casa image to fits image
                 casaout = open("imagescript.py", "w")
                 write_casa_cmd(
                     casaout,
@@ -366,20 +364,37 @@ def _main():
                 os.system(
                     "casa --nologger -c imagescript.py"
                 )
-                locstring = "%d,%d,%d,%d" % (
-                    imsize / 2 - 12,
-                    imsize / 2 - 12,
-                    imsize / 2 + 12,
-                    imsize / 2 + 12,
-                )
+
+                # Identify point sources in image
+                print("Identifying point sources")
                 os.system(
-                    "jmfitfromfile.py %s.fits %s.jmfit.stats %s"
-                    % (
-                        tcleanvals["imagename"],
-                        tcleanvals["imagename"],
-                        locstring,
-                    )
+                    f"echo \"{tcleanvals['imagename']}.image,10,0.05\" | casa --nologger -c /home/ubuntu/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
                 )
+                source_pixs = np.loadtxt(f"{tcleanvals['imagename']}_sources.txt", delimiter=",")
+                print(source_pixs)
+                print(source_pixs.shape)
+                if source_pixs.shape == (0,):
+                    print(f"No sources identified in {tcleanvals['imagename']}.image")
+                else:
+                    for i, source in enumerate(source_pixs):
+                        x, y = source
+                        # fit source within a 20" by 20" box
+                        boxsize = (pxsize / 10)
+                        locstring = "%d,%d,%d,%d" % (
+                            x - boxsize,
+                            y - boxsize,
+                            x + boxsize,
+                            y + boxsize,
+                        )
+                        os.system(
+                            "jmfitfromfile.py %s.fits %s_%02d.jmfit %s"
+                            % (
+                                tcleanvals["imagename"],
+                                tcleanvals["imagename"],
+                                i,
+                                locstring,
+                            )
+                        )
 
 
 def get_args() -> argparse.Namespace:
@@ -1257,45 +1272,6 @@ def write_outlier_file(pol: str, rmscenter: str, imsize: int) -> str:
     )
     outlierfile.close()
     return f"outlierfield_Stokes{pol}.txt"
-
-
-def get_pixels_from_field(target: str, nsources: int, cutoff: float) -> str:
-    """Write out pixels corresponding to continuum sources in a field
-    image for calibration
-
-    :param target: field image (.image or .fits format) to search in
-    :type target: str
-    :param nsources: maximun number of sources to get back
-    :type nsources: int
-    :param cutoff: limit in flux relative to strongest in field
-        e.g. 0.05 (5%)
-    :type imsize: float
-    :return: Filename of file containing list of pixels of identified
-        sources
-    :rtype: str
-    """
-    # import casa analysis scripts for converting component lists into a position and corresponding pixel
-    sys.path.append("casa_analysis_scripts/")  # adjust if this changes!
-    import analysisUtils as au
-
-    # open file, use casa task "findsources" to identify bright continuum sources
-    ia.open(target)
-    clrec = ia.findsources(nmax=nsources, point=False, cutoff=cutoff)
-    pos_pix = "ra,dec\n"
-    # loop through each source, extract relevant position, convert it
-    for i in range(len(clrec.keys()) - 1):
-        cl1 = clrec["component" + str(i)]
-        m0 = cl1["shape"]["direction"]["m0"]["value"]  # in rad
-        m1 = cl1["shape"]["direction"]["m1"]["value"]  # in rad
-        pos = str(au.rad2radec(m0, m1, hmsdms=True))
-        pos_pix += (
-            str(au.findRADec("frb_n1e4_15min.image", pos, round=True)) + "\n"
-        )
-    # write to file
-    with open("positions_pix.txt", "w") as f:
-        f.write(pos_pix)
-
-    return f"positions_pix.txt"
 
 
 if __name__ == "__main__":
