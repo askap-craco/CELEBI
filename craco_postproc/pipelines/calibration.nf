@@ -82,10 +82,11 @@ process apply_flux_cal_solns {
             fi
 
             $localise_dir/calibrateFRB.py \$args
-
+            i=1
             for f in `ls *jmfit`; do
                 echo \$f
-                $localise_dir/get_region_str.py \$f >> sources.reg
+                $localise_dir/get_region_str.py \$f \$i >> sources.reg
+                i=\$((i+1))
             done
         else
             for b in `seq 0 19`; do
@@ -108,9 +109,10 @@ process apply_flux_cal_solns {
 
                 $localise_dir/calibrateFRB.py \$args
 
+
                 for f in `ls finderbin\${bin}*jmfit`; do
                     echo \$f
-                    $localise_dir/get_region_str.py \$f >> finderbin\${bin}_sources.reg
+                    $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
                 done
             done
         fi

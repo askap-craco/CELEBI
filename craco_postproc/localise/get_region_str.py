@@ -12,7 +12,7 @@ def parse_jmfit(fname):
     
 def create_region_str(fname):
     vals = parse_jmfit(fname)
-    return f"fk5;ellipse({vals['Actual RA']}, {vals['Actual Dec']}, {float(vals['Est. RA error (mas)'])/1e3}\", {float(vals['Est. Dec error (mas)'])/1e3}\", 0)"
+    return f"fk5;ellipse({vals['Actual RA']}, {vals['Actual Dec']}, {float(vals['Est. RA error (mas)'])/1e3}\", {float(vals['Est. Dec error (mas)'])/1e3}\", 0) # text=\"{sys.argv[2]}, S/N={vals['S/N']}\""
     
 try:
     print(create_region_str(sys.argv[1]))
