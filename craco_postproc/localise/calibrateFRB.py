@@ -377,6 +377,24 @@ def _main():
                 print(source_pixs.shape)
                 if source_pixs.shape == (0,):
                     print(f"No sources identified in {tcleanvals['imagename']}.image")
+                elif source_pixs.shape == (2,):
+                    x, y = source
+                    # fit source within a 20" by 20" box
+                    boxsize = (10 // pxsize)
+                    locstring = "%d,%d,%d,%d" % (
+                        x - boxsize,
+                        y - boxsize,
+                        x + boxsize,
+                        y + boxsize,
+                    )
+                    os.system(
+                        "jmfitfromfile.py %s.fits %s.jmfit %s"
+                        % (
+                            tcleanvals["imagename"],
+                            tcleanvals["imagename"],
+                            locstring,
+                        )
+                    )
                 else:
                     for i, source in enumerate(source_pixs):
                         x, y = source
