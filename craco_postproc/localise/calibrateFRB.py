@@ -261,7 +261,7 @@ def _main():
             "deconvolver": "multiscale",
             "weighting": "natural",
             #"mask": maskstr,
-            "usemask": "auto-thresh2",
+            "usemask": "auto-multithresh",
         }
 
         # Do the cube
@@ -302,7 +302,7 @@ def _main():
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
-                tcleanvals["niter"] = 5000
+                tcleanvals["niter"] = 1000
                 tcleanvals["cycleniter"] = 100
                 tcleanvals["savemodel"] = "modelcolumn"
 
