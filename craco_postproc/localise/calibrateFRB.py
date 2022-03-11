@@ -378,7 +378,7 @@ def _main():
                 if source_pixs.shape == (0,):
                     print(f"No sources identified in {tcleanvals['imagename']}.image")
                 elif source_pixs.shape == (2,):
-                    x, y = source
+                    x, y = source_pixs
                     # fit source within a 20" by 20" box
                     boxsize = (10 // pxsize)
                     locstring = "%d,%d,%d,%d" % (
