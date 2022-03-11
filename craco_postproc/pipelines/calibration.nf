@@ -50,6 +50,7 @@ process apply_flux_cal_solns {
         path "f*.fits", emit: fitsimage
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
+        path "sources.reg", emit: regions
 
     script:
         """
@@ -81,7 +82,6 @@ process apply_flux_cal_solns {
             fi
 
             $localise_dir/calibrateFRB.py \$args
-            touch empty.stats
         else
             for b in `seq 0 19`; do
                 bin="\$(printf "%02d" \$b)"
@@ -103,6 +103,10 @@ process apply_flux_cal_solns {
                 $localise_dir/calibrateFRB.py \$args
             done
         fi
+
+        for f in `ls *jmfit`
+            do $localise_dir/get_region_str.py \$f >> sources.reg
+        done
         """    
 }
 
