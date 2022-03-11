@@ -104,6 +104,7 @@ process apply_flux_cal_solns {
                 args="\$args -u 500"
                 args="\$args --skipplot"
                 args="\$args --src=$target"
+                args="\$args --nmaxsources=1"
 
                 $localise_dir/calibrateFRB.py \$args
 
