@@ -370,7 +370,7 @@ def _main():
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{tcleanvals['imagename']}.image,10,0.05\" | casa --nologger -c /home/ubuntu/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
+                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c /home/ubuntu/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
                 )
                 source_pixs = np.loadtxt(f"{tcleanvals['imagename']}_sources.txt", delimiter=",")
                 print(source_pixs)
@@ -631,7 +631,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--nmaxsources",
         type=int,
-        default=20,
+        default=10,
         help="The maximum number of sources to return from source finding",
     )
     parser.add_argument(
