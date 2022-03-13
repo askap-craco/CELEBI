@@ -48,11 +48,9 @@ workflow process_frb {
 
         no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
 
-        apply_flux_cal_solns_finder(
+        finder_image = apply_flux_cal_solns_finder(
             no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
-        )
-
-        frb_pos = apply_flux_cal_solns_finder.jmfit
+        ).peak_image
 
         apply_flux_cal_solns_field(
             field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, finder_image

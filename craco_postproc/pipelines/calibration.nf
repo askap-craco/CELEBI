@@ -49,10 +49,10 @@ process apply_flux_cal_solns_finder {
         path "*_calibrated_uv.ms", emit: all_ms
         path "*.jmfit", emit: all_jmfits
         path "*.reg", emit: all_regs
-        path "${params.label}.image", emit: peak_images
-        path "${params.label}.fits", emit: peak_fits_images
-        path "${params.label}.jmfit", emit: peak_jmfits
-        path "${params.label}.reg", emit: peak_regs
+        path "${params.label}.image", emit: peak_image
+        path "${params.label}.fits", emit: peak_fits_image
+        path "${params.label}.jmfit", emit: peak_jmfit
+        path "${params.label}.reg", emit: peak_reg
 
     script:
         """
@@ -95,7 +95,7 @@ process apply_flux_cal_solns_finder {
         cp \$peak_jmfit ${params.label}.jmfit
         cp -r \${peak}.image ${params.label}.image
         cp \${peak}.fits ${params.label}.fits
-        cp \${peak}.reg ${params.label}.reg
+        cp \${peak}_sources.reg ${params.label}.reg
         """    
 }
 
