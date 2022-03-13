@@ -33,15 +33,15 @@ workflow process_pol_cal {
         )
 
         image = apply_flux_cal_solns_polcal(
-            fits, flux_cal_solns, polflagfile, target, cpasspoly, ""
+            fits, flux_cal_solns, polflagfile, target, cpasspoly
         )
-        pos = localise_polcal(image)
-        htr_data = beamform_polcal(
-            label, data, fcm, pos, flux_cal_solns, empty_file,
-            num_ints, int_len, offset, dm, centre_freq
-        )
-        determine_pol_cal_solns(htr_data)           
+        // pos = localise_polcal(image)
+        // htr_data = beamform_polcal(
+        //     label, data, fcm, pos, flux_cal_solns, empty_file,
+        //     num_ints, int_len, offset, dm, centre_freq
+        // )
+        // determine_pol_cal_solns(htr_data)           
 
-    emit:
-        pol_cal_solns = determine_pol_cal_solns.out
+    // emit:
+    //     pol_cal_solns = determine_pol_cal_solns.out
 }
