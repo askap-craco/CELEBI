@@ -4,8 +4,8 @@ include { create_empty_file } from './utils'
 include { correlate as correlate_finder; correlate as correlate_rfi;
     correlate as correlate_field; subtract_rfi as subtract_rfi_finder;
     subtract_rfi as subtract_rfi_field } from './correlate'
-include { apply_flux_cal_solns as apply_flux_cal_solns_finder;
-    apply_flux_cal_solns as apply_flux_cal_solns_field } from './calibration'
+include { apply_flux_cal_solns_finder;
+    apply_flux_cal_solns_field } from './calibration'
 include { localise; apply_offset; generate_binconfig } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
@@ -48,12 +48,15 @@ workflow process_frb {
 
         no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
 
-        finder_image = apply_flux_cal_solns_finder(
-            no_rfi_finder_fits, flux_cal_solns, empty_file, label, cpasspoly, "finder"
-        ).image
-        field_image = apply_flux_cal_solns_field(
+        apply_flux_cal_solns_finder(
+            no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
+        )
+
+        frb_pos = apply_flux_cal_solns_finder.jmfit
+
+        apply_flux_cal_solns_field(
             field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, finder_image
-        ).image
+        )
 
         // askap_frb_pos = localise_frb(finder_image)
         // apply_offset(field_image, askap_frb_pos)

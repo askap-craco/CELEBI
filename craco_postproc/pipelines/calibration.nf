@@ -1,7 +1,7 @@
 localise_dir = "$baseDir/../localise/"
 
 process determine_flux_cal_solns {
-    publishDir "${params.publish_dir}/${params.label}/${task.process.replaceAll(':', '_')}", mode: "copy"
+    publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
 
     input:
         path cal_fits
@@ -34,8 +34,73 @@ process determine_flux_cal_solns {
         """
 }
 
-process apply_flux_cal_solns {
-    publishDir "${params.publish_dir}/${params.label}/${task.process.replaceAll(':', '_')}", mode: "copy"
+process apply_flux_cal_solns_finder {
+    publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
+
+    input:
+        path target_fits
+        path cal_solns
+        val target
+        val cpasspoly
+
+    output:
+        path "*.image", emit: all_images
+        path "f*.fits", emit: all_fits_images
+        path "*_calibrated_uv.ms", emit: all_ms
+        path "*.jmfit", emit: all_jmfits
+        path "*.reg", emit: all_regs
+        path "${params.label}.image", emit: peak_images
+        path "${params.label}.fits", emit: peak_fits_images
+        path "${params.label}.jmfit", emit: peak_jmfits
+        path "${params.label}.reg", emit: peak_regs
+
+    script:
+        """
+        tar -xzvf $cal_solns
+        for b in `seq 0 19`; do
+            bin="\$(printf "%02d" \$b)"
+
+            args="--targetonly"
+            args="\$args -t fbin\${bin}_norfi.fits"
+            args="\$args -r 3"
+            args="\$args --cpasspoly=$cpasspoly"
+            args="\$args -i"
+            args="\$args -j"
+            args="\$args --cleanmfs"
+            args="\$args --pols=I"
+            args="\$args --imagename=finderbin\${bin}"
+            args="\$args -a 16"
+            args="\$args -u 500"
+            args="\$args --skipplot"
+            args="\$args --src=$target"
+            args="\$args --nmaxsources=1"
+
+            $localise_dir/calibrateFRB.py \$args
+
+            for f in `ls finderbin\${bin}*jmfit`; do
+                echo \$f
+                $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
+            done
+        done
+
+        # Remove empty .jmfit and .reg files
+        find . -type f -empty -print -delete
+
+        # parse jmfits for S/N then find index of maximum
+        SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
+        peak_jmfit=\$($localise_dir/argmax.sh "\$(echo \$SNs)" "\$(ls *jmfit)")
+        peak="\${peak_jmfit%.*}"
+
+        echo "\$peak determined to be peak bin"
+        cp \$peak_jmfit ${params.label}.jmfit
+        cp -r \${peak}.image ${params.label}.image
+        cp \${peak}.fits ${params.label}.fits
+        cp \${peak}.reg ${params.label}.reg
+        """    
+}
+
+process apply_flux_cal_solns_field {
+    publishDir "${params.publish_dir}/${params.label}/field", mode: "copy"
 
     input:
         path target_fits
@@ -43,7 +108,7 @@ process apply_flux_cal_solns {
         val flagfile
         val target
         val cpasspoly
-        val dummy   // so we can force only one instance to go at a time
+        val dummy   // so we can force this to wait for finder to finish
 
     output:
         path "*.image", emit: image
@@ -55,67 +120,86 @@ process apply_flux_cal_solns {
     script:
         """
         if [ "$flagfile" == "" ]; then
-            echo "You now need to write the flagfile for ${target_fits} and provide it with --polflagfile or --fieldflagfile!"
+            echo "You now need to write the flagfile for ${target_fits} and provide it with --fieldflagfile!"
             exit 2
         fi    
         tar -xzvf $cal_solns
 
-        if [ "$dummy" != "finder" ]; then
-            args="--targetonly"
-            args="\$args -t $target_fits"
-            args="\$args -r 3"
-            args="\$args --cpasspoly=$cpasspoly"
-            args="\$args -i"
-            args="\$args -j"
-            args="\$args --cleanmfs"
-            args="\$args --pols=I"
-            args="\$args --imagename=field"
-            args="\$args -a 16"
-            args="\$args -u 500"
-            args="\$args --skipplot"
-            args="\$args --imagesize=2048"
-            args="\$args --pixelsize=3"
-            args="\$args --src=$target"
+        args="--targetonly"
+        args="\$args -t $target_fits"
+        args="\$args -r 3"
+        args="\$args --cpasspoly=$cpasspoly"
+        args="\$args -i"
+        args="\$args -j"
+        args="\$args --cleanmfs"
+        args="\$args --pols=I"
+        args="\$args --imagename=field"
+        args="\$args -a 16"
+        args="\$args -u 500"
+        args="\$args --skipplot"
+        args="\$args --imagesize=2048"
+        args="\$args --pixelsize=3"
+        args="\$args --src=$target"
+        args="\$args --tarflagfile=$flagfile"
 
-            if [ `wc -c $flagfile | awk '{print \$1}'` != 0 ]; then
-                args="\$args --tarflagfile=$flagfile"
-            fi
+        $localise_dir/calibrateFRB.py \$args
+        i=1
+        for f in `ls *jmfit`; do
+            echo \$f
+            $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            i=\$((i+1))
+        done
+        """    
+}
 
-            $localise_dir/calibrateFRB.py \$args
-            i=1
-            for f in `ls *jmfit`; do
-                echo \$f
-                $localise_dir/get_region_str.py \$f \$i >> sources.reg
-                i=\$((i+1))
-            done
-        else
-            for b in `seq 0 19`; do
-                bin="\$(printf "%02d" \$b)"
+process apply_flux_cal_solns_polcal {
+    publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
 
-                args="--targetonly"
-                args="\$args -t fbin\${bin}_norfi.fits"
-                args="\$args -r 3"
-                args="\$args --cpasspoly=$cpasspoly"
-                args="\$args -i"
-                args="\$args -j"
-                args="\$args --cleanmfs"
-                args="\$args --pols=I"
-                args="\$args --imagename=finderbin\${bin}"
-                args="\$args -a 16"
-                args="\$args -u 500"
-                args="\$args --skipplot"
-                args="\$args --src=$target"
-                args="\$args --nmaxsources=1"
+    input:
+        path target_fits
+        path cal_solns
+        val flagfile
+        val target
+        val cpasspoly
 
-                $localise_dir/calibrateFRB.py \$args
+    output:
+        path "*.image", emit: image
+        path "p*.fits", emit: fitsimage
+        path "*_calibrated_uv.ms", emit: ms
+        path "*jmfit", emit: jmfit
+        path "*.reg", emit: regions
 
+    script:
+        """
+        if [ "$flagfile" == "" ]; then
+            echo "You now need to write the flagfile for ${target_fits} and provide it with --polcalflagfile!"
+            exit 2
+        fi    
+        tar -xzvf $cal_solns
 
-                for f in `ls finderbin\${bin}*jmfit`; do
-                    echo \$f
-                    $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
-                done
-            done
-        fi
+        args="--targetonly"
+        args="\$args -t $target_fits"
+        args="\$args -r 3"
+        args="\$args --cpasspoly=$cpasspoly"
+        args="\$args -i"
+        args="\$args -j"
+        args="\$args --cleanmfs"
+        args="\$args --pols=I"
+        args="\$args --imagename=polcal"
+        args="\$args -a 16"
+        args="\$args -u 500"
+        args="\$args --skipplot"
+        args="\$args --src=$target"
+        args="\$args --tarflagfile=$flagfile"
+        args="\$args --nmaxsources=1"
+
+        $localise_dir/calibrateFRB.py \$args
+        i=1
+        for f in `ls *jmfit`; do
+            echo \$f
+            $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            i=\$((i+1))
+        done
         """    
 }
 
