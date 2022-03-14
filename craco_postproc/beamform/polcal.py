@@ -1,75 +1,24 @@
 #!/usr/bin/env python3
 
-import os
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from functools import reduce
-
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import astropy
 from astropy import units as un
 from scipy.optimize import bisect, curve_fit
-
-matplotlib.rcParams["interactive"] = False
+import argparse
 
 
 def _main():
-    parser = ArgumentParser(
-        description="Determine and apply polarisation "
-        "calibration solutions",
-        formatter_class=ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument("-i", type=str, help="Stokes I dynamic spectrum")
-    parser.add_argument("-q", type=str, help="Stokes Q dynamic spectrum")
-    parser.add_argument("-u", type=str, help="Stokes U dynamic spectrum")
-    parser.add_argument("-v", type=str, help="Stokes V dynamic spectrum")
-    parser.add_argument("-p", type=float, help="Pulsar period in s")
-    parser.add_argument("-f", type=float, help="Centre frequency in MHz")
-    parser.add_argument("-b", type=float, help="Bandwidth in MHz")
-    parser.add_argument("-l", "--label", type=str, help="Label for plots")
-    parser.add_argument("-r", "--ref", type=str, help="Reference Parkes data")
-    parser.add_argument("-o", type=str, help="File to output delay and offset")
-    parser.add_argument(
-        "--reduce_df",
-        type=int,
-        default=1,
-        help="If given, "
-        "reduces the frequency resolution by the given factor.",
-    )
-    parser.add_argument(
-        "--plot",
-        action="store_true",
-        default="False",
-        help="If given, will plot at various stages",
-    )
-    parser.add_argument("--plotdir", type=str, help="Directory to plot into.")
-    parser.add_argument(
-        "--refplotdir",
-        type=str,
-        help="Directory to plot " "reference data into.",
-    )
-    args = parser.parse_args()
-
-    args.label += "_polcal"
+    args = get_args()
 
     print("Loading IQUV")
     I = np.load(args.i, mmap_mode="r")
     Q = np.load(args.q, mmap_mode="r")
+    U = np.load(args.u, mmap_mode="r")
     V = np.load(args.v, mmap_mode="r")
 
-    U = np.load(args.u, mmap_mode="r")
-    print("Determining freqs")
-    c_freq = args.f * un.MHz
-    bw = args.b * un.MHz
-    freqs = np.linspace(
-        c_freq - bw / 2, c_freq + bw / 2, I.shape[0], endpoint=False
-    )
-    freqs = freqs[:: args.reduce_df]
-
-    df = freqs[1] - freqs[0]
-    dt = (1 / df) * args.reduce_df
-    print(f"df = {df}")
-    print(f"dt = {dt.to(un.us)}")
+    freqs, df, dt = get_freqs(
+        args.f*un.MHz, args.b*un.MHz, I.shape[0], args.reduce_df)
 
     period = args.p * un.s
     print(f"period = {period}")
@@ -280,8 +229,86 @@ def _main():
     print(f"Band {best_band+1} is the best band")
 
     with open(args.o, "w") as f:
-        f.write(f"{delays_ns[best_band][0]}\n")
-        f.write(f"{offsets[best_band][0]}")
+        f.write(f"delay={delays_ns[best_band][0]}\n")
+        f.write(f"offset={offsets[best_band][0]}")
+
+
+def get_args() -> argparse.Namespace:
+    """Parse command line arguments
+
+    :return: Command line argument paramters
+    :rtype: :class:`argparse.Namespace`
+    """
+    parser = argparse.ArgumentParser(
+        description="Determine and apply polarisation "
+        "calibration solutions",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("-i", type=str, help="Stokes I dynamic spectrum")
+    parser.add_argument("-q", type=str, help="Stokes Q dynamic spectrum")
+    parser.add_argument("-u", type=str, help="Stokes U dynamic spectrum")
+    parser.add_argument("-v", type=str, help="Stokes V dynamic spectrum")
+    parser.add_argument("-p", type=float, help="Pulsar period in s")
+    parser.add_argument("-f", type=float, help="Centre frequency in MHz")
+    parser.add_argument("-b", type=float, help="Bandwidth in MHz")
+    parser.add_argument("-l", "--label", type=str, help="Label for plots")
+    parser.add_argument("-r", "--ref", type=str, help="Reference Parkes data")
+    parser.add_argument("-o", type=str, help="File to output delay and offset")
+    parser.add_argument(
+        "--reduce_df",
+        type=int,
+        default=1,
+        help="If given, reduces the frequency resolution by the given factor.",
+    )
+    parser.add_argument(
+        "--plot",
+        action="store_true",
+        default="False",
+        help="If given, will plot at various stages",
+    )
+    parser.add_argument("--plotdir", type=str, help="Directory to plot into.")
+    parser.add_argument(
+        "--refplotdir",
+        type=str,
+        help="Directory to plot reference data into.",
+    )
+    return parser.parse_args()
+
+
+def get_freqs(
+    c_freq: astropy.Quantity, 
+    bw: astropy.Quantity, 
+    n_chan: int, 
+    reduce_df: int,
+) -> "tuple[np.ndarray, astropy.Quantity, astropy.Quantity]":
+    """Determine fine channel frequencies, and frequency & time
+    resolutions.
+
+    :param c_freq: Central frequency
+    :type c_freq: :class:`astropy.Quantity`
+    :param bw: Bandwidth
+    :type bw: :class:`astropy.Quantity`
+    :param n_chan: Number of fine channels
+    :type n_chan: int
+    :param reduce_df: Factor to reduce frequency resolution by
+    :type reduce_df: int
+    :return: Frequency array, frequency resolution, time resolution
+    :rtype: tuple[np.ndarray, astropy.Quantity, astropy.Quantity]
+    """
+    print("Determining freqs")
+    c_freq = c_freq * un.MHz
+    bw = bw * un.MHz
+    freqs = np.linspace(
+        c_freq - bw / 2, c_freq + bw / 2, I.shape[0], endpoint=False
+    )
+    freqs = freqs[:: args.reduce_df]
+
+    df = freqs[1] - freqs[0]
+    dt = (1 / df) * args.reduce_df
+    print(f"df = {df}")
+    print(f"dt = {dt.to(un.us)}")
+
+    return freqs, df, dt
 
 
 def fold_ds(a, p, dt):
