@@ -387,6 +387,7 @@ def _main():
                         x + boxsize,
                         y + boxsize,
                     )
+                    print(f"JMFIT locstring = {locstring}")
                     os.system(
                         "jmfitfromfile.py %s.fits %s.jmfit %s"
                         % (
