@@ -53,13 +53,29 @@ process localise {
 
 process apply_offset {
     input:
-        path field_image
-        tuple val(ra_askap), val(dec_askap)
+        path field_sources
+        path askap_frb_pos
     
     output:
-        tuple val(ra_true), val(dec_true)
+        path "${params.label}_final_position.txt"
     
     exec:
-        ra_true = 0
-        dec_true = 0
+        """
+        args="-o ${params.label}_RACS.dat"
+        args="\$args -a ${params.label}_ASKAP.dat"
+        args="\$args -n ${params.label}_names.dat"
+
+        $localise_dir/RACS_lookup.py \$args field*jmfit
+
+        args="--askappos ${params.label}_ASKAP.dat"
+        args="\$args --askapnames ${params.label}_names.dat"
+        args="\$args --racs ${params.label}_RACS.dat"
+        args="\$args --frbtitletext ${params.label}"
+
+        $localise_dir/src_offsets.py \$args
+
+        $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat
+
+        $localise_dir/apply_offset.py --frb $askap_frb_pos --offset offset0.dat > ${params.label}_final_position.txt
+        """
 }

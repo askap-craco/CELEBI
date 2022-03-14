@@ -56,7 +56,6 @@ workflow process_frb {
             field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, finder_image
         )
 
-        // askap_frb_pos = localise_frb(finder_image)
         // apply_offset(field_image, askap_frb_pos)
 
         // beamform_frb(
