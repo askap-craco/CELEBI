@@ -230,7 +230,7 @@ process loadfits {
 
 process subtract_rfi {
     input:
-        path finder_fits
+        each path(finder_fits)
         path rfi_fits
         path subtractions
         val mode
@@ -240,8 +240,11 @@ process subtract_rfi {
     
     script:
         """
-        grep $mode $subtractions > thissub.sh
-        bash thissub.sh
+        fits="$finder_fits"
+        bin=\${fits:9:2}
+        sleep \$bin     # stagger starts of parallel processes
+        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
+        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
         """
 }
 
