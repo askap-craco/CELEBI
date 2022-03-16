@@ -302,7 +302,7 @@ def _main():
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
-                tcleanvals["niter"] = 1e4
+                tcleanvals["niter"] = 10000
                 tcleanvals["savemodel"] = "modelcolumn"
 
             # Default: produce a cleaned cube image
