@@ -61,7 +61,8 @@ process apply_offset {
     output:
         path "${params.label}_final_position.txt" 
         path "*.dat" 
-        path "*.reg" 
+        path "*.reg"
+        path "*.png"
     
     script:
         """
