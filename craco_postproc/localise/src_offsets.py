@@ -711,6 +711,9 @@ if args.first is not None:
 if args.nvss is not None:
     raweight_nvss = 1.0/np.array(askap2nvss_offsets_unc_ra)
     decweight_nvss = 1.0/np.array(askap2nvss_offsets_unc_dec)
+if args.racs is not None:
+    raweight_racs = 1.0/np.array(askap2racs_offsets_unc_ra)
+    decweight_racs = 1.0/np.array(askap2racs_offsets_unc_dec)
 if args.sumss is not None:
     raweight_sumss = 1.0/np.array(askap2sumss_offsets_unc_ra)
     decweight_sumss = 1.0/np.array(askap2sumss_offsets_unc_dec)
@@ -725,6 +728,9 @@ if args.first is not None:
 if args.nvss is not None:
     wmean_raoffset_nvss, wmean_raoffsetunc_nvss = weighted_avg_and_std(askap2nvss_offsets_ra, raweight_nvss)
     wmean_decoffset_nvss, wmean_decoffsetunc_nvss = weighted_avg_and_std(askap2nvss_offsets_dec, decweight_nvss)
+if args.racs is not None:
+    wmean_raoffset_racs, wmean_raoffsetunc_racs = weighted_avg_and_std(askap2racs_offsets_ra, raweight_racs)
+    wmean_decoffset_racs, wmean_decoffsetunc_racs = weighted_avg_and_std(askap2racs_offsets_dec, decweight_racs)
 if args.sumss is not None:
     wmean_raoffset_sumss, wmean_raoffsetunc_sumss = weighted_avg_and_std(askap2sumss_offsets_ra, raweight_sumss)
     wmean_decoffset_sumss, wmean_decoffsetunc_sumss = weighted_avg_and_std(askap2sumss_offsets_dec, decweight_sumss)
@@ -741,6 +747,8 @@ if args.first is not None:
     plotter(askap2first_offsets_ra, askap2first_offsets_dec, askap2first_offsets_unc_ra, askap2first_offsets_unc_dec, wmean_raoffset_first, wmean_decoffset_first, wmean_raoffsetunc_first, wmean_decoffsetunc_first, catname="FIRST")
 if args.nvss is not None:
     plotter(askap2nvss_offsets_ra, askap2nvss_offsets_dec, askap2nvss_offsets_unc_ra, askap2nvss_offsets_unc_dec, wmean_raoffset_nvss, wmean_decoffset_nvss, wmean_raoffsetunc_nvss, wmean_decoffsetunc_nvss, catname="NVSS")
+if args.racs is not None:
+    plotter(askap2racs_offsets_ra, askap2racs_offsets_dec, askap2racs_offsets_unc_ra, askap2racs_offsets_unc_dec, wmean_raoffset_racs, wmean_decoffset_racs, wmean_raoffsetunc_racs, wmean_decoffsetunc_racs, catname="racs")
 if args.sumss is not None:
     plotter(askap2sumss_offsets_ra, askap2sumss_offsets_dec, askap2sumss_offsets_unc_ra, askap2sumss_offsets_unc_dec, wmean_raoffset_sumss, wmean_decoffset_sumss, wmean_raoffsetunc_sumss, wmean_decoffsetunc_sumss, catname="SUMSS")
 if args.vlass is not None:
