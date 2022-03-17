@@ -142,7 +142,7 @@ process apply_flux_cal_solns_field {
         args="\$args -u 500"
         args="\$args --skipplot"
         args="\$args --imagesize=2048"
-        args="\$args --pixelsize=3"
+        args="\$args --pixelsize=4"
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
 
