@@ -45,15 +45,16 @@ process apply_flux_cal_solns_finder {
         val cpasspoly
 
     output:
-        path "*.image", emit: all_images
-        path "f*.fits", emit: all_fits_images
-        path "*_calibrated_uv.ms", emit: all_ms
+        // path "*.image", emit: all_images
+        // path "f*.fits", emit: all_fits_images
+        // path "*_calibrated_uv.ms", emit: all_ms
         path "*.jmfit", emit: all_jmfits
-        path "*.reg", emit: all_regs
-        path "${params.label}.image", emit: peak_image
+        // path "*.reg", emit: all_regs
+        // path "${params.label}.image", emit: peak_image
         path "${params.label}.fits", emit: peak_fits_image
         path "${params.label}.jmfit", emit: peak_jmfit
         path "${params.label}.reg", emit: peak_reg
+        path "${params.label}_calibrated_uv.ms", emit: peak_ms
 
     script:
         """
@@ -91,12 +92,14 @@ process apply_flux_cal_solns_finder {
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
         peak_jmfit=\$($localise_dir/argmax.sh "\$(echo \$SNs)" "\$(ls *jmfit)")
         peak="\${peak_jmfit%.*}"
+        peakbin=\${peak:9:2}
 
         echo "\$peak determined to be peak bin"
         cp \$peak_jmfit ${params.label}.jmfit
-        cp -r \${peak}.image ${params.label}.image
+        # cp -r \${peak}.image ${params.label}.image
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
+        cp fbin\${peakbin}_norfi_calibrated_uv.ms ${params.label}_calibrated_uv.ms
         """    
 }
 
@@ -112,7 +115,7 @@ process apply_flux_cal_solns_field {
         val dummy   // so we can force this to wait for finder to finish
 
     output:
-        path "*.image", emit: image
+        // path "*.image", emit: image
         path "f*.fits", emit: fitsimage
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
@@ -164,7 +167,7 @@ process apply_flux_cal_solns_polcal {
         val cpasspoly
 
     output:
-        path "*.image", emit: image
+        // path "*.image", emit: image
         path "p*.fits", emit: fitsimage
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
