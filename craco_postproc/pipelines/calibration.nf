@@ -99,7 +99,7 @@ process apply_flux_cal_solns_finder {
         # cp -r \${peak}.image ${params.label}.image
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
-        cp fbin\${peakbin}_norfi_calibrated_uv.ms ${params.label}_calibrated_uv.ms
+        cp -r fbin\${peakbin}_norfi_calibrated_uv.ms ${params.label}_calibrated_uv.ms
         """    
 }
 
