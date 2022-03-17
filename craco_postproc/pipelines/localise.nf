@@ -52,7 +52,7 @@ process localise {
 }
 
 process apply_offset {
-    publishDir "${params.publish_dir}/${params.label}", mode: "copy"
+    publishDir "${params.publish_dir}/${params.label}/position", mode: "copy"
 
     input:
         path field_sources
