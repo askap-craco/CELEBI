@@ -43,8 +43,8 @@ def _main():
                           unit='deg')
         ra_hms, dec_dms = brightest_sc.to_string('hmsdms').split()
 
-        # Avoid repeating sources
-        if brightest['component_name'] not in names:
+        # Avoid repeating sources and sources with low S/N
+        if brightest['component_name'] not in names and coord.sn >= 10:
             names.append(brightest['component_name'])
 
             askap_file.write(writestr(coord.ra_hms, coord.ra_err, coord.dec_dms, coord.dec_err))
@@ -54,7 +54,7 @@ def _main():
                                     brightest['dec_err']))
             name_file.write(brightest['component_name']+'\n')
             region_str = f'{coord.ra_hms}, {coord.dec_dms}, {coord.ra_err}", {coord.dec_err}", 0'
-            region_file.write(f'fk5;ellipse({region_str.replace("h", ":").replace("d", ":").replace("m", ":").replace("s", ":")}) # text="{brightest["component_name"]}"\n')
+            region_file.write(f'fk5;ellipse({region_str.replace("h", ":").replace("d", ":").replace("m", ":").replace("s", ":")}) # text="{brightest["component_name"]} - S/N={coord.sn:.2f}"\n')
 
     askap_file.close()
     pos_file.close()
@@ -74,6 +74,7 @@ class Coord(object):
         self.ra_err = float(fields['Est. RA error (mas)'])/1e3  # arcseconds
         self.dec_dms = fields['Actual Dec']                     # dms
         self.dec_err = float(fields['Est. Dec error (mas)'])/1e3# arcseconds
+        self.sn = float(fields['S/N'])
 
 
 def RACS_lookup(ra_hms, dec_dms, casdatap):
