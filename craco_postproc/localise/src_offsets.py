@@ -79,7 +79,7 @@ if args.askappos is None:
 if args.askapnames is None:
     parser.error("You must specify a text file containing the ASKAP names")
 
-if (args.first is None) and (args.nvss is None) and (args.sumss is None) and (args.vlass is None):
+if (args.first is None) and (args.nvss is None) and (args.sumss is None) and (args.vlass is None) and (args.racs is None):
     parser.error("You must specify one or more text files containing the catalogue source information")
 
 if args.frbtitletext is None:
@@ -184,13 +184,22 @@ def getradec(src_info, first=False):
 
     # Extract positions in hms and dms
     ra_hms = [src_info[i].split(',')[0] for i in np.arange(len(src_info))]
-    ra_hms = [(ra.split(":")[0] + 'h' + ra.split(":")[1] + 'm' + ra.split(":")[2] + 's') for ra in ra_hms]
+    print(ra_hms)
+    try:
+        ra_hms = [(ra.split(":")[0] + 'h' + ra.split(":")[1] + 'm' + ra.split(":")[2] + 's') for ra in ra_hms]
+    except:
+        ra_hms = ra_hms
+    print(ra_hms)
 
     if first is True:
         dec_dms = [src_info[i].split(',')[1] for i in np.arange(len(src_info))]
     else:
         dec_dms = [src_info[i].split(',')[2] for i in np.arange(len(src_info))]
-    dec_dms = [(dec.split(":")[0] + 'd' + dec.split(":")[1] + 'm' + dec.split(":")[2] + 's') for dec in dec_dms]
+    
+    try:
+        dec_dms = [(dec.split(":")[0] + 'd' + dec.split(":")[1] + 'm' + dec.split(":")[2] + 's') for dec in dec_dms]
+    except:
+        dec_dms = dec_dms
 
     # Convert RA, Dec into arcsec
     ra_arcsec = [(sc(ra, dec, frame='icrs').ra.arcsec) for ra,dec in zip(ra_hms,dec_dms)]
@@ -267,7 +276,7 @@ def getfirst_unc(src_info):
     return first_unc_dict
     
 
-def getradec_unc(src_info, dec_rad, askap=False, first=False, nvss=False, sumss=False, vlass=False):
+def getradec_unc(src_info, dec_rad, askap=False, first=False, nvss=False, sumss=False, vlass=False, racs=False):
 
     """
     This function takes a list of source information,
@@ -305,7 +314,7 @@ def getradec_unc(src_info, dec_rad, askap=False, first=False, nvss=False, sumss=
 
     # Extract the uncertainties in the default unit of the source info and convert to arcsec if needed
     # ASKAP or NVSS
-    if (askap is True) or (nvss is True) or (vlass is True):
+    if (askap is True) or (nvss is True) or (vlass is True) or (racs is True):
         # TEMP: RA_err expected to be arcseconds
         ra_unc_arcsec = [np.float(src_info[i].split(',')[1]) for i in np.arange(len(src_info))]
 
@@ -328,7 +337,7 @@ def getradec_unc(src_info, dec_rad, askap=False, first=False, nvss=False, sumss=
         #dec_unc_mas = [np.float(src_info[i].split(',')[3]) for i in np.arange(len(src_info))]
         #dec_unc_arcsec = [dec_unc_mas[i]/1000. for i in np.arange(len(src_info))]
         dec_unc_arcsec = [np.float(src_info[i].split(',')[3]) for i in np.arange(len(src_info))]
-    if (nvss is True) or (sumss is True):
+    if (nvss is True) or (sumss is True) or (racs is True):
         # Dec_err default unit: arcsec
         dec_unc_arcsec = [np.float(src_info[i].split(',')[3]) for i in np.arange(len(src_info))]
     if first is True:

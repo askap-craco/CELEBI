@@ -220,8 +220,8 @@ def main():
 		#mean_dec[i],mean_ra_err[i],mean_dec_err[i],errr,errd))
 		#print("  The chi2 from subsequent fits is ",errr,errd)
 		with open(f"offset{i}.dat", "w") as f:
-			f.write("#RA offset, RA offset error, Dec offset, Dec offset error (all in arcsec)")
-			f.write(f"{mean_ra[i]},{mean_ra_err[i]*1.79},{mean_dec[i]},{mean_dec_err[i]*1.79}")
+			f.write("#RA offset, RA offset error, Dec offset, Dec offset error (all in arcsec)\n")
+			f.write(f"{mean_ra[i]} {mean_ra_err[i]*1.79} {mean_dec[i]} {mean_dec_err[i]*1.79}\n")
 	
 	print("In the above, 'scatter error' is derived by ignoring the quoted values of")
 	print("the errors, and simply looking at the scatter of points about the mean.")

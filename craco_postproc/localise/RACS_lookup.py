@@ -13,6 +13,7 @@ def _main():
     parser.add_argument('-o', required=True, help='Output RACS positions file')
     parser.add_argument('-a', required=True, help='Output ASKAP positions file')
     parser.add_argument('-n', required=True, help='Output names file')
+    parser.add_argument('-r', required=True, help='Output region file')
     parser.add_argument('files', nargs='+', help='Source stats files')
     args = parser.parse_args()
 
@@ -20,6 +21,9 @@ def _main():
     askap_file = open(args.a, 'a')
     pos_file = open(args.o, 'a')
     name_file = open(args.n, 'a')
+    region_file = open(args.r, 'a')
+
+    names = []
 
     for f in args.files:
         print(f)
@@ -38,13 +42,19 @@ def _main():
         brightest_sc = sc(brightest['ra_deg_cont'], brightest['dec_deg_cont'],
                           unit='deg')
         ra_hms, dec_dms = brightest_sc.to_string('hmsdms').split()
-    
-        askap_file.write(writestr(coord.ra_hms, coord.ra_err, coord.dec_dms, coord.dec_err))
-        pos_file.write(writestr(ra_hms,
-                                brightest['ra_err'],
-                                dec_dms,
-                                brightest['dec_err']))
-        name_file.write(brightest['component_name']+'\n')
+
+        # Avoid repeating sources
+        if brightest['component_name'] not in names:
+            names.append(brightest['component_name'])
+
+            askap_file.write(writestr(coord.ra_hms, coord.ra_err, coord.dec_dms, coord.dec_err))
+            pos_file.write(writestr(ra_hms,
+                                    brightest['ra_err'],
+                                    dec_dms,
+                                    brightest['dec_err']))
+            name_file.write(brightest['component_name']+'\n')
+            region_str = f'{coord.ra_hms}, {coord.dec_dms}, {coord.ra_err}", {coord.dec_err}", 0'
+            region_file.write(f'fk5;ellipse({region_str.replace("h", ":").replace("d", ":").replace("m", ":").replace("s", ":")}) # text="{brightest["component_name"]}"\n')
 
     askap_file.close()
     pos_file.close()

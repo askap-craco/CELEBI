@@ -52,18 +52,23 @@ process localise {
 }
 
 process apply_offset {
+    publishDir "${params.publish_dir}/${params.label}", mode: "copy"
+
     input:
         path field_sources
         path askap_frb_pos
     
     output:
-        path "${params.label}_final_position.txt"
+        path "${params.label}_final_position.txt" 
+        path "*.dat" 
+        path "*.reg" 
     
-    exec:
+    script:
         """
         args="-o ${params.label}_RACS.dat"
         args="\$args -a ${params.label}_ASKAP.dat"
         args="\$args -n ${params.label}_names.dat"
+        args="\$args -r ${params.label}_RACS_sources.reg"
 
         $localise_dir/RACS_lookup.py \$args field*jmfit
 
