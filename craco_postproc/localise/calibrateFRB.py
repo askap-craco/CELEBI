@@ -1154,7 +1154,7 @@ def write_readme(
     readmeout.close()
     if os.path.exists(calibtarballfile):
         os.system("rm -f " + calibtarballfile)
-    os.system(f"tar cvzf {calibtarballfile} {readmefname} {tarinputfiles}")
+    os.system(f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}")
 
 
 def fits_to_ms(fitsfname: str, msfname: str) -> None:
