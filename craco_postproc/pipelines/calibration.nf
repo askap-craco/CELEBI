@@ -211,10 +211,11 @@ process determine_pol_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
     
     input:
-        path I
-        path Q
-        path U
-        path V
+        path htr_data
+        // path I
+        // path Q
+        // path U
+        // path V
 
     output:
         path "${params.label}_polcal.dat", emit: polcal_solns
@@ -222,16 +223,18 @@ process determine_pol_cal_solns {
     
     script:
         """
-        args="-i $I -q $Q -u $U -v $V"
-        args="\$args -p $params.period_polcal"
-        args="\$args -f $params.centre_freq_polcal"
-        args="\$args -b 336"
-        args="\$args -l ${params.label}_polcal"
-        args="\$args -o ${params.label}_polcal.dat"
-        args="\$args --reduce_df 1"
-        args="\$args --plot"
-        args="\$args --plotdir ."
+        touch ${params.label}_polcal.dat
+        touch ${params.label}.png
+        #args="-i $I -q $Q -u $U -v $V"
+        #args="\$args -p $params.period_polcal"
+        #args="\$args -f $params.centre_freq_polcal"
+        #args="\$args -b 336"
+        #args="\$args -l ${params.label}_polcal"
+        #args="\$args -o ${params.label}_polcal.dat"
+        #args="\$args --reduce_df 1"
+        #args="\$args --plot"
+        #args="\$args --plotdir ."
 
-        $beamform_dir/polcal.py \$args
+        #$beamform_dir/polcal.py \$args
         """
 }
