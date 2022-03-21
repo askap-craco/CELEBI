@@ -19,12 +19,17 @@ workflow process_flux_cal {
         cpasspoly   // val
 
     main:
-        binconfig = generate_binconfig(data_frb, snoopy)
-        empty_binconfig = create_empty_file("binconfig")
-        fits = correlate_fluxcal(
-            label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
-            fluxflagfile, "fluxcal"
-        )
+        if( params.nocorrelate ) {
+            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/fluxcal/*fits")
+        }
+        else {
+            binconfig = generate_binconfig(data_frb, snoopy)
+            empty_binconfig = create_empty_file("binconfig")
+            fits = correlate_fluxcal(
+                label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
+                fluxflagfile, "fluxcal"
+            )
+        }
 
         determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly)
     emit:

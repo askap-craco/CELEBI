@@ -26,11 +26,16 @@ workflow process_pol_cal {
         centre_freq // val
 
     main:
-        binconfig = generate_binconfig(data_frb, snoopy)
         empty_file = create_empty_file("file")
-        fits = correlate_polcal(
-            label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
-        )
+        if( params.nocorrelate ) {
+            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/polcal/*fits")
+        }
+        else {
+            binconfig = generate_binconfig(data_frb, snoopy)
+            fits = correlate_polcal(
+                label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
+            )
+        }
 
         pos = apply_flux_cal_solns_polcal(
             fits, flux_cal_solns, polflagfile, target, cpasspoly

@@ -184,6 +184,8 @@ process loadfits {
     fits - path
         A single FITS file containing data across all cards processed
     *******************************************************************/
+    publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
+
     input:
     val data
     val label

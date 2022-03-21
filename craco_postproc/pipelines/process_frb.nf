@@ -34,17 +34,23 @@ workflow process_frb {
         subtractions = binconfig.subtractions
         polyco = binconfig.polyco
         int_time = binconfig.int_time
-
-        finder_fits = correlate_finder(
-            "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
-        )
-        rfi_fits = correlate_rfi(
-            "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
-        )
-        empty_file = create_empty_file("file")
-        field_fits = correlate_field(
-            "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "rfi"
-        )
+        if( params.nocorrelate ) {
+            finder_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/finder/*fits")
+            rfi_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/rfi/*fits")
+            field_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/field/*fits")
+        }
+        else {
+            finder_fits = correlate_finder(
+                "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
+            )
+            rfi_fits = correlate_rfi(
+                "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
+            )
+            empty_file = create_empty_file("file")
+            field_fits = correlate_field(
+                "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
+            )
+        }
 
         no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
 

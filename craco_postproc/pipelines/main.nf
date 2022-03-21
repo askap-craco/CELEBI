@@ -21,6 +21,8 @@ params.fluxflagfile = ""
 params.polflagfile = ""
 params.fieldflagfile = ""
 
+params.nocorrelate = false
+
 workflow {
     flux_cal_solns = process_flux_cal(
         "${params.label}_fluxcal",
