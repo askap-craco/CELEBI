@@ -520,7 +520,7 @@ def get_askap2difx_cmd(
 
     runline = (
         f"{args.dir}/askap2difx.py fcm.txt obs.txt chandefs.txt "
-        f"--ants={antlist[:-1]} "
+        f"--ants={antlist} "
         f"--bits={args.bits} "
         f"--framesize={framesize} "
         f"--npol={npol}"
