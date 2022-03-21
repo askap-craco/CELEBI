@@ -6,6 +6,7 @@ import astropy
 from astropy import units as un
 from scipy.optimize import bisect, curve_fit
 import argparse
+from functools import reduce
 
 
 def _main():

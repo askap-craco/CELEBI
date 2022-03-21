@@ -34,8 +34,7 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    // pol_cal_solns = process_pol_cal(
-    process_pol_cal(
+    pol_cal_solns = process_pol_cal(
         "${params.label}_polcal",
         params.label,
         params.data_polcal,
@@ -62,7 +61,7 @@ workflow {
         params.dec_frb,
         params.fieldflagfile,
         flux_cal_solns,
-        // pol_cal_solns,
+        pol_cal_solns,
         params.cpasspoly_frb,
         params.num_ints_frb,
         params.int_len_frb,

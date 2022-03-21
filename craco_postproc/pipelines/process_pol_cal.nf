@@ -4,7 +4,7 @@ include { create_empty_file } from './utils'
 include { correlate as correlate_polcal } from './correlate'
 include { beamform as beamform_polcal } from './beamform'
 include { apply_flux_cal_solns_polcal; determine_pol_cal_solns } from './calibration'
-include { localise; generate_binconfig } from './localise'
+include { generate_binconfig } from './localise'
 
 workflow process_pol_cal {
     take:
@@ -32,16 +32,16 @@ workflow process_pol_cal {
             label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
         )
 
-        image = apply_flux_cal_solns_polcal(
+        pos = apply_flux_cal_solns_polcal(
             fits, flux_cal_solns, polflagfile, target, cpasspoly
-        )
-        // pos = localise_polcal(image)
-        // htr_data = beamform_polcal(
-        //     label, data, fcm, pos, flux_cal_solns, empty_file,
-        //     num_ints, int_len, offset, dm, centre_freq
-        // )
-        // determine_pol_cal_solns(htr_data)           
+        ).jmfit
 
-    // emit:
-    //     pol_cal_solns = determine_pol_cal_solns.out
+        htr_data = beamform_polcal(
+            label, data, fcm, pos, flux_cal_solns, empty_file,
+            num_ints, int_len, offset, dm, centre_freq
+        )
+        determine_pol_cal_solns(htr_data)           
+
+    emit:
+        pol_cal_solns = determine_pol_cal_solns.out.pol_cal_solns
 }

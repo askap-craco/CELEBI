@@ -2,7 +2,7 @@ import os
 import warnings
 
 import numpy as np
-from craft.parse_aips import aipscor
+from parse_aips import aipscor
 from scipy.interpolate import interp1d
 
 

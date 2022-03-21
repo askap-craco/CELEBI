@@ -16,21 +16,14 @@ process get_num_ants {
         val data
 
     output:
-        stdout
+        path "*.idx"
     
     script:
         """
-        ls -d $data/ak* | wc -w
+        nants=\$(ls -d $data/ak* | wc -w)
+        nantsm1=\$(( nants - 1 ))
+        for i in \$(seq 0 \$nantsm1); do
+            touch \${i}.idx
+        done
         """
-}
-
-process create_range_channel {
-    input:
-        val x
-    
-    output:
-        val range
-    
-    exec:
-        range = Channel.from(0..x-1)
 }

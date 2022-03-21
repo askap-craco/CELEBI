@@ -1,11 +1,16 @@
 nextflow.enable.dsl=2
 
-include { get_num_ants; create_range_channel } from './utils'
+include { get_num_ants } from './utils'
 include { get_startmjd } from './correlate'
 
 params.pols = ['x', 'y']
 polarisations = Channel
     .fromList(params.pols)
+params.nants = 2
+antennas = Channel
+    .of(0..params.nants-1)
+
+params.hwfile = "N/A"
 
 localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
@@ -15,7 +20,7 @@ process create_calcfiles {
         val label
         val data
         val startmjd
-        tuple val(ra), val(dec)
+        path pos
         val fcm
 
     output:
@@ -25,44 +30,52 @@ process create_calcfiles {
         """
         export CRAFTCATDIR="."
 
+        ra=\$(grep "Actual RA" $pos)
+        ra=\${ra:22}
+        dec=\$(grep "Actual Dec" $pos)
+        dec=\${dec:22}
+
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is written
         args="-t $data"
-        args="\$args --ra $ra"
-        args="\$args -d$dec"
+        args="\$args --ra \$ra"
+        args="\$args -d\$dec"
         args="\$args -f $fcm"
         args="\$args -b 4"
         args="\$args --card 1"
         args="\$args -k"
-        args="\$args --slurm"
         args="\$args --name=$label"
         args="\$args -o ."
         args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$beamform_dir/difx"
+        args="\$args --dir=$baseDir/../difx"
         args="\$args --calconly"
-        args="\$args --startmjd \$startmjd"
+        args="\$args --startmjd $startmjd"
 
+        echo "$localise_dir/processTimeStep.py \$args"
         $localise_dir/processTimeStep.py \$args
         """    
 }
 
 process do_beamform {
+    cpus 4  // need to limit max number of parallel processes to 4 for memory
+
     input:
         val label
+        val data
         tuple path(imfile), path(calcfile)
-        tuple val(pol), val(antnum)
+        tuple val(pol), val(ant_idx)
         path flux_cal_solns
-        path pol_cal_solns
         val num_ints
         val int_len
         val offset
         val fcm
 
     output:
-        tuple val(pol), path("${label}_frb_${antnum}_${pol}_f.npy")
+        tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy")
 
     script:
         """
         mkdir delays    # needed by craftcor_tab.py
+        tar xvf $flux_cal_solns
 
         args="-i $num_ints"
         args="\$args -n $int_len"
@@ -70,25 +83,19 @@ process do_beamform {
         args="\$args -d $data"
         args="\$args --parset $fcm"
         args="\$args --calcfile $imfile"
-        args="\$args --aips_c $bandpass"
-        args="\$args --an $antnum"
+        args="\$args --aips_c bandpass*txt"
+        args="\$args --an $ant_idx"
         args="\$args --pol $pol"
-        args="\$args -o ${label}_frb_${antnum}_${pol}_f.npy"
+        args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args --tab"
 
-        if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
-            polcal_delay=`head -1 $polcal_soln`
-            args="\$args --polcal_delay=\$polcal_delay"
-            polcal_offset=`head -2 $polcal_soln | tail -1`
-            args="\$args --polcal_offset=\$polcal_offset"
-        fi
-
         # Legacy compatibility: some very old FRBs need a hwfile
-        if [ ! "$params.hwfile" = "" ]; then
+        if [ ! "$params.hwfile" = "N/A" ]; then
             args="\$args --hwfile $params.hwfile"
         fi
 
         python $beamform_dir/craftcor_tab.py \$args
+        rm TEMP*
         """
 }
 
@@ -181,6 +188,7 @@ process ifft {
     input:
     val label
     tuple val(pol), path(spectrum)
+    path pol_cal_solns
 
     output:
     path("${label}_frb_sum_${pol}_t.npy")
@@ -227,7 +235,7 @@ workflow beamform {
         label   // val
         data    // val
         fcm // val
-        pos // tuple(val, val)
+        pos // path
         flux_cal_solns  // path
         pol_cal_solns   // path
         num_ints    // val
@@ -240,18 +248,16 @@ workflow beamform {
         // preliminaries
         startmjd = get_startmjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
-        num_ants = get_num_ants(data)
-        antennas = create_range_channel(num_ants.toInteger())
 
         // processing
         do_beamform(
-            label, calcfiles, polarisations.combine(antennas), flux_cal_solns,
-            pol_cal_solns, num_ints, int_len, offset, fcm
+            label, data, calcfiles, polarisations.combine(antennas), flux_cal_solns,
+            num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.groupTuple())
         deripple(label, int_len, sum.out)
         dedisperse(label, dm, centre_freq, deripple.out)
-        ifft(label, dedisperse.out)
+        ifft(label, dedisperse.out, pol_cal_solns)
         generate_dynspecs(label, ifft.out.collect())
     
     emit:

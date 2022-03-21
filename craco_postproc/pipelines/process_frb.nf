@@ -6,7 +6,7 @@ include { correlate as correlate_finder; correlate as correlate_rfi;
     subtract_rfi as subtract_rfi_field } from './correlate'
 include { apply_flux_cal_solns_finder;
     apply_flux_cal_solns_field } from './calibration'
-include { localise; apply_offset; generate_binconfig } from './localise'
+include { apply_offset; generate_binconfig } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
 workflow process_frb {
@@ -19,7 +19,7 @@ workflow process_frb {
         dec0    // val
         fieldflagfile
         flux_cal_solns  // path
-        // pol_cal_solns // path
+        pol_cal_solns // path
         cpasspoly   // val
         num_ints    // val
         int_len // val
@@ -58,10 +58,10 @@ workflow process_frb {
 
         apply_offset(field_sources, askap_frb_pos)
 
-        // beamform_frb(
-        //     label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-        //     num_ints, int_len, offset, dm, centre_freq
-        // )
+        beamform_frb(
+            label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
+            num_ints, int_len, offset, dm, centre_freq
+        )
 
     // emit:
         // true_pos = apply_offset.out
