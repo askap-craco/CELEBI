@@ -626,3 +626,4 @@ craco_postproc/pipelines/.nextflow.log.8
 craco_postproc/pipelines/.nextflow.log.9
 craco_postproc/pipelines/work
 craco_postproc/pipelines/.nextflow
+nextflow.config
