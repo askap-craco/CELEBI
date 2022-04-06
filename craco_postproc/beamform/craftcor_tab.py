@@ -256,7 +256,7 @@ class AntennaSource(object):
         assert rawd.shape == (nsamp, corr.ncoarse_chan), 'Unexpected shape from vfile: {} expected ({},{})'.format(rawd.shape, nsamp, corr.ncoarse_chan)
 
         # Fine channel frequencies from -0.5 MHz to 0.5 MHz
-        freqs = (np.arange(nfine, dtype=np.float) - float(nfine)/2.0)*corr.fine_chanbw
+        freqs = (np.arange(nfine, dtype=float) - float(nfine)/2.0)*corr.fine_chanbw
         # TODO: what is sideband?
         if corr.sideband == -1:
             freqs = -freqs
