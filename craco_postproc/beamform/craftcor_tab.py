@@ -437,7 +437,7 @@ class Correlator(object):
         self.parset = {}
 
         # open the fcm file
-        with open(self.values.parset, 'rU') as f:
+        with open(self.values.parset, 'r') as f:
             for line in f:
                 if '=' not in line or line.startswith('#'):
                     continue
@@ -871,7 +871,7 @@ class MiriadGainSolutions(object):
 def load_sources(calcfile):
     calc_input = calcfile.replace('.im','.calc')
     d = {}
-    for line in open(calc_input, 'rU'):
+    for line in open(calc_input, 'r'):
         if len(line) == 0 or line.startswith('#'):
             continue
         bits = line.split(':')
