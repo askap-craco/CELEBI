@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 include { process_flux_cal } from './process_flux_cal'
 include { process_pol_cal } from './process_pol_cal'
 include { process_frb } from './process_frb'
+include { create_empty_file } from './utils'
 
 // Defaults
 params.cpasspoly_fluxcal = 5
@@ -36,24 +37,29 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    pol_cal_solns = process_pol_cal(
-        "${params.label}_polcal",
-        params.label,
-        params.data_polcal,
-        params.data_frb,
-        params.snoopy,
-        params.fcm,
-        params.ra_polcal,
-        params.dec_polcal,
-        params.polflagfile,
-        params.cpasspoly_polcal,
-        flux_cal_solns,
-        params.num_ints_polcal,
-        params.int_len_polcal,
-        params.offset_polcal,
-        params.dm_polcal,
-        params.centre_freq_polcal
-    )
+    if ( params.beamform ) {    // polcal only relevant when beamforming
+        pol_cal_solns = process_pol_cal(
+            "${params.label}_polcal",
+            params.label,
+            params.data_polcal,
+            params.data_frb,
+            params.snoopy,
+            params.fcm,
+            params.ra_polcal,
+            params.dec_polcal,
+            params.polflagfile,
+            params.cpasspoly_polcal,
+            flux_cal_solns,
+            params.num_ints_polcal,
+            params.int_len_polcal,
+            params.offset_polcal,
+            params.dm_polcal,
+            params.centre_freq_polcal
+        )
+    }
+    else {
+        pol_cal_solns = create_empty_file("polcal.dat")
+    }
     process_frb(
         params.label,
         params.data_frb,

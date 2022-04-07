@@ -64,10 +64,12 @@ workflow process_frb {
 
         apply_offset(field_sources, askap_frb_pos)
 
-        beamform_frb(
-            label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-            num_ints, int_len, offset, dm, centre_freq
-        )
+        if ( params.beamform ) {
+            beamform_frb(
+                label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
+                num_ints, int_len, offset, dm, centre_freq
+            )
+        }
 
     // emit:
         // true_pos = apply_offset.out
