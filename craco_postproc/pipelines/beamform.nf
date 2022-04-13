@@ -1,6 +1,5 @@
 nextflow.enable.dsl=2
 
-include { get_num_ants } from './utils'
 include { get_startmjd } from './correlate'
 
 params.pols = ['x', 'y']
@@ -242,6 +241,8 @@ workflow beamform {
         // preliminaries
         startmjd = get_startmjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
+
+        polarisations.combine(antennas).view()
 
         // processing
         do_beamform(
