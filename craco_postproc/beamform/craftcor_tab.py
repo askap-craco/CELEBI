@@ -752,12 +752,14 @@ class MiriadGainSolutions(object):
                     for line in fl:
                         if 'NAXIS2' in line:
                             nant = int(line.split()[2])
+                            print(f"nant = {nant}")
                             if '190608' in bp_c_root:
                               nant -=2 # exclude ak31 and ak32 from calibration solutions (from Adam)
                         if 'TFDIM11' in line:
                             nfreq = int(line.split()[2])
                 if nant is None or nfreq is None:
                     print('WARNING! nant or nfreq not assigned while parsing AIPS bandpass')
+                print(f"nant = {nant}")
                 fmax = freqs[0]+0.5 # in MHz
                 bw = len(freqs) # in MHz
                 self.freqs = (-np.arange(float(nfreq))/nfreq*bw+fmax-float(bw)/nfreq/2)/1e3 # reassign freqs in GHz
@@ -824,6 +826,7 @@ class MiriadGainSolutions(object):
                     g_imag[0,iant] = np.imag(g)
                 #self.freqs = (-np.arange(2016)/2016.*336+1488.5-1/12.)/1e3 # reassign freqs in GHz
                 #self.bp_real, self.bp_imag = parse_aips_bp(bp_c_root, pol)
+                print(f"nant = {nant}")
                 self.bp_real_interp = [interp1d(self.freqs, self.bp_real[:, iant], fill_value=(self.bp_real[0,iant], self.bp_real[-1,iant]), bounds_error=False) for iant in range(nant)]
                 self.bp_imag_interp = [interp1d(self.freqs, self.bp_imag[:, iant], fill_value=(self.bp_imag[0,iant], self.bp_imag[-1,iant]), bounds_error=False) for iant in range(nant)]
                 self.bp_coeff = None
@@ -846,6 +849,7 @@ class MiriadGainSolutions(object):
             bp_fit = np.poly1d(self.bp_coeff[iant,0,:])+1j*np.poly1d(self.bp_coeff[iant,1,:])
             bp_value = bp_fit(freq_ghz*1e3)
         else: # AIPS polyfit coefficient doesn't exist. Use Miriad/AIPS bandpass interpolation
+            print(iant, len(self.bp_real_interp))
             f_real = self.bp_real_interp[iant](freq_ghz)
             f_imag = self.bp_imag_interp[iant](freq_ghz)
             bp_value = f_real + 1j*f_imag
