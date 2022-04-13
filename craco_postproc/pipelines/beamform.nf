@@ -61,7 +61,8 @@ process do_beamform {
         val label
         val data
         tuple path(imfile), path(calcfile)
-        tuple val(pol), val(ant_idx)
+        each pol
+        each ant_idx
         path flux_cal_solns
         val num_ints
         val int_len
@@ -130,10 +131,6 @@ process deripple {
         tuple val(pol), path("${label}_frb_sum_${pol}_f_derippled.npy")
 
     """
-    module load python/2.7.14
-    module load numpy/1.16.3-python-2.7.14
-    module load scipy/1.0.0-python-2.7.14
-
     fftlen=\$(( $int_len * 64 ))
 
     if [ ! -d $beamform_dir/.deripple_coeffs ]; then
@@ -164,11 +161,6 @@ process dedisperse {
 
     script:
         """
-        module load gcc/7.3.0
-        module load openmpi/3.0.0
-        module load python/3.7.4
-        module load numpy/1.18.2-python-3.7.4
-
         args="-f $spectrum"
         args="\$args --DM $DM"
         args="\$args --f0 $centre_freq"
@@ -208,11 +200,6 @@ process generate_dynspecs {
         path "${label}_frb_fulltimeres.tar.gz"
 
     """
-    module load gcc/7.3.0
-    module load openmpi/3.0.0
-    module load python/3.7.4
-    module load numpy/1.18.2-python-3.7.4
-
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
@@ -242,11 +229,9 @@ workflow beamform {
         startmjd = get_startmjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
 
-        polarisations.combine(antennas).view()
-
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations.combine(antennas), flux_cal_solns,
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns,
             num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.groupTuple())
