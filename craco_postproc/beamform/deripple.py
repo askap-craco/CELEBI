@@ -6,6 +6,8 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
 
 import numpy as np
 from scipy.interpolate import interp1d
+from scipy import fft
+from scipy import io
 
 
 def _main():
