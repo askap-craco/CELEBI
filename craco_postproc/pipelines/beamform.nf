@@ -119,8 +119,7 @@ process sum {
 }
 
 process deripple {
-    cpus 1
-    memory '60 GB'
+    cpus 16
 
     input:
         val label
@@ -147,8 +146,7 @@ process deripple {
 }
 
 process dedisperse {
-    cpus 1
-    memory '60 GB'
+    cpus 16
 
     input:
         val label
@@ -189,8 +187,7 @@ process ifft {
 }
 
 process generate_dynspecs {
-    cpus 1
-    memory '60 GB'
+    cpus 16
 
     input:
         val label
