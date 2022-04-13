@@ -627,3 +627,6 @@ craco_postproc/pipelines/.nextflow.log.9
 craco_postproc/pipelines/work
 craco_postproc/pipelines/.nextflow
 nextflow.config
+
+# deripple coefficients
+craco_postproc/beamform/.deripple_coeffs/*npy
