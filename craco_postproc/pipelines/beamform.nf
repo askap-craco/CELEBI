@@ -119,10 +119,8 @@ process sum {
 }
 
 process deripple {
-    executor 'slurm'
     cpus 1
-    time '45m'
-    memory '64 GB'
+    memory '60 GB'
 
     input:
         val label
