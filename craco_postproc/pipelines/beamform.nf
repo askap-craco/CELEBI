@@ -151,10 +151,8 @@ process deripple {
 }
 
 process dedisperse {
-    executor 'slurm'
     cpus 1
-    time '5m'
-    memory '64 GB'
+    memory '60 GB'
 
     input:
         val label
@@ -200,10 +198,8 @@ process ifft {
 }
 
 process generate_dynspecs {
-    executor 'slurm'
     cpus 1
-    time '1h'
-    memory '64 GB'
+    memory '60 GB'
 
     input:
         val label
