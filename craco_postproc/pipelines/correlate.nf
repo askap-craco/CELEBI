@@ -236,8 +236,8 @@ process loadfits {
 process subtract_rfi {
     label 'slurm'
     cpus 1
-    memory  // TODO: decide memory to allocate
-    time    // TODO: decide time to allocate
+    // memory  // TODO: decide memory to allocate
+    // time    // TODO: decide time to allocate
     
     input:
         each path(finder_fits)
