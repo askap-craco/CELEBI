@@ -160,7 +160,7 @@ process dedisperse {
     script:
         """
         args="-f $spectrum"
-        args="\$args --DM $DM"
+        args="\$args --DM $dm"
         args="\$args --f0 $centre_freq"
         args="\$args --bw 336"
         args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed.npy"
