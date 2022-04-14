@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+import sys
 
 import numpy as np
 
@@ -13,16 +14,33 @@ def _main():
     x = load(args.x)
     y = load(args.y)
 
-    print("Generating x and y dynamic spectra")
-    x_ds = generate_dynspec(x)
-    y_ds = generate_dynspec(y)
+    if not (args.ds or args.t):
+        print("Not generating dynamic spectra or time series - exiting!")
+        sys.exit(1)
+    
+    if not (args.X or args.Y or args.I or args.Q or args.U or args.V):
+        print("Not saving any polarisation or Stokes data - exiting!")
+        sys.exit(2)
 
-    save(x_ds, args.o, "x", "dynspec")
-    save(y_ds, args.o, "y", "dynspec")
+    if args.t:
+        if args.I or args.Q or args.U or args.V:
+            print("Calculating Stoke parameters")
+            calculate_stokes(args, x, y, args.o, "t")
 
-    print("Calculating Stoke parameters")
-    calculate_stokes(x, y, args.o, "t")
-    calculate_stokes(x_ds, y_ds, args.o, "dynspec")
+    if args.ds:
+        print("Generating x and y dynamic spectra")
+        x_ds = generate_dynspec(x)
+        y_ds = generate_dynspec(y)
+
+        if args.X:
+            save(x_ds, args.o, "x", "dynspec")
+
+        if args.Y:
+            save(y_ds, args.o, "y", "dynspec")
+
+        if args.I or args.Q or args.U or args.V:
+            print("Calculating Stoke parameters")
+            calculate_stokes(args, x_ds, y_ds, args.o, "dynspec")
 
     end = time.time()
     print(f"dynspecs.py finished in {end - start} s")
@@ -40,6 +58,14 @@ def get_args():
         "-o",
         help="Output file name. Should have a ! that will be replaced with {x, y, i, q, u, v} and a @ that will be replaced with {t, dynspec}",
     )
+    parser.add_argument("-ds", action="store_true", default=False, help="Generate dynamic spectra")
+    parser.add_argument("-t", action="store_true", default=False, help="Generate time series")
+    parser.add_argument("-X", action="store_true", default=False, help="Save X polarisation data")
+    parser.add_argument("-Y", action="store_true", default=False, help="Save Y polarisation data")
+    parser.add_argument("-I", action="store_true", default=False, help="Save Stokes I data")
+    parser.add_argument("-Q", action="store_true", default=False, help="Save Stokes Q data")
+    parser.add_argument("-U", action="store_true", default=False, help="Save Stokes U data")
+    parser.add_argument("-V", action="store_true", default=False, help="Save Stokes V data")
     return parser.parse_args()
 
 
@@ -70,7 +96,7 @@ def save(arr, fname, id, type):
     np.save(save_fname, arr)
 
 
-def calculate_stokes(x, y, outfile, type):
+def calculate_stokes(args, x, y, outfile, type):
     # lambda functions for each of the Stokes parameters
     stokes = {
         "i": lambda x, y: np.abs(x) ** 2 + np.abs(y) ** 2,
@@ -79,16 +105,19 @@ def calculate_stokes(x, y, outfile, type):
         "v": lambda x, y: 2 * np.imag(np.conj(x) * y),
     }
 
-    for stk in ["i", "q", "u", "v"]:
-        print(f"Calculating {stk} {type}")
-        par = stokes[stk](x, y)
-        if type == "dynspec":
-            par_norm = normalise(par)
-            del par
-            par = par_norm.transpose()
-            del par_norm
+    stk_args = [args.I, args.Q, args.U, args.V]
 
-        save(par, outfile, stk, type)
+    for idx, stk in enumerate(["i", "q", "u", "v"]):
+        if stk_args[idx]:
+            print(f"Calculating {stk} {type}")
+            par = stokes[stk](x, y)
+            if type == "dynspec":
+                par_norm = normalise(par)
+                del par
+                par = par_norm.transpose()
+                del par_norm
+
+            save(par, outfile, stk, type)
 
 
 def normalise(ds):

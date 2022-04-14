@@ -67,7 +67,7 @@ workflow process_frb {
         if ( params.beamform ) {
             beamform_frb(
                 label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-                num_ints, int_len, offset, dm, centre_freq
+                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV"
             )
         }
 

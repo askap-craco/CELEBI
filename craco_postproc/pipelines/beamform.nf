@@ -192,18 +192,17 @@ process generate_dynspecs {
     input:
         val label
         path pol_time_series
+        val ds_args
 
     output:
-        path "${label}_frb_fulltimeres.tar.gz"
+        path "*.npy"
 
     """
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
 
-    python3 $beamform_dir/dynspecs.py \$args
-
-    tar -czvhf ${label}_frb_fulltimeres.tar.gz *.npy
+    python3 $beamform_dir/dynspecs.py \$args $ds_args
     """
 }
 
@@ -220,6 +219,7 @@ workflow beamform {
         offset  // val
         dm  // val
         centre_freq // val
+        ds_args // val
     
     main:
         // preliminaries
@@ -235,7 +235,7 @@ workflow beamform {
         deripple(label, int_len, sum.out)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns)
-        generate_dynspecs(label, ifft.out.collect())
+        generate_dynspecs(label, ifft.out.collect(), ds_args)
     
     emit:
         htr_data = generate_dynspecs.out

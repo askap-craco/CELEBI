@@ -43,7 +43,7 @@ workflow process_pol_cal {
 
         htr_data = beamform_polcal(
             label, data, fcm, pos, flux_cal_solns, empty_file,
-            num_ints, int_len, offset, dm, centre_freq
+            num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
         )
         determine_pol_cal_solns(htr_data)           
 
