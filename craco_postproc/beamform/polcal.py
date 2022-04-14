@@ -123,7 +123,9 @@ def _main():
         plt.tight_layout()
         fig.savefig(f"{args.plotdir}/{args.label}_polang.png")
 
-    rm, offset, stokes_ratio_pks = polcal_ref(args)
+    # rm, offset, stokes_ratio_pks = polcal_ref(args)
+    rm = 37.43534317649634
+    offset = -1.80339213320941
 
     # determine ASKAP psi_sky
     # psi'(nu) = psi(nu) + psi_sky
