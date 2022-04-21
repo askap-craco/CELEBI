@@ -55,7 +55,7 @@ process create_calcfiles {
 }
 
 process do_beamform {
-    cpus 4  // need to limit max number of parallel processes to 4 for memory
+    cpus 16 // each instance parallelises across 16 cpus
 
     input:
         val label
