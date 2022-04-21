@@ -9,6 +9,8 @@ include { apply_flux_cal_solns_finder;
 include { apply_offset; generate_binconfig } from './localise'
 include { beamform as beamform_frb } from './beamform'
 
+params.fieldimage = ""
+
 workflow process_frb {
     take:
         label   // val
@@ -37,7 +39,12 @@ workflow process_frb {
         if( params.nocorrelate ) {
             finder_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/finder/*fits")
             rfi_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/rfi/*fits")
-            field_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/field/*fits")
+            if( params.fieldimage == "" ) {
+                field_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/field/*fits")
+            }
+            else {
+                field_fits = Channel.fromPath("${params.fieldimage}")
+            }
         }
         else {
             finder_fits = correlate_finder(
@@ -47,9 +54,14 @@ workflow process_frb {
                 "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
             )
             empty_file = create_empty_file("file")
-            field_fits = correlate_field(
-                "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
-            )
+            if( params.fieldimage == "" ) {
+                field_fits = correlate_field(
+                    "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
+                )
+            }
+            else {
+                field_fits = Channel.fromPath("${params.fieldimage}")
+            }
         }
 
         no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
