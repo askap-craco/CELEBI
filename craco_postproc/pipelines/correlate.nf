@@ -66,11 +66,6 @@ process process_time_step {
         completed or not, since the correlated_data directory will exist
         even if the process has started without completing.
     *******************************************************************/
-    label 'slurm'   // allows execution with slurm if running on ozstar
-    cpus 16
-    memory '64 GB'
-    time            // TODO: decide a time to allocate
-    
     input:
     val label
     val data
@@ -234,11 +229,6 @@ process loadfits {
 }
 
 process subtract_rfi {
-    label 'slurm'
-    cpus 1
-    // memory  // TODO: decide memory to allocate
-    // time    // TODO: decide time to allocate
-    
     input:
         each path(finder_fits)
         path rfi_fits

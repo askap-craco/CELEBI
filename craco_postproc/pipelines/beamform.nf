@@ -55,8 +55,6 @@ process create_calcfiles {
 }
 
 process do_beamform {
-    cpus 4  // need to limit max number of parallel processes to 4 for memory
-
     input:
         val label
         val data
@@ -119,8 +117,6 @@ process sum {
 }
 
 process deripple {
-    cpus 16
-
     input:
         val label
         val int_len
