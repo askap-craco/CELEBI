@@ -49,8 +49,8 @@ process create_calcfiles {
         args="\$args --calconly"
         args="\$args --startmjd $startmjd"
 
-        echo "$localise_dir/processTimeStep.py \$args"
-        $localise_dir/processTimeStep.py \$args
+        echo "python3 $localise_dir/processTimeStep.py \$args"
+        python3 $localise_dir/processTimeStep.py \$args
         """    
 }
 
@@ -92,7 +92,7 @@ process do_beamform {
             args="\$args --hwfile $params.hwfile"
         fi
 
-        python $beamform_dir/craftcor_tab.py \$args
+        python3 $beamform_dir/craftcor_tab.py \$args
         rm TEMP*
         """
 }
@@ -137,7 +137,7 @@ process deripple {
     args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
     args="\$args -c $beamform_dir/.deripple_coeffs"
 
-    python $beamform_dir/deripple.py \$args
+    python3 $beamform_dir/deripple.py \$args
     """
 }
 

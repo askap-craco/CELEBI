@@ -1,13 +1,10 @@
-#!/usr/bin/env python
-
 import os
 import time
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
 
 import numpy as np
+from scipy import fft, io
 from scipy.interpolate import interp1d
-from scipy import fft
-from scipy import io
 
 
 def _main():
@@ -112,11 +109,11 @@ def generate_deripple(nfft, res, dir):
     h_0 = np.zeros(multiple * passbandLength * 2)
     h_0[: h.shape[0]] = h
     temp = abs(fft.fft(h_0))  # ,multiple*passbandLength*2))
-    print((
+    print(
         "saving {}".format(
             dir + "/deripple_res" + str(res) + "_nfft" + str(nfft)
         )
-    ))
+    )
     np.save(dir + "/deripple_res" + str(res) + "_nfft" + str(nfft), temp)
 
 

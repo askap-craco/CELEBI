@@ -1,4 +1,3 @@
-#!/usr/bin/env ParselTongue
 # Imports ########################################################
 import argparse
 import datetime
@@ -65,20 +64,12 @@ def _main():
 
     bpfname = os.path.abspath(f"bandpasses_{xpol}_{args.src}.bp.txt")
     fringsnfname = os.path.abspath(f"delays_{xpol}_{args.src}.sn.txt")
-    selfcalsnfname = os.path.abspath(
-        f"selfcal_{xpol}_{args.src}.sn.txt"
-    )
+    selfcalsnfname = os.path.abspath(f"selfcal_{xpol}_{args.src}.sn.txt")
     xpolsnfname = os.path.abspath(f"xpolfring_{xpol}_{args.src}.sn.txt")
     bptableplotfname = os.path.abspath(f"bptable_{xpol}_{args.src}.ps")
-    uncalxcorplotfname = os.path.abspath(
-        f"uncalxcor_{xpol}_{args.src}.ps"
-    )
-    allcalxcorplotfname = os.path.abspath(
-        f"allcalxcor_{xpol}_{args.src}.ps"
-    )
-    readmefname = os.path.abspath(
-        f"README_{xpol}_{args.src}.calibration"
-    )
+    uncalxcorplotfname = os.path.abspath(f"uncalxcor_{xpol}_{args.src}.ps")
+    allcalxcorplotfname = os.path.abspath(f"allcalxcor_{xpol}_{args.src}.ps")
+    readmefname = os.path.abspath(f"README_{xpol}_{args.src}.calibration")
     calibtarballfile = f"calibration_{xpol}_{args.src}.tar.gz"
 
     # If we are running targetonly, check that all the calibration files exist
@@ -260,7 +251,7 @@ def _main():
             "pblimit": -1,
             "deconvolver": "multiscale",
             "weighting": "natural",
-            #"mask": maskstr,
+            # "mask": maskstr,
             "usemask": "auto-multithresh",
         }
 
@@ -362,24 +353,26 @@ def _main():
                     },
                 )
                 casaout.close()
-                os.system(
-                    "casa --nologger -c imagescript.py"
-                )
+                os.system("casa --nologger -c imagescript.py")
 
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
                     f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c /home/ubuntu/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
                 )
-                source_pixs = np.loadtxt(f"{tcleanvals['imagename']}_sources.txt", delimiter=",")
+                source_pixs = np.loadtxt(
+                    f"{tcleanvals['imagename']}_sources.txt", delimiter=","
+                )
                 print(source_pixs)
                 print(source_pixs.shape)
                 if source_pixs.shape == (0,):
-                    print(f"No sources identified in {tcleanvals['imagename']}.image")
+                    print(
+                        f"No sources identified in {tcleanvals['imagename']}.image"
+                    )
                 elif source_pixs.shape == (2,):
                     x, y = source_pixs
                     # fit source within a 20" by 20" box
-                    boxsize = (10 // pxsize)
+                    boxsize = 10 // pxsize
                     locstring = "%d,%d,%d,%d" % (
                         x - boxsize,
                         y - boxsize,
@@ -399,7 +392,7 @@ def _main():
                     for i, source in enumerate(source_pixs):
                         x, y = source
                         # fit source within a 20" by 20" box
-                        boxsize = (10 // pxsize)
+                        boxsize = 10 // pxsize
                         locstring = "%d,%d,%d,%d" % (
                             x - boxsize,
                             y - boxsize,
@@ -1154,7 +1147,9 @@ def write_readme(
     readmeout.close()
     if os.path.exists(calibtarballfile):
         os.system("rm -f " + calibtarballfile)
-    os.system(f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}")
+    os.system(
+        f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}"
+    )
 
 
 def fits_to_ms(fitsfname: str, msfname: str) -> None:

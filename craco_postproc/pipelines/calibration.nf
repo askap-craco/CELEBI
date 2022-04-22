@@ -31,7 +31,7 @@ process determine_flux_cal_solns {
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
 
-        $localise_dir/calibrateFRB.py \$args
+        python3 $localise_dir/calibrateFRB.py \$args
         """
 }
 
@@ -77,11 +77,11 @@ process apply_flux_cal_solns_finder {
             args="\$args --src=$target"
             args="\$args --nmaxsources=1"
 
-            $localise_dir/calibrateFRB.py \$args
+            python3 $localise_dir/calibrateFRB.py \$args
 
             for f in `ls finderbin\${bin}*jmfit`; do
                 echo \$f
-                $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
+                python3 $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
             done
         done
 
@@ -90,7 +90,7 @@ process apply_flux_cal_solns_finder {
 
         # parse jmfits for S/N then find index of maximum
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
-        peak_jmfit=\$($localise_dir/argmax.sh "\$(echo \$SNs)" "\$(ls *jmfit)")
+        peak_jmfit=\$(python3 $localise_dir/argmax.sh "\$(echo \$SNs)" "\$(ls *jmfit)")
         peak="\${peak_jmfit%.*}"
         peakbin=\${peak:9:2}
 
@@ -146,11 +146,11 @@ process apply_flux_cal_solns_field {
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
 
-        $localise_dir/calibrateFRB.py \$args
+        python3 $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
         """    
@@ -197,11 +197,11 @@ process apply_flux_cal_solns_polcal {
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
 
-        $localise_dir/calibrateFRB.py \$args
+        python3 $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
         """    
@@ -236,6 +236,6 @@ process determine_pol_cal_solns {
         args="\$args --plot"
         args="\$args --plotdir ."
 
-        $beamform_dir/polcal.py \$args
+        python3 $beamform_dir/polcal.py \$args
         """
 }

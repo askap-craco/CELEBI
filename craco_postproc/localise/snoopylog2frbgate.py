@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import os
 import sys
@@ -37,9 +36,7 @@ def _main():
     polycopath = write_polyco(polycorefmjd, hh, mm, ss, dm, args.freq)
 
     # Gate binconfig
-    gatebinedges, gateweights = calc_gate_bins(
-        cand, timediffsec, polycorefmjd
-    )
+    gatebinedges, gateweights = calc_gate_bins(cand, timediffsec, polycorefmjd)
     write_binconfig(
         "craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights
     )

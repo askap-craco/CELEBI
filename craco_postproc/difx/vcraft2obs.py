@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import argparse
 import getpass
 import glob
@@ -519,7 +518,7 @@ def get_askap2difx_cmd(
     framesize = 8256 if args.bits == 4 else 8064
 
     runline = (
-        f"{args.dir}/askap2difx.py fcm.txt obs.txt chandefs.txt "
+        f"python3 {args.dir}/askap2difx.py fcm.txt obs.txt chandefs.txt "
         f"--ants={antlist} "
         f"--bits={args.bits} "
         f"--framesize={framesize} "

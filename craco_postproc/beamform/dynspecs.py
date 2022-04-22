@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-
-import time
 import sys
+import time
 
 import numpy as np
 
@@ -17,7 +15,7 @@ def _main():
     if not (args.ds or args.t):
         print("Not generating dynamic spectra or time series - exiting!")
         sys.exit(1)
-    
+
     if not (args.X or args.Y or args.I or args.Q or args.U or args.V):
         print("Not saving any polarisation or Stokes data - exiting!")
         sys.exit(2)
@@ -58,14 +56,39 @@ def get_args():
         "-o",
         help="Output file name. Should have a ! that will be replaced with {x, y, i, q, u, v} and a @ that will be replaced with {t, dynspec}",
     )
-    parser.add_argument("-ds", action="store_true", default=False, help="Generate dynamic spectra")
-    parser.add_argument("-t", action="store_true", default=False, help="Generate time series")
-    parser.add_argument("-X", action="store_true", default=False, help="Save X polarisation data")
-    parser.add_argument("-Y", action="store_true", default=False, help="Save Y polarisation data")
-    parser.add_argument("-I", action="store_true", default=False, help="Save Stokes I data")
-    parser.add_argument("-Q", action="store_true", default=False, help="Save Stokes Q data")
-    parser.add_argument("-U", action="store_true", default=False, help="Save Stokes U data")
-    parser.add_argument("-V", action="store_true", default=False, help="Save Stokes V data")
+    parser.add_argument(
+        "-ds",
+        action="store_true",
+        default=False,
+        help="Generate dynamic spectra",
+    )
+    parser.add_argument(
+        "-t", action="store_true", default=False, help="Generate time series"
+    )
+    parser.add_argument(
+        "-X",
+        action="store_true",
+        default=False,
+        help="Save X polarisation data",
+    )
+    parser.add_argument(
+        "-Y",
+        action="store_true",
+        default=False,
+        help="Save Y polarisation data",
+    )
+    parser.add_argument(
+        "-I", action="store_true", default=False, help="Save Stokes I data"
+    )
+    parser.add_argument(
+        "-Q", action="store_true", default=False, help="Save Stokes Q data"
+    )
+    parser.add_argument(
+        "-U", action="store_true", default=False, help="Save Stokes U data"
+    )
+    parser.add_argument(
+        "-V", action="store_true", default=False, help="Save Stokes V data"
+    )
     return parser.parse_args()
 
 

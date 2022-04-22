@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import glob
 import math
 import os

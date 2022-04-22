@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import argparse
 import getpass
 import math
@@ -107,7 +106,7 @@ def _main():
         startseries,
         eoplines,
         framesize,
-        args.bits
+        args.bits,
     )
 
     # Run updateFreqs
@@ -699,7 +698,7 @@ def writev2dfile(
     npol,
     startseries,
     framesize,
-    bits
+    bits,
 ):
     if fpga is not None:
         fpga_delay = getFPGAdelays(fpga)
@@ -949,7 +948,7 @@ def write_v2d(
     startseries: int,
     eoplines: list,
     framesize,
-    bits
+    bits,
 ) -> None:
     """Write the craftfrb.v2d file
 
@@ -983,7 +982,7 @@ def write_v2d(
         args.npol,
         startseries,
         framesize,
-        bits
+        bits,
     )
     for line in eoplines:
         if "xPole" in line or "downloaded" in line:

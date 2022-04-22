@@ -28,7 +28,7 @@ process get_startmjd {
     stdout
 
     """
-    python $localise_dir/get_start_mjd.py $data
+    python3 $localise_dir/get_start_mjd.py $data
     """
 }
 
@@ -115,7 +115,7 @@ process process_time_step {
         args="\$args -i $inttime"
     fi
 
-    $localise_dir/processTimeStep.py \$args
+    python3 $localise_dir/processTimeStep.py \$args
     """
 }
 

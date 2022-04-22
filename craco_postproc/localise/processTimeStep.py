@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import glob
 import os
@@ -36,7 +35,7 @@ def _main():
     os.system(f"cp {fcm} fcm.txt")
 
     v2oargs = create_v2oargs(args, polyco, datadir, beamdirs)
-    v2ocmd = f"{args.dir}/vcraft2obs.py {v2oargs}"
+    v2ocmd = f"python3 {args.dir}/vcraft2obs.py {v2oargs}"
 
     ret = runCommand(v2ocmd, "vcraft2obs.log")
     if ret != 0:

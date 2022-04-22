@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
-
-import matplotlib.pyplot as plt
-import numpy as np
-import astropy
-from astropy import units as un
-from scipy.optimize import bisect, curve_fit
 import argparse
 from functools import reduce
+
+import astropy
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy import units as un
+from scipy.optimize import bisect, curve_fit
 
 
 def _main():
@@ -19,7 +18,8 @@ def _main():
     V = np.load(args.v, mmap_mode="r")
 
     freqs, df, dt = get_freqs(
-        args.f*un.MHz, args.b*un.MHz, I.shape[0], args.reduce_df)
+        args.f * un.MHz, args.b * un.MHz, I.shape[0], args.reduce_df
+    )
 
     period = args.p * un.s
     print(f"period = {period}")
@@ -279,9 +279,9 @@ def get_args() -> argparse.Namespace:
 
 
 def get_freqs(
-    c_freq: astropy.Quantity, 
-    bw: astropy.Quantity, 
-    n_chan: int, 
+    c_freq: astropy.Quantity,
+    bw: astropy.Quantity,
+    n_chan: int,
     reduce_df: int,
 ) -> "tuple[np.ndarray, astropy.Quantity, astropy.Quantity]":
     """Determine fine channel frequencies, and frequency & time
