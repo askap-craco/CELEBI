@@ -55,11 +55,6 @@ process create_calcfiles {
 }
 
 process do_beamform {
-<<<<<<< HEAD
-    cpus 16 // each instance parallelises across 16 cpus
-
-=======
->>>>>>> c6f26bc5d35222b8ab4ea97a9a5b981612005496
     input:
         val label
         val data
