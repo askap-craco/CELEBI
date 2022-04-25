@@ -44,7 +44,7 @@ craft = {git = "https://github.com/askap-craco/craft.git"}
 scipy = "^1.7.3"
 matplotlib = "^3.5.1"
 six = "^1.16.0"
-pytest = "^6.2.5"
+pytest = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
 bandit = "^1.7.0"
