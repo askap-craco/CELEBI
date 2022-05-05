@@ -31,7 +31,12 @@ workflow process_flux_cal {
             )
         }
 
-        determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly)
+        if( params.calibrate ) {
+            flux_cal_solns = determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly).solns
+        }
+        else {
+            flux_cal_solns = ""
+        }
     emit:
-        flux_cal_solns = determine_flux_cal_solns.out.solns
+        flux_cal_solns
 }

@@ -23,6 +23,8 @@ params.polflagfile = ""
 params.fieldflagfile = ""
 
 params.nocorrelate = false
+params.calibrate = false
+params.beamform = false
 
 workflow {
     flux_cal_solns = process_flux_cal(

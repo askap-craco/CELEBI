@@ -37,16 +37,21 @@ workflow process_pol_cal {
             )
         }
 
-        pos = apply_flux_cal_solns_polcal(
-            fits, flux_cal_solns, polflagfile, target, cpasspoly
-        ).jmfit
+        if( params.calibrate ) {
+            pos = apply_flux_cal_solns_polcal(
+                fits, flux_cal_solns, polflagfile, target, cpasspoly
+            ).jmfit
 
-        htr_data = beamform_polcal(
-            label, data, fcm, pos, flux_cal_solns, empty_file,
-            num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
-        )
-        determine_pol_cal_solns(htr_data)           
+            htr_data = beamform_polcal(
+                label, data, fcm, pos, flux_cal_solns, empty_file,
+                num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
+            )
+            pol_cal_solns = determine_pol_cal_solns(htr_data).pol_cal_solns
+        }   
+        else {
+            pol_cal_solns = ""
+        }
 
     emit:
-        pol_cal_solns = determine_pol_cal_solns.out.pol_cal_solns
+        pol_cal_solns
 }
