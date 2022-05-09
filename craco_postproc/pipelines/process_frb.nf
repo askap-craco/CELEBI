@@ -56,7 +56,7 @@ workflow process_frb {
             empty_file = create_empty_file("file")
             if( params.fieldimage == "" ) {
                 field_fits = correlate_field(
-                    "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, empty_file, "N/A", "field"
+                    "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
                 )
             }
             else {

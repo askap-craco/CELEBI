@@ -33,7 +33,7 @@ workflow process_pol_cal {
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
             fits = correlate_polcal(
-                label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, empty_binconfig, polflagfile, "polcal"
+                label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
             )
         }
 

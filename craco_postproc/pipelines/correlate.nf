@@ -74,7 +74,7 @@ process process_time_step {
     val dec
     path binconfig, stageAs: "craftfrb.binconfig"
     path polyco, stageAs: "craftfrb.polyco"
-    path inttime, stageAs: "int_time"
+    path inttime
     val startmjd
     tuple val(card), val(fpga)
     path bat0
@@ -111,8 +111,8 @@ process process_time_step {
     fi
 
     # Only include inttime if non-zero
-    if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
-        inttime=`cat int_time`
+    if [ "$inttime" != "0" ]; then
+        inttime=`cat $inttime`
         args="\$args -i \$inttime"
     fi
 
