@@ -110,7 +110,6 @@ process process_time_step {
         args="\$args -p craftfrb.binconfig"
     fi
 
-    echo "inttime = \$inttime"
     echo "inttime = $inttime"
     # Only include inttime if non-zero
     if [ "$inttime" != "0" ]; then
