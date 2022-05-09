@@ -74,7 +74,7 @@ process process_time_step {
     val dec
     path binconfig, stageAs: "craftfrb.binconfig"
     path polyco, stageAs: "craftfrb.polyco"
-    val inttime
+    env inttime
     val startmjd
     tuple val(card), val(fpga)
     path bat0
@@ -111,10 +111,9 @@ process process_time_step {
     fi
 
     echo "inttime = \$inttime"
-    echo "inttime = $inttime"
     # Only include inttime if non-zero
-    if [ "$inttime" != "0" ]; then
-        args="\$args -i $inttime"
+    if [ "\$inttime" != "0" ]; then
+        args="\$args -i \$inttime"
     fi
 
     echo "python3 $localise_dir/processTimeStep.py \$args"
