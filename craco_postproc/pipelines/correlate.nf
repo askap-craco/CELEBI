@@ -74,7 +74,7 @@ process process_time_step {
     val dec
     path binconfig, stageAs: "craftfrb.binconfig"
     path polyco, stageAs: "craftfrb.polyco"
-    val inttime
+    env inttime
     val startmjd
     tuple val(card), val(fpga)
     path bat0
@@ -111,8 +111,8 @@ process process_time_step {
     fi
 
     # Only include inttime if non-zero
-    if [ "$inttime" != "0" ]; then
-        args="\$args -i $inttime"
+    if [ "\$inttime" != "0" ]; then
+        args="\$args -i \$inttime"
     fi
 
     python3 $localise_dir/processTimeStep.py \$args
@@ -257,7 +257,7 @@ workflow correlate {
         dec // val
         binconfig   // path
         polyco  // path
-        inttime // val
+        inttime // env
         flagfile    // val
         mode    // val
 
