@@ -259,13 +259,15 @@ workflow correlate {
         dec // val
         binconfig   // path
         polyco  // path
-        inttime // env
+        inttime // val
         flagfile    // val
         mode    // val
 
     main:
         startmjd = get_startmjd(data)
         bat0 = create_bat0(data)
+
+        println "$mode : $inttime"
 
         // cards.combine(fpgas) kicks off an instance of process_time_step for
         // every unique card-fpga pair, which are then collated with .collect()
