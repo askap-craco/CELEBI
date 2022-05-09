@@ -115,7 +115,6 @@ process process_time_step {
         args="\$args -i \$inttime"
     fi
 
-    echo "python3 $localise_dir/processTimeStep.py \$args"
     python3 $localise_dir/processTimeStep.py \$args
     """
 }
