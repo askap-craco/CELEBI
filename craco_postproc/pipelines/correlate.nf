@@ -84,6 +84,13 @@ process process_time_step {
     path "c${card}_f${fpga}/*D2D.input"
 
     """
+    # When running on OzStar, this process won't have the environment
+    # configured, since this is submitted as its own slurm job. So we
+    # need to setup
+    if [ "$params.ozstar" == "true" ]; then
+        . /fred/oz002/askap/craft/craco/processing/setup_proc
+    fi
+
     export CRAFTCATDIR="."  # necessary?
 
     args="-f $fcm"
