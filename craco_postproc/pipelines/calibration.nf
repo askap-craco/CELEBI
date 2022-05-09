@@ -31,7 +31,7 @@ process determine_flux_cal_solns {
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
 
-        python3 $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \$args
         """
 }
 
@@ -77,7 +77,7 @@ process apply_flux_cal_solns_finder {
             args="\$args --src=$target"
             args="\$args --nmaxsources=1"
 
-            python3 $localise_dir/calibrateFRB.py \$args
+            ParselTongue $localise_dir/calibrateFRB.py \$args
 
             for f in `ls finderbin\${bin}*jmfit`; do
                 echo \$f
@@ -146,7 +146,7 @@ process apply_flux_cal_solns_field {
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
 
-        python3 $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
             echo \$f
@@ -197,7 +197,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
 
-        python3 $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
             echo \$f
