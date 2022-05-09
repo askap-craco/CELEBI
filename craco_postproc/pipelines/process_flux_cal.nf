@@ -26,7 +26,7 @@ workflow process_flux_cal {
             binconfig = generate_binconfig(data_frb, snoopy)
             empty_binconfig = create_empty_file("binconfig")
             fits = correlate_fluxcal(
-                label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
+                label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, empty_binconfig, 
                 fluxflagfile, "fluxcal"
             )
         }
