@@ -84,13 +84,6 @@ process process_time_step {
     path "c${card}_f${fpga}/*D2D.input"
 
     """
-    # When running on OzStar, this process won't have the environment
-    # configured, since this is submitted as its own slurm job. So we
-    # need to setup
-    if [ "$params.ozstar" == "true" ]; then
-        . /fred/oz002/askap/craft/craco/processing/setup_proc
-    fi
-
     export CRAFTCATDIR="."  # necessary?
 
     args="-f $fcm"
@@ -106,7 +99,14 @@ process process_time_step {
     args="\$args --freqlabel \$freqlabel"
     args="\$args --dir=$baseDir/../difx"
     args="\$args --startmjd=$startmjd"
-    args="\$args --ts 16"
+
+    # if running on ozstar, use the slurm queue, otherwise run locally 
+    # across 16 cpus
+    if [ "$ozstar" == "true" ]; then
+        args="\$args --slurm"
+    else
+        args="\$args --ts 16"
+    fi
 
     mkdir \$freqlabel
     cp craftfrb.polyco \$freqlabel
