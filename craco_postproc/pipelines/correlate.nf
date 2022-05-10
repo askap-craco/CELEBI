@@ -102,7 +102,7 @@ process process_time_step {
 
     # if running on ozstar, use the slurm queue, otherwise run locally 
     # across 16 cpus
-    if [ "$ozstar" == "true" ]; then
+    if [ "$params.ozstar" == "true" ]; then
         args="\$args --slurm"
     else
         args="\$args --ts 16"
