@@ -108,6 +108,9 @@ process process_time_step {
         args="\$args --ts 16"
     fi
 
+    if [ -d \$freqlabel ]; then
+        rm -r \$freqlabel
+    fi
     mkdir \$freqlabel
     cp craftfrb.polyco \$freqlabel
     cp .bat0 \$freqlabel
