@@ -320,7 +320,6 @@ def parse_vcraft_hdr(hdrfile: str) -> dict:
                 vals[line[0]] = line[1]
 
     # special field: FREQS
-    print(vals["FREQS"])
     vals["FREQS"] = vals["FREQS"].split(",")
 
     return vals
@@ -366,7 +365,6 @@ def write_chandefs(freqs: "list[str]", npol: int) -> None:
     output = open("chandefs.txt", "w")
     for i in range(npol):
         for f in freqs:
-            print(i, f)
             # Correct the 1 MHz offset in the headers
             # WARN This should probably be regularly checked!
             # Also this can be upper sideband in some cases!
