@@ -27,15 +27,15 @@ workflow process_pol_cal {
 
     main:
         empty_file = create_empty_file("file")
-        if( params.nocorrelate ) {
-            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/polcal/*fits")
-        }
-        else {
-            binconfig = generate_binconfig(data_frb, snoopy)
-            fits = correlate_polcal(
-                label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
-            )
-        }
+        // if( params.nocorrelate ) {
+        //     fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/polcal/*fits")
+        // }
+        // else {
+        binconfig = generate_binconfig(data_frb, snoopy)
+        fits = correlate_polcal(
+            label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
+        )
+        // }
 
         if( params.calibrate ) {
             pos = apply_flux_cal_solns_polcal(
