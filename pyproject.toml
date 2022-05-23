@@ -38,7 +38,7 @@ typer = {extras = ["all"], version = "^0.3.2"}
 rich = "^10.7.0"
 numpy = ">=1.18,<1.22"
 astropy = "^5.0"
-llvmlite = "^0.38.0"
+llvmlite = "^0.38.1"
 numba = "^0.55.0"
 craft = {git = "https://github.com/askap-craco/craft.git"}
 scipy = "^1.7.3"
