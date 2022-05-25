@@ -572,7 +572,7 @@ def get_args() -> argparse.Namespace:
         help="Model to use for xpol delay correction (blank = no correction)",
     )
     parser.add_argument(
-        "--imagesize", type=int, default=128, help="Size of the image to make"
+        "--imagesize", type=int, default=1024, help="Size of the image to make"
     )
     parser.add_argument(
         "--xcorplotsmooth",
