@@ -46,11 +46,13 @@ def _main():
             startmjd = thismjd
 
         # get all of the freqs as we go
-        xfreqs += thisvals["FREQS"]
-
-    # Make sure we only have unique freqs and they're ordered
-    xfreqs = list(set(xfreqs))
-    xfreqs.sort()
+        # If it is the first file, take the freqs. Otherwise, check they match
+        if xfreqs == []:
+            xfreqs += thisvals["FREQS"]
+        else:
+            assert xfreqs == thisvals["FREQS"],  (
+                "Frequencies not matching between different chunks of X pol"
+            )
 
     # Double check that the frequencies match
     if npol > 1:
@@ -58,10 +60,16 @@ def _main():
         for file in vcraftfiles[1]:
             hdrfile = file + ".hdr"
             thisvals = parse_vcraft_hdr(hdrfile)
-            yfreqs += thisvals["FREQS"]
+            if yfreqs == []:
+                yfreqs += thisvals["FREQS"]
+            else:
+                assert yfreqs == thisvals["FREQS"],  (
+                    "Frequencies not matching between different chunks of Y pol"
+                )
 
-    yfreqs = list(set(xfreqs))
-    yfreqs.sort()
+    # This code should be removed, as we should not sort, and there shouldn't ever be any removing of duplicates
+    #yfreqs = list(set(xfreqs))
+    #yfreqs.sort()
 
     assert xfreqs == yfreqs, (
         "Frequencies not matching between pols!\n"
