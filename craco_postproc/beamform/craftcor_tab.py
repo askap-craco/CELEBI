@@ -16,6 +16,7 @@ from re import M
 from timeit import default_timer as timer
 
 import matplotlib as mpl
+mpl.use('agg') #KG edit
 import matplotlib.pyplot as plt
 import numpy as np
 import vcraft
