@@ -90,7 +90,7 @@ process apply_flux_cal_solns_finder {
 
         # parse jmfits for S/N then find index of maximum
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
-        peak_jmfit=\$(python3 $localise_dir/argmax.sh "\$(echo \$SNs)" "\$(ls *jmfit)")
+        peak_jmfit=\$(python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)")
         peak="\${peak_jmfit%.*}"
         peakbin=\${peak:9:2}
 
