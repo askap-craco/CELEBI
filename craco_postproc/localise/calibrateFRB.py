@@ -18,7 +18,7 @@ from astropy.time import Time
 try:
     AIPSVER = os.environ["PSRVLBAIPSVER"]
 except KeyError:
-    AIPSVER = "31DEC18"
+    AIPSVER = "31DEC22"
 
 AIPSDISK = 1
 DELAYWINDOW = 0  # Search everything
@@ -358,7 +358,7 @@ def _main():
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c /home/ubuntu/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
+                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c /fred/oz002/askap/craft/craco/postproc-adam/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
                 )
                 source_pixs = np.loadtxt(
                     f"{tcleanvals['imagename']}_sources.txt", delimiter=","
@@ -665,7 +665,7 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     structure, but with `.ms` as the extension instead of `.fits.`
 
     Additionally checks if the `.ms` file already exists. If it does,
-    abort the program.
+    we used to abort, but now the ms is just blown away
 
     :param fitspath: Path to the input fits file. Must have either
         `.fits` or `.uvfits` as its suffix
@@ -687,8 +687,9 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     msfname = fitsfname[:-4] + "ms"
 
     if os.path.exists(msfname):
-        print(f"{msfname} already exists - aborting!!!")
-        sys.exit()
+        #print(f"{msfname} already exists - aborting!!!")
+        #sys.exit()
+        os.system("rm -rf " + msfname)
 
     return fitsfname, msfname
 
@@ -1147,6 +1148,8 @@ def write_readme(
     readmeout.close()
     if os.path.exists(calibtarballfile):
         os.system("rm -f " + calibtarballfile)
+    print(tarinputfiles)
+    print(readmefname.split('/')[-1])
     os.system(
         f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}"
     )

@@ -85,6 +85,7 @@ process process_time_step {
 
     """
     export CRAFTCATDIR="."  # necessary?
+    . /fred/oz002/askap/craft/craco/processing-adam/setup_proc 
 
     args="-f $fcm"
     args="\$args -b 4"
@@ -211,8 +212,10 @@ process loadfits {
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
 
+        aipsid="\$((RANDOM%8192))"
         if [ "$mode" != "finder" ]; then
-            args="-u \${BASHPID: -4}"   # get randomly-generated user id
+            args="-u \$aipsid"
+            #args="-u \${BASHPID: -4}"   # get randomly-generated user id
             args="\$args --antlist=\$antlist"
             args="\$args -s 27"
             args="\$args -f ${label}.fits"
@@ -220,11 +223,16 @@ process loadfits {
             args="\$args CRAFT_CARD?.FITS"
 
             echo "loadfits.py \$args"
-            loadfits.py \$args
+            #loadfits.py \$args
+            echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 >> doloadfits
+            echo "loadfits.py \$args" >> doloadfits
+            chmod 775 doloadfits
+            ./doloadfits
         else
             for i in `seq 0 20`; do
                 bin="\$(printf "%02d" \$i)"
-                args="-u \${BASHPID: -4}"   # get randomly-generated user id
+                args="-u \$aipsid"
+                #args="-u \${BASHPID: -4}"   # get randomly-generated user id
                 args="\$args --antlist=\$antlist"
                 args="\$args -s 27"
                 args="\$args -f ${label}bin\${bin}.fits"
@@ -232,7 +240,12 @@ process loadfits {
                 args="\$args CRAFT_CARD?_BIN\${bin}.FITS"
 
                 echo "loadfits.py \$args"
-                loadfits.py \$args
+                #loadfits.py \$args
+                echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 >> doloadfits
+                echo "loadfits.py \$args" >> doloadfits
+                chmod 775 doloadfits
+                ./doloadfits
+                rm -f doloadfits
             done
         fi
         """
@@ -254,7 +267,21 @@ process subtract_rfi {
         bin=\${fits:9:2}
         sleep \$bin     # stagger starts of parallel processes
         scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
-        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
+        echo "RFI fits is $rfi_fits"
+        ls -l 
+        md5sum "$rfi_fits"
+        md5sum "$finder_fits"
+        ls -l "$rfi_fits"
+        sleep 3
+        hostname
+        ls -l *
+        echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 > douvsubscaled
+        echo "md5sum $rfi_fits" >> douvsubscaled
+        echo "md5sum $finder_fits" >> douvsubscaled
+        echo "ls -ltr" >> douvsubscaled
+        echo "uvsubScaled.py $finder_fits $rfi_fits \$scale fbin\${bin}_norfi.fits" >> douvsubscaled
+        chmod 775 douvsubscaled
+        ./douvsubscaled
         """
 }
 

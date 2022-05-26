@@ -31,6 +31,7 @@ process determine_flux_cal_solns {
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
 
+        . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
 }
@@ -77,6 +78,7 @@ process apply_flux_cal_solns_finder {
             args="\$args --src=$target"
             args="\$args --nmaxsources=1"
 
+            . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
             ParselTongue $localise_dir/calibrateFRB.py \$args
 
             for f in `ls finderbin\${bin}*jmfit`; do
@@ -146,6 +148,7 @@ process apply_flux_cal_solns_field {
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
 
+        . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
         ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
@@ -197,6 +200,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
 
+        . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
         ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
