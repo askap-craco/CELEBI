@@ -85,7 +85,9 @@ process process_time_step {
 
     """
     export CRAFTCATDIR="."  # necessary?
-    . /fred/oz002/askap/craft/craco/processing-adam/setup_proc 
+    if [ "$params.ozstar" == "true" ]; then
+        . $baseDir/setup_proc
+    fi
 
     args="-f $fcm"
     args="\$args -b 4"
@@ -224,7 +226,10 @@ process loadfits {
 
             echo "loadfits.py \$args"
             #loadfits.py \$args
-            echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 >> doloadfits
+
+            if [ "$params.ozstar" == "true" ]; then
+                echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
+            fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
             ./doloadfits
@@ -241,7 +246,10 @@ process loadfits {
 
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
-                echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 >> doloadfits
+                if [ "$params.ozstar" == "true" ]; then
+                    echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                fi    
+                echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
                 ./doloadfits
@@ -275,7 +283,9 @@ process subtract_rfi {
         sleep 3
         hostname
         ls -l *
-        echo ". /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue" | tr ! 0 > douvsubscaled
+        if [ "$params.ozstar" == "true" ]; then
+            echo ". $baseDir/setup_parseltongue" | tr ! 0 > douvsubscaled
+        fi
         echo "md5sum $rfi_fits" >> douvsubscaled
         echo "md5sum $finder_fits" >> douvsubscaled
         echo "ls -ltr" >> douvsubscaled
