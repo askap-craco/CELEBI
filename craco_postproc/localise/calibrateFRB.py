@@ -358,7 +358,7 @@ def _main():
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c /fred/oz002/askap/craft/craco/postproc-adam/craco-postproc/craco_postproc/localise/get_pixels_from_field.py"
+                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c {args.findsourcescript}"
                 )
                 source_pixs = np.loadtxt(
                     f"{tcleanvals['imagename']}_sources.txt", delimiter=","
@@ -373,11 +373,17 @@ def _main():
                     x, y = source_pixs
                     # fit source within a 20" by 20" box
                     boxsize = 10 // pxsize
+
+                    # make sure the box doesn't go outside the image
+                    left = max(0, x - boxsize)
+                    right = min(imsize, x + boxsize)
+                    bottom = max(0, y - boxsize)
+                    top = min(imsize, y + boxsize)
                     locstring = "%d,%d,%d,%d" % (
-                        x - boxsize,
-                        y - boxsize,
-                        x + boxsize,
-                        y + boxsize,
+                        left,
+                        bottom,
+                        right,
+                        top,
                     )
                     print(f"JMFIT locstring = {locstring}")
                     os.system(
@@ -393,11 +399,17 @@ def _main():
                         x, y = source
                         # fit source within a 20" by 20" box
                         boxsize = 10 // pxsize
+
+                        # make sure the box doesn't go outside the image
+                        left = max(0, x - boxsize)
+                        right = min(imsize, x + boxsize)
+                        bottom = max(0, y - boxsize)
+                        top = min(imsize, y + boxsize)
                         locstring = "%d,%d,%d,%d" % (
-                            x - boxsize,
-                            y - boxsize,
-                            x + boxsize,
-                            y + boxsize,
+                            left,
+                            bottom,
+                            right,
+                            top,
                         )
                         os.system(
                             "jmfitfromfile.py %s.fits %s_%02d.jmfit %s"
@@ -650,6 +662,11 @@ def get_args() -> argparse.Namespace:
         type=float,
         default=0.1,
         help="Threshold for source finding as a fraction of the peak flux",
+    )
+    parser.add_argument(
+        "--findsourcescript",
+        type=str,
+        help="Script to run with casa to identify sources in image",
     )
 
     return parser.parse_args()

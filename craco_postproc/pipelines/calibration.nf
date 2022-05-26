@@ -77,6 +77,7 @@ process apply_flux_cal_solns_finder {
             args="\$args --skipplot"
             args="\$args --src=$target"
             args="\$args --nmaxsources=1"
+            args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
             . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
             ParselTongue $localise_dir/calibrateFRB.py \$args
@@ -147,6 +148,7 @@ process apply_flux_cal_solns_field {
         args="\$args --pixelsize=4"
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
+        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
         . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
         ParselTongue $localise_dir/calibrateFRB.py \$args
@@ -199,6 +201,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
+        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
         . /fred/oz002/askap/craft/craco/processing-adam/setup_parseltongue3
         ParselTongue $localise_dir/calibrateFRB.py \$args
