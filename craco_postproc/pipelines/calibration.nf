@@ -1,6 +1,10 @@
 localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
 
+params.finderimagesize = 1024
+params.fieldimagesize = 3000
+params.polcalimagesize = 128
+
 process determine_flux_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
 
@@ -72,6 +76,7 @@ process apply_flux_cal_solns_finder {
             args="\$args --cleanmfs"
             args="\$args --pols=I"
             args="\$args --imagename=finderbin\${bin}"
+            args="\$args --imagesize=$params.finderimagesize"
             args="\$args -a 16"
             args="\$args -u 500"
             args="\$args --skipplot"
@@ -144,7 +149,7 @@ process apply_flux_cal_solns_field {
         args="\$args -a 16"
         args="\$args -u 501"
         args="\$args --skipplot"
-        args="\$args --imagesize=3000"
+        args="\$args --imagesize=$params.fieldimagesize"
         args="\$args --pixelsize=4"
         args="\$args --src=$target"
         args="\$args --tarflagfile=$flagfile"
@@ -195,6 +200,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args --cleanmfs"
         args="\$args --pols=I"
         args="\$args --imagename=polcal"
+        args="\$args --imagesize=$params.polcalimagesize"
         args="\$args -a 16"
         args="\$args -u 502"
         args="\$args --skipplot"
