@@ -278,12 +278,8 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_freqs(
-    c_freq: astropy.Quantity,
-    bw: astropy.Quantity,
-    n_chan: int,
-    reduce_df: int,
-) -> "tuple[np.ndarray, astropy.Quantity, astropy.Quantity]":
+def get_freqs(c_freq, bw, n_chan, reduce_df):
+    # "tuple[np.ndarray, astropy.Quantity, astropy.Quantity]"
     """Determine fine channel frequencies, and frequency & time
     resolutions.
 
@@ -299,15 +295,13 @@ def get_freqs(
     :rtype: tuple[np.ndarray, astropy.Quantity, astropy.Quantity]
     """
     print("Determining freqs")
-    c_freq = c_freq * un.MHz
-    bw = bw * un.MHz
     freqs = np.linspace(
-        c_freq - bw / 2, c_freq + bw / 2, I.shape[0], endpoint=False
+        c_freq - bw / 2, c_freq + bw / 2, n_chan, endpoint=False
     )
-    freqs = freqs[:: args.reduce_df]
+    freqs = freqs[:: reduce_df]
 
     df = freqs[1] - freqs[0]
-    dt = (1 / df) * args.reduce_df
+    dt = (1 / df) * reduce_df
     print(f"df = {df}")
     print(f"dt = {dt.to(un.us)}")
 
