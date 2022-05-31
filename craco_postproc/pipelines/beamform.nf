@@ -183,6 +183,7 @@ process ifft {
 }
 
 process generate_dynspecs {
+    publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
     cpus 16
 
     input:
