@@ -56,7 +56,7 @@ def _main():
             )
             pos_file.write(
                 writestr(
-                    ra_hms, brightest["ra_err"], dec_dms, brightest["dec_err"]
+                    ra_hms, max(float(brightest["ra_err"]), 0.01), dec_dms, max(float(brightest["dec_err"]), 0.01)
                 )
             )
             name_file.write(brightest["component_name"] + "\n")
@@ -80,11 +80,9 @@ class Coord:
         f.close()
 
         self.ra_hms = fields["Actual RA"]  # hms
-        self.ra_err = float(fields["Est. RA error (mas)"]) / 1e3  # arcseconds
+        self.ra_err = max(float(fields["Est. RA error (mas)"]) / 1e3, 0.01)  # arcseconds
         self.dec_dms = fields["Actual Dec"]  # dms
-        self.dec_err = (
-            float(fields["Est. Dec error (mas)"]) / 1e3
-        )  # arcseconds
+        self.dec_err = max(float(fields["Est. Dec error (mas)"]) / 1e3, 0.01) # arcseconds
         self.sn = float(fields["S/N"])
 
 
