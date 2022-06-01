@@ -6,9 +6,7 @@ allinput = raw_input().split(",")
 target = allinput[0]
 nsources = int(allinput[1])
 cutoff = float(allinput[2])
-
-targetbase = target.split(".")[0]
-posfile = targetbase + "_sources.txt"
+posfile = allinput[3]
 
 def get_pixels_from_field(target, nsources, cutoff, posfile):
     """Write out pixels corresponding to continuum sources in a field

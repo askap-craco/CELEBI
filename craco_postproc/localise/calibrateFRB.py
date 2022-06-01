@@ -40,9 +40,9 @@ def _main():
 
     args = get_args()
 
-    do_target = not args.calibrateonly
-    do_calibrate = not args.targetonly
-    do_plot = not args.skipplot
+    do_target = not args.calibrateonly and not args.image
+    do_calibrate = not args.targetonly and not args.image
+    do_plot = not args.skipplot and not args.image
 
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
@@ -59,6 +59,8 @@ def _main():
     # Calibrated output filenames
     if do_target:
         targetoutfname, targetmsfname = out_fnames(targetpath)
+    else:
+        targetoutfname = targetmsfname = ""
     if do_calibrate:
         caloutfname, calmsfname = out_fnames(calpath)
 
@@ -280,7 +282,7 @@ def _main():
                 tcleanvals["specmode"] = "cube"
                 tcleanvals["niter"] = 0
                 tcleanvals["width"] = args.averagechannels
-                os.system(f"rm -rf {deftcleanvals['imagename']}.*")
+                os.system(f"rm -rf {tcleanvals['imagename']}.*")
 
             elif args.dirtymfs:
                 tcleanvals = deftcleanvals.copy()
@@ -296,8 +298,8 @@ def _main():
                 tcleanvals["niter"] = 10000
                 tcleanvals["savemodel"] = "modelcolumn"
 
-            # Default: produce a cleaned cube image
-            else:
+            # Default: produce a cleaned cube image (unless skipping imaging)
+            elif not args.image:
                 tcleanvals["imagename"] = f"TARGET.cube.{pol}"
                 tcleanvals["specmode"] = "cube"
                 tcleanvals["width"] = args.averagechannels
@@ -305,6 +307,9 @@ def _main():
                 tcleanvals["cycleniter"] = 100
                 tcleanvals["savemodel"] = "modelcolumn"
                 tcleanvals["spw"] = args.spwrange
+            
+            else:
+                tcleanvals["imagename"] = args.image
 
             # Overwrite any existing images
             os.system(f"rm -rf {tcleanvals['imagename']}.*")
@@ -322,8 +327,9 @@ def _main():
                 write_casa_cmd(casaout, casacmd, tcleanvals)
 
             casaout.close()
-            os.system("chmod 775 imagescript.py")
-            os.system("casa --nologger -c imagescript.py")
+            if not args.image:
+                os.system("chmod 775 imagescript.py")
+                os.system("casa --nologger -c imagescript.py")
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
@@ -342,32 +348,63 @@ def _main():
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
-                # Convert casa image to fits image
-                casaout = open("imagescript.py", "w")
-                write_casa_cmd(
-                    casaout,
-                    "exportfits",
-                    {
-                        "imagename": f"{tcleanvals['imagename']}.image",
-                        "fitsimage": f"{tcleanvals['imagename']}.fits",
-                    },
-                )
-                casaout.close()
-                os.system("casa --nologger -c imagescript.py")
+                if not args.image:
+                    # Convert casa image to fits image
+                    casaimagename = f"{tcleanvals['imagename']}.image"
+                    fitsimagename = f"{tcleanvals['imagename']}.fits"
+                    casaout = open("imagescript.py", "w")
+                    write_casa_cmd(
+                        casaout,
+                        "exportfits",
+                        {
+                            "imagename": casaimagename,
+                            "fitsimage": fitsimagename,
+                        },
+                    )
+                    casaout.close()
+                    os.system("casa --nologger -c imagescript.py")
+                elif args.image[-6:] == ".image":
+                    casaimagename = args.image
+                    fitsimagename = f"{args.image[:-6]}.fits"
+                    casaout = open("imagescript.py", "w")
+                    write_casa_cmd(
+                        casaout,
+                        "exportfits",
+                        {
+                            "imagename": casaimagename,
+                            "fitsimage": fitsimagename,
+                        },
+                    )
+                    casaout.close()
+                    os.system("casa --nologger -c imagescript.py")
+                elif args.image[-5:] == ".fits":
+                    casaimagename = f"{args.image[:-5]}.image"
+                    fitsimagename = args.image
+                    casaout = open("imagescript.py", "w")
+                    write_casa_cmd(
+                        casaout,
+                        "importfits",
+                        {
+                            "imagename": casaimagename,
+                            "fitsimage": fitsimagename,
+                        },
+                    )
+                    casaout.close()
+                    os.system("casa --nologger -c imagescript.py")
 
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{tcleanvals['imagename']}.image,{args.nmaxsources},{args.sourcecutoff}\" | casa --nologger -c {args.findsourcescript}"
+                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources.txt\" | casa --nologger -c {args.findsourcescript}"
                 )
                 source_pixs = np.loadtxt(
-                    f"{tcleanvals['imagename']}_sources.txt", delimiter=","
+                    f"{args.imagename}_sources.txt", delimiter=","
                 )
                 print(source_pixs)
                 print(source_pixs.shape)
                 if source_pixs.shape == (0,):
                     print(
-                        f"No sources identified in {tcleanvals['imagename']}.image"
+                        f"No sources identified in {casaimagename}"
                     )
                 elif source_pixs.shape == (2,):
                     x, y = source_pixs
@@ -387,10 +424,10 @@ def _main():
                     )
                     print(f"JMFIT locstring = {locstring}")
                     os.system(
-                        "jmfitfromfile.py %s.fits %s.jmfit %s"
+                        "jmfitfromfile.py %s %s.jmfit %s"
                         % (
-                            tcleanvals["imagename"],
-                            tcleanvals["imagename"],
+                            fitsimagename,
+                            args.imagename,
                             locstring,
                         )
                     )
@@ -411,11 +448,17 @@ def _main():
                             right,
                             top,
                         )
+                        print(f"{i:02d} JMFIT locstring = {locstring}")
+                        print(f"({left}, {top})\t\t({right}, {top})")
+                        print("")
+                        print(f"\t({x}, {y})")
+                        print("")
+                        print(f"({left}, {bottom})\t\t({right}, {bottom})")
                         os.system(
-                            "jmfitfromfile.py %s.fits %s_%02d.jmfit %s"
+                            "jmfitfromfile.py %s %s_%02d.jmfit %s"
                             % (
-                                tcleanvals["imagename"],
-                                tcleanvals["imagename"],
+                                fitsimagename,
+                                args.imagename,
                                 i,
                                 locstring,
                             )
@@ -667,6 +710,12 @@ def get_args() -> argparse.Namespace:
         "--findsourcescript",
         type=str,
         help="Script to run with casa to identify sources in image",
+    )
+    parser.add_argument(
+        "--image",
+        type=str,
+        default=None,
+        help="Skip imaging and use pre-existing image",
     )
 
     return parser.parse_args()
