@@ -5,7 +5,7 @@ params.finderimagesize = 1024
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
-params.nfieldsources = 10
+params.nfieldsources = 50
 
 process determine_flux_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
