@@ -59,7 +59,7 @@ def get_freqs(f0: float, bw: float, nchan: int) -> np.ndarray:
 
     chan_width = bw / nchan
 
-    freqs = np.linspace(fmin, fmax, nchan, endpoint=False) + chan_width / 2
+    freqs = np.linspace(fmax, fmin, nchan, endpoint=False) + chan_width / 2
 
     return freqs
 

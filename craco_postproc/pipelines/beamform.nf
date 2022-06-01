@@ -161,6 +161,7 @@ process dedisperse {
         args="\$args --bw 336"
         args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed.npy"
 
+        echo "python3 $beamform_dir/dedisperse.py \$args"
         python3 $beamform_dir/dedisperse.py \$args
         """
 }
