@@ -5,6 +5,8 @@ params.finderimagesize = 1024
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
+params.nfieldsources = 10
+
 process determine_flux_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
 
@@ -128,8 +130,8 @@ process apply_flux_cal_solns_field {
 
     output:
         // path "*.image", emit: image
-        path "f*.fits", emit: fitsimage
-        path "*_calibrated_uv.ms", emit: ms
+        path "f*.fits", emit: fitsimage, optional: true
+        path "*_calibrated_uv.ms", emit: ms, optional: true
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
 
@@ -141,23 +143,30 @@ process apply_flux_cal_solns_field {
         fi    
         tar -xzvf $cal_solns
 
-        args="--targetonly"
-        args="\$args -t $target_fits"
-        args="\$args -r 3"
-        args="\$args --cpasspoly=$cpasspoly"
-        args="\$args -i"
+        args="--imagename=field"
         args="\$args -j"
-        args="\$args --cleanmfs"
+        args="\$args -i"
         args="\$args --pols=I"
-        args="\$args --imagename=field"
-        args="\$args -a 16"
         args="\$args -u 501"
-        args="\$args --skipplot"
         args="\$args --imagesize=$params.fieldimagesize"
-        args="\$args --pixelsize=4"
-        args="\$args --src=$target"
-        args="\$args --tarflagfile=$flagfile"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        args="\$args --nmaxsources=$params.nfieldsources"
+
+        # if we have an already-made field image, skip imaging
+        if [ "$params.fieldimage" == "" ]; then
+            args="\$args --targetonly"
+            args="\$args -t $target_fits"
+            args="\$args -r 3"
+            args="\$args --cpasspoly=$cpasspoly"
+            args="\$args --cleanmfs"
+            args="\$args -a 16"
+            args="\$args --skipplot"
+            args="\$args --pixelsize=4"
+            args="\$args --src=$target"
+            args="\$args --tarflagfile=$flagfile"
+        else
+            args="\$args --image=$params.fieldimage"
+        fi
 
         if [ "$params.ozstar" == "true" ]; then
             . $baseDir/setup_parseltongue3
