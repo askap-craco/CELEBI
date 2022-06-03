@@ -277,7 +277,7 @@ def plot(args, stokes_fnames):
             peaks=None if i == 0 else peaks,
         )
     plt.tight_layout()
-    plt.save(f"{args.label}_IQUV_dts.png")
+    plt.savefig(f"{args.label}_IQUV_dts.png")
 
 if __name__ == "__main__":
     _main()
