@@ -130,7 +130,7 @@ def save(arr, fname, id, type):
     save_fname = fname.replace("!", id).replace("@", type)
     print(f"Saving {save_fname}")
     np.save(save_fname, arr)
-    return fname
+    return save_fname
 
 
 def calculate_stokes(args, x, y, outfile, type):
