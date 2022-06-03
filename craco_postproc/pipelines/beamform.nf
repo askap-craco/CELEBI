@@ -190,15 +190,20 @@ process generate_dynspecs {
     input:
         val label
         path pol_time_series
+        val centre_freq
         val ds_args
 
     output:
         path "*.npy"
+        path "*.png"
 
     """
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
+    args="\$args -p"
+    args="\$args -f $centre_freq"
+    args="\$args -l $label"
 
     python3 $beamform_dir/dynspecs.py \$args $ds_args
     """
@@ -233,7 +238,7 @@ workflow beamform {
         deripple(label, int_len, sum.out)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns)
-        generate_dynspecs(label, ifft.out.collect(), ds_args)
+        generate_dynspecs(label, ifft.out.collect(), centre_freq, ds_args)
     
     emit:
         htr_data = generate_dynspecs.out
