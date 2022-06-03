@@ -1,6 +1,7 @@
 import sys
 import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -38,7 +39,10 @@ def _main():
 
         if args.I or args.Q or args.U or args.V:
             print("Calculating Stoke parameters")
-            calculate_stokes(args, x_ds, y_ds, args.o, "dynspec")
+            stokes_fnames = calculate_stokes(args, x_ds, y_ds, args.o, "dynspec")
+        
+        if args.p:
+            plot(args, stokes_fnames)
 
     end = time.time()
     print(f"dynspecs.py finished in {end - start} s")
@@ -89,6 +93,15 @@ def get_args():
     parser.add_argument(
         "-V", action="store_true", default=False, help="Save Stokes V data"
     )
+    parser.add_argument(
+        "-p", action="store_true", default=False, help="Generate plots"
+    )
+    parser.add_argument(
+        "-f", type=float, help="Central frequency (MHz). Required for plotting."
+    )
+    parser.add_argument(
+        "-l", "--label", type=str, help="FRB label. For saving plots."
+    )
     return parser.parse_args()
 
 
@@ -117,6 +130,7 @@ def save(arr, fname, id, type):
     save_fname = fname.replace("!", id).replace("@", type)
     print(f"Saving {save_fname}")
     np.save(save_fname, arr)
+    return fname
 
 
 def calculate_stokes(args, x, y, outfile, type):
@@ -129,6 +143,7 @@ def calculate_stokes(args, x, y, outfile, type):
     }
 
     stk_args = [args.I, args.Q, args.U, args.V]
+    fnames = []
 
     for idx, stk in enumerate(["i", "q", "u", "v"]):
         if stk_args[idx]:
@@ -140,7 +155,9 @@ def calculate_stokes(args, x, y, outfile, type):
                 par = par_norm.transpose()
                 del par_norm
 
-            save(par, outfile, stk, type)
+            fnames.append(save(par, outfile, stk, type))
+    
+    return fnames
 
 
 def normalise(ds):
@@ -157,6 +174,110 @@ def normalise(ds):
     del ds
     return out_ds
 
+
+def reduce(a, n, axis=0):
+    """Reduces the time resolution of a given array by a factor n.
+
+    Parameters
+    ----------
+    a : array
+        input array to be reduced
+
+    n : int
+        factor to reduce by
+
+    axis : int
+        axis along which
+
+    Returns
+    -------
+    array
+        reduced array
+    """
+
+    if n > 1:
+        if axis == 1:
+            a = a.transpose()
+        a_red = []
+        for i in range(int(a.shape[0] / n)):
+            a_red.append(np.sum(a[i * n : (i + 1) * n], axis=0))
+
+        a_red = np.array(a_red) / np.sqrt(n)
+
+        if axis == 1:
+            a_red = a_red.transpose()
+
+        return np.array(a_red)
+    else:
+        return a
+
+
+def plot_IQUV_dts(
+    ds,
+    f0,
+    facs=[10, 30, 100, 300],
+    time_range=100,
+    peaks=None,
+    fig=None,
+    axs=None,
+    title=True,
+    xlabel=True,
+):
+    new_peaks = []
+
+    if axs is None or fig is None:
+        fig, axs = plt.subplots(nrows=1, ncols=len(facs), figsize=(12, 6))
+
+    for i, dt in enumerate(facs):
+        ds_red = reduce(ds, dt, axis=1)
+        peak = peaks[i] if peaks else np.argmax(np.sum(ds_red, axis=0))
+        new_peaks.append(peak)
+        plot_ds = ds_red[:, peak - time_range : peak + time_range]
+        ax = axs.flatten()[i]
+        ax.imshow(
+            plot_ds,
+            aspect="auto",
+            interpolation="none",
+            extent=(
+                -time_range * dt / 1e3,
+                time_range * dt / 1e3,
+                f0 - 336 / 2,
+                f0 + 336 / 2,
+            ),
+        )
+
+        if xlabel:
+            ax.set_xlabel("Time (ms)")
+
+        if title:
+            ax.set_title(f"dt = {dt} us")
+
+        if i == 0:
+            ax.set_ylabel("Frequency (MHz)")
+        else:
+            ax.set_yticks([])
+
+    return (fig, axs, new_peaks)
+
+
+def plot(args, stokes_fnames):
+    stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
+
+    # IQUV over four timescales
+    fig, axs = plt.subplots(nrows=4, ncols=4, figsize=(10, 10))
+    for i, ds in enumerate(stks):
+        fig, a, peaks = plot_IQUV_dts(
+            ds,
+            args.f,
+            time_range=50,
+            fig=fig,
+            axs=axs[i],
+            xlabel=True if i == 3 else False,
+            title=True if i == 0 else False,
+            peaks=None if i == 0 else peaks,
+        )
+    plt.tight_layout()
+    plt.save(f"{args.label}_IQUV_dts.png")
 
 if __name__ == "__main__":
     _main()
