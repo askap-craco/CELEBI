@@ -222,6 +222,7 @@ def plot_IQUV_dts(
     axs=None,
     title=True,
     xlabel=True,
+    xticks=True,
 ):
     new_peaks = []
 
@@ -248,6 +249,9 @@ def plot_IQUV_dts(
 
         if xlabel:
             ax.set_xlabel("Time (ms)")
+        
+        if not xticks:
+            ax.set_xticks([])
 
         if title:
             ax.set_title(f"dt = {dt} us")
@@ -273,6 +277,7 @@ def plot(args, stokes_fnames):
             fig=fig,
             axs=axs[i],
             xlabel=True if i == 3 else False,
+            xticks=True if i == 3 else False,
             title=True if i == 0 else False,
             peaks=None if i == 0 else peaks,
         )
