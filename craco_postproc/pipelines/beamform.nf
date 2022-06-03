@@ -194,7 +194,7 @@ process generate_dynspecs {
         val ds_args
 
     output:
-        path "*.npy"
+        path "*.npy", emit: data
         path "*.png"
 
     """
@@ -241,5 +241,5 @@ workflow beamform {
         generate_dynspecs(label, ifft.out.collect(), centre_freq, ds_args)
     
     emit:
-        htr_data = generate_dynspecs.out
+        htr_data = generate_dynspecs.out.data
 }

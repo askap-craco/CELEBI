@@ -130,7 +130,7 @@ def save(arr, fname, id, type):
     save_fname = fname.replace("!", id).replace("@", type)
     print(f"Saving {save_fname}")
     np.save(save_fname, arr)
-    return fname
+    return save_fname
 
 
 def calculate_stokes(args, x, y, outfile, type):
@@ -222,6 +222,7 @@ def plot_IQUV_dts(
     axs=None,
     title=True,
     xlabel=True,
+    xticks=True,
 ):
     new_peaks = []
 
@@ -248,6 +249,9 @@ def plot_IQUV_dts(
 
         if xlabel:
             ax.set_xlabel("Time (ms)")
+        
+        if not xticks:
+            ax.set_xticks([])
 
         if title:
             ax.set_title(f"dt = {dt} us")
@@ -273,11 +277,12 @@ def plot(args, stokes_fnames):
             fig=fig,
             axs=axs[i],
             xlabel=True if i == 3 else False,
+            xticks=True if i == 3 else False,
             title=True if i == 0 else False,
             peaks=None if i == 0 else peaks,
         )
     plt.tight_layout()
-    plt.save(f"{args.label}_IQUV_dts.png")
+    plt.savefig(f"{args.label}_IQUV_dts.png")
 
 if __name__ == "__main__":
     _main()
