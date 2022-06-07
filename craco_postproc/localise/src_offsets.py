@@ -1049,7 +1049,7 @@ def plotter(
             xerr=ra_offset_unc[n],
             fmt="k.",
             elinewidth=2,
-            ecolor=col_bank[f"{n+1}"],
+            ecolor=col_bank[f"{n%16+1}"],
             capsize=2,
             label=askap_names[n],
         )
