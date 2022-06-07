@@ -275,23 +275,24 @@ process subtract_rfi {
         bin=\${fits:9:2}
         sleep \$bin     # stagger starts of parallel processes
         scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
-        echo "RFI fits is $rfi_fits"
-        ls -l 
-        md5sum "$rfi_fits"
-        md5sum "$finder_fits"
-        ls -l "$rfi_fits"
-        sleep 3
-        hostname
-        ls -l *
         if [ "$params.ozstar" == "true" ]; then
             echo ". $launchDir/setup_parseltongue3" | tr ! 0 > douvsubscaled
         fi
-        echo "md5sum $rfi_fits" >> douvsubscaled
-        echo "md5sum $finder_fits" >> douvsubscaled
-        echo "ls -ltr" >> douvsubscaled
-        echo "uvsubScaled.py $finder_fits $rfi_fits \$scale fbin\${bin}_norfi.fits" >> douvsubscaled
-        chmod 775 douvsubscaled
-        ./douvsubscaled
+        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
+        #echo "RFI fits is $rfi_fits"
+        #ls -l 
+        #md5sum "$rfi_fits"
+        #md5sum "$finder_fits"
+        #ls -l "$rfi_fits"
+        #sleep 3
+        #hostname
+        #ls -l *
+        #echo "md5sum $rfi_fits" >> douvsubscaled
+        #echo "md5sum $finder_fits" >> douvsubscaled
+        #echo "ls -ltr" >> douvsubscaled
+        #echo "uvsubScaled.py $finder_fits $rfi_fits \$scale fbin\${bin}_norfi.fits" >> douvsubscaled
+        #chmod 775 douvsubscaled
+        #./douvsubscaled
         """
 }
 
