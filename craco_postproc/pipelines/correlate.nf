@@ -86,7 +86,7 @@ process process_time_step {
     """
     export CRAFTCATDIR="."  # necessary?
     if [ "$params.ozstar" == "true" ]; then
-        . $baseDir/setup_proc
+        . $launchDir/setup_proc
     fi
 
     args="-f $fcm"
@@ -228,7 +228,7 @@ process loadfits {
             #loadfits.py \$args
 
             if [ "$params.ozstar" == "true" ]; then
-                echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
             fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
@@ -247,9 +247,9 @@ process loadfits {
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
                 if [ "$params.ozstar" == "true" ]; then
-                    echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                    echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
                 fi    
-                echo ". $baseDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
                 ./doloadfits
@@ -284,7 +284,7 @@ process subtract_rfi {
         hostname
         ls -l *
         if [ "$params.ozstar" == "true" ]; then
-            echo ". $baseDir/setup_parseltongue" | tr ! 0 > douvsubscaled
+            echo ". $launchDir/setup_parseltongue3" | tr ! 0 > douvsubscaled
         fi
         echo "md5sum $rfi_fits" >> douvsubscaled
         echo "md5sum $finder_fits" >> douvsubscaled
