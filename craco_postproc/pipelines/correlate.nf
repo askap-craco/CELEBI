@@ -284,7 +284,7 @@ process subtract_rfi {
         hostname
         ls -l *
         if [ "$params.ozstar" == "true" ]; then
-            echo ". $launchDir/setup_parseltongue" | tr ! 0 > douvsubscaled
+            echo ". $launchDir/setup_parseltongue3" | tr ! 0 > douvsubscaled
         fi
         echo "md5sum $rfi_fits" >> douvsubscaled
         echo "md5sum $finder_fits" >> douvsubscaled
