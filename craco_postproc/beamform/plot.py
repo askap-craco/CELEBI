@@ -76,7 +76,7 @@ def plot_IQUV_dts(
     labels=None,
     fname=None,
 ):
-    fig = plt.figure(figsize=(2.5 * len(ds_list), 2.5 * len(facs)))
+    fig = plt.figure(figsize=(2.5 * len(facs), 2.5 * len(ds_list)))
     spec = gs.GridSpec(nrows=len(ds_list) + 1, ncols=3 * len(facs) + 1)
 
     peaks = []
