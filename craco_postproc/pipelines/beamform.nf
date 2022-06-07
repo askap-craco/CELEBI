@@ -190,24 +190,42 @@ process generate_dynspecs {
     input:
         val label
         path pol_time_series
-        val centre_freq
         val ds_args
 
     output:
         path "*.npy", emit: data
-        path "*.png"
+        path "*.txt", emit: dynspec_fnames
 
     """
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
-    args="\$args -p"
-    args="\$args -f $centre_freq"
-    args="\$args -l $label"
 
     python3 $beamform_dir/dynspecs.py \$args $ds_args
     """
 }
+
+process plot {
+    publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
+
+    input:
+        val label
+        path fnames_file
+        path dynspecs
+        val centre_freq
+    
+    output:
+        path "*.png"
+    
+    """
+    args="-s $fnames_file"
+    args="\$args -f $centre_freq"
+    args="\$args -l $label"
+
+    python3 $beamform_dir/plot.py \$args
+    """
+}
+
 
 workflow beamform {
     take:
@@ -238,7 +256,8 @@ workflow beamform {
         deripple(label, int_len, sum.out)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns)
-        generate_dynspecs(label, ifft.out.collect(), centre_freq, ds_args)
+        generate_dynspecs(label, ifft.out.collect(), ds_args)
+        plot(label, generate_dynspecs.out.dynspec_fnames, generate_dynspecs.out.data, centre_freq)
     
     emit:
         htr_data = generate_dynspecs.out.data
