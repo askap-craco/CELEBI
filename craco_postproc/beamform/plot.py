@@ -71,7 +71,7 @@ def reduce(a, n, axis=0):
 def plot_IQUV_dts(
     ds_list,
     f0,
-    facs=[10, 30, 100, 300],
+    facs=[1, 3, 10, 30, 100, 300],
     time_range=100,
     labels=None,
     fname=None,
