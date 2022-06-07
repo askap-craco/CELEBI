@@ -276,7 +276,7 @@ process subtract_rfi {
         sleep \$bin     # stagger starts of parallel processes
         scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
         if [ "$params.ozstar" == "true" ]; then
-            echo ". $launchDir/setup_parseltongue3" | tr ! 0 > douvsubscaled
+            . $launchDir/setup_parseltongue3
         fi
         uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
         #echo "RFI fits is $rfi_fits"
