@@ -163,7 +163,7 @@ def plot(args, stokes_fnames):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
 
     # IQUV over four timescales
-    plot_IQUV_dts(stks, args.f0, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts.png")
+    plot_IQUV_dts(stks, args.f, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts.png")
 
 
 if __name__ == "__main__":
