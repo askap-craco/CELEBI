@@ -24,6 +24,7 @@ params.fieldflagfile = ""
 
 params.nocorrelate = false
 params.calibrate = false
+params.nocalibrate = false
 params.beamform = false
 
 workflow {
@@ -39,29 +40,24 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    if ( params.beamform ) {    // polcal only relevant when beamforming
-        pol_cal_solns = process_pol_cal(
-            "${params.label}_polcal",
-            params.label,
-            params.data_polcal,
-            params.data_frb,
-            params.snoopy,
-            params.fcm,
-            params.ra_polcal,
-            params.dec_polcal,
-            params.polflagfile,
-            params.cpasspoly_polcal,
-            flux_cal_solns,
-            params.num_ints_polcal,
-            params.int_len_polcal,
-            params.offset_polcal,
-            params.dm_polcal,
-            params.centre_freq_polcal
-        )
-    }
-    else {
-        pol_cal_solns = create_empty_file("polcal.dat")
-    }
+    pol_cal_solns = process_pol_cal(
+        "${params.label}_polcal",
+        params.label,
+        params.data_polcal,
+        params.data_frb,
+        params.snoopy,
+        params.fcm,
+        params.ra_polcal,
+        params.dec_polcal,
+        params.polflagfile,
+        params.cpasspoly_polcal,
+        flux_cal_solns,
+        params.num_ints_polcal,
+        params.int_len_polcal,
+        params.offset_polcal,
+        params.dm_polcal,
+        params.centre_freq_polcal
+    )
     process_frb(
         params.label,
         params.data_frb,

@@ -34,8 +34,8 @@ workflow process_flux_cal {
         if( params.calibrate ) {
             flux_cal_solns = determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly).solns
         }
-        else {
-            flux_cal_solns = ""
+        else if( params.nocalibrate ) {
+            flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
         }
     emit:
         flux_cal_solns
