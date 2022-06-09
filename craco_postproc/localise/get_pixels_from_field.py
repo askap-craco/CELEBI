@@ -1,5 +1,4 @@
 # import casa analysis scripts for converting component lists into a position and corresponding pixel
-sys.path.append("/home/ubuntu/analysis_scripts/")  # adjust if this changes!
 import analysisUtils as au
 
 allinput = raw_input().split(",")
