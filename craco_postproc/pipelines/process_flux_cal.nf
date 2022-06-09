@@ -19,8 +19,8 @@ workflow process_flux_cal {
         cpasspoly   // val
 
     main:
-        if( params.nocorrelate ) {
-            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/fluxcal/*fits")
+        if( new File("${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits").exists() ) {
+            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits")
         }
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
@@ -31,11 +31,11 @@ workflow process_flux_cal {
             )
         }
 
-        if( params.calibrate ) {
-            flux_cal_solns = determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly).solns
-        }
-        else if( params.nocalibrate ) {
+        if( new File("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz").exists() ) {
             flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
+        }
+        else {
+            flux_cal_solns = determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly).solns
         }
     emit:
         flux_cal_solns

@@ -27,8 +27,8 @@ workflow process_pol_cal {
 
     main:
         empty_file = create_empty_file("file")
-        if( params.nocorrelate ) {
-            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/polcal/*fits")
+        if ( new File("${params.publish_dir}/${params.label}/loadfits/polcal/${params.label}_polcal.fits").exists() ) {
+            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/polcal/${params.label}_polcal.fits")
         }
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
@@ -37,16 +37,18 @@ workflow process_pol_cal {
             )
         }
 
-        if( params.calibrate ) {
-            pos = apply_flux_cal_solns_polcal(
-                fits, flux_cal_solns, polflagfile, target, cpasspoly
-            ).jmfit
-        }
-        else if( params.nocalibrate ) {
-            pos = Channel.fromPath("${params.publish_dir}/${params.label}/polcal/polcal.jmfit")
+        if ( params.calibrate ) {
+            if ( new File("${params.publish_dir}/${params.label}/polcal/polcal.jmfit").exists() ) {
+                pos = Channel.fromPath("${params.publish_dir}/${params.label}/polcal/polcal.jmfit")
+            }
+            else {
+                pos = apply_flux_cal_solns_polcal(
+                    fits, flux_cal_solns, polflagfile, target, cpasspoly
+                ).jmfit
+            }
         }
 
-        if( params.beamform ) {
+        if ( params.beamform ) {
             htr_data = beamform_polcal(
                 label, data, fcm, pos, flux_cal_solns, empty_file,
                 num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
