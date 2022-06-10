@@ -27,6 +27,10 @@ process create_calcfiles {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/setup_proc
+        fi
+
         export CRAFTCATDIR="."
 
         ra=\$(grep "Actual RA" $pos)
@@ -72,6 +76,9 @@ process do_beamform {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/setup_proc
+        fi
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
 
@@ -107,6 +114,9 @@ process sum {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/setup_proc
+        fi
         args="--f_dir ."
         args="\$args -f ${label}_frb"
         args="\$args -p $pol"
@@ -126,6 +136,9 @@ process deripple {
         tuple val(pol), path("${label}_frb_sum_${pol}_f_derippled.npy")
 
     """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/setup_proc
+        fi
     fftlen=\$(( $int_len * 64 ))
 
     if [ ! -d $beamform_dir/.deripple_coeffs ]; then
@@ -155,6 +168,9 @@ process dedisperse {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/setup_proc
+        fi
         args="-f $spectrum"
         args="\$args --DM $dm"
         args="\$args --f0 $centre_freq"
@@ -176,6 +192,9 @@ process ifft {
     path("${label}_frb_sum_${pol}_t.npy")
 
     """
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/setup_proc
+    fi
     args="-f $spectrum"
     args="\$args -o ${label}_frb_sum_${pol}_t.npy"
 
@@ -197,6 +216,9 @@ process generate_dynspecs {
         path "*.txt", emit: dynspec_fnames
 
     """
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/setup_proc
+    fi
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
     args="\$args -o ${label}_frb_sum_!_@.npy"
@@ -218,6 +240,9 @@ process plot {
         path "*.png"
     
     """
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/setup_proc
+    fi
     args="-s $fnames_file"
     args="\$args -f $centre_freq"
     args="\$args -l $label"
