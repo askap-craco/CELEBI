@@ -24,7 +24,7 @@ import vcraft
 # from corruvfits import CorrUvFitsFile
 #from astropy.coordinates import SkyCoord
 from calc11 import ResultsFile
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_backend
 from scipy.interpolate import interp1d
 
 __author__ = "Keith Bannister <keith.bannister@csiro.au>"
@@ -415,10 +415,11 @@ class AntennaSource:
 
             return xfguard_f
 
-        parallel_out = Parallel(n_jobs=16)(
-            delayed(process_chan)(i, c)
-            for i, c in enumerate(range(corr.ncoarse_chan))
-        )
+        with parallel_backend('threading', n_jobs=16):
+            parallel_out = Parallel()(
+                delayed(process_chan)(i, c)
+                for i, c in enumerate(range(corr.ncoarse_chan))
+            )
 
         for i, c in enumerate(range(corr.ncoarse_chan)):
             fcstart = c * nfine
