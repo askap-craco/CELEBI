@@ -341,77 +341,6 @@ class AntennaSource:
         start = timer()
 
         def process_chan(i, c):
-            # # Some things here are amalgamated to attempt to improve memory efficiency
-            # # Channel frequency
-            # cfreq = corr.freqs[c]
-
-            # '''
-            # rawd's shape: (nsamp, corr.ncoarse_chan)
-            # nsamp = input.i * (64 * input.n)
-            # '''
-            # # x1 = rawd[:, c].reshape(-1, corr.nfft)
-
-            # # Fringe rotation for Earth's rotation
-            # # turn_fringe = cfreq * geom_delays_us
-
-            # # phasor_fringe = np.exp(np.pi * 2j * cfreq * geom_delays_us, dtype=np.complex64)
-
-            # x1 = rawd[:, c].reshape(-1, corr.nfft) * np.exp(np.pi * 2j * cfreq * geom_delays_us, dtype=np.complex64)
-
-            # # corr.nguard_chan = 5 * input.n = number of fine channels on each side to cut off
-            # # xfguard is xf1 with the ends trimmed off
-            # # xf1 = np.fft.fftshift(np.fft.fft(x1, axis=1), axes=1)
-            # # xfguard_f = xf1[:, corr.nguard_chan:corr.nguard_chan+nfine:] # scale because oterhwise it overflows
-            # xfguard_f = np.fft.fftshift(np.fft.fft(x1, axis=1), axes=1)[:, corr.nguard_chan:corr.nguard_chan+nfine:]
-
-            # del x1
-
-            # #logging.debug('PHASOR %s[%s] chan=%s freq=%sfixed=%f us geom=%f us delta_t %s us coff*fixed = %f deg coff*geom = %f deg',
-            # #             self.antname, self.ia, c, cfreq, fixed_delay_us, geom_delay_us, delta_t, cfreq*fixed_delay_us*360., cfreq*geom_delay_us*360.)
-
-            # #   If you plot the phases you're about to correct, after adding a artificial
-            # #   1 sample delay ad tryig to get rid of it with a phase ramp, it becaomes
-            # #   blatetly clear what you should do
-
-            # # Fractional sample phases
-            # # turn_frac = freqs * np.mean(geom_delays_us)
-
-            # # phasors to rotate the data with constant amplitude = 1
-            # phasor = np.exp(np.pi * 2j * freqs * np.mean(geom_delays_us), dtype=np.complex64)
-
-            # # get absolute frequencies in gigahertz
-            # freq_ghz = (cfreq+freqs)/1e3
-
-            # # get the calibration solutions and apply them to the phasors
-            # mir_cor = corr.mir.get_solution(iant, 0, freq_ghz)
-            # del freq_ghz
-
-            # #if mir_cor[0] == 0: # if correction is 0, flag data
-            # #    phasor *= 0
-            # #else:
-            # phasor /= mir_cor
-
-            # xfguard_f *= phasor
-            # del phasor
-
-            # # select the channels for this coarse channel
-            # fcstart = c*nfine
-            # fcend = (c+1)*nfine
-
-            # '''
-            # RECAP
-            # xfguard is a "dynamic" spectrum of the current coarse channel in
-            # only the fine channels not trimmed (oversampled PFB).
-            # xfguard.shape == (input.i, 64 * input.n)
-            # '''
-
-            # '''
-            # Slot xfguard (a trimmed spectrum for this coarse channel) into
-            # the corresponding slice of the fine channels
-            # '''
-            # data_out[:, fcstart:fcend, 0] = xfguard_f
-            # del xfguard_f
-
             # Channel frequency
             cfreq = corr.freqs[c]
 
@@ -484,27 +413,18 @@ class AntennaSource:
 
             xfguard_f = xfguard_f * phasor
 
-            # select the channels for this coarse channel
-            fcstart = c * nfine
-            fcend = (c + 1) * nfine
+            return xfguard_f
 
-            """
-            RECAP
-            xfguard is a "dynamic" spectrum of the current coarse channel in
-            only the fine channels not trimmed (oversampled PFB).
-            xfguard.shape == (input.i, 64 * input.n)
-            """
-
-            """
-            Slot xfguard (a trimmed spectrum for this coarse channel) into
-            the corresponding slice of the fine channels
-            """
-            data_out[:, fcstart:fcend, 0] = xfguard_f
-
-        Parallel(n_jobs=16, require="sharedmem")(
+        parallel_out = Parallel(n_jobs=16)(
             delayed(process_chan)(i, c)
             for i, c in enumerate(range(corr.ncoarse_chan))
         )
+
+        for i, c in enumerate(range(corr.ncoarse_chan)):
+            fcstart = c * nfine
+            fcend = (c + 1) * nfine
+            data_out[:, fcstart:fcend, 0] = parallel_out[i]
+
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
 
