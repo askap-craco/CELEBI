@@ -22,7 +22,7 @@ import numpy as np
 import vcraft
 
 # from corruvfits import CorrUvFitsFile
-from astropy.coordinates import SkyCoord
+#from astropy.coordinates import SkyCoord
 from calc11 import ResultsFile
 from joblib import Parallel, delayed
 from scipy.interpolate import interp1d
@@ -1165,10 +1165,11 @@ def load_sources(calcfile):
     assert d["NUM SOURCES"] == "1"
     name = d["SOURCE 0 NAME"]
     # ra/dec in radians
-    ra = float(d["SOURCE 0 RA"])
-    dec = float(d["SOURCE 0 DEC"])
-    pos = SkyCoord(ra, dec, unit=("rad", "rad"), frame="icrs")
-    sources = [{"name": name, "ra": pos.ra.deg, "dec": pos.dec.deg}]
+    ra = float(d["SOURCE 0 RA"]) * 180/np.pi
+    dec = float(d["SOURCE 0 DEC"]) * 180/np.pi
+    print(f"load_sources: {ra} {dec}")
+    #pos = SkyCoord(ra, dec, unit=("rad", "rad"), frame="icrs")
+    sources = [{"name": name, "ra": ra, "dec": dec}]
 
     return sources
 
