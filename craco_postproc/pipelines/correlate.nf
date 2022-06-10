@@ -261,7 +261,7 @@ process loadfits {
 
 process subtract_rfi {
     input:
-        each path(finder_fits)
+        path finder_fits
         path rfi_fits
         path subtractions
         val mode
@@ -271,28 +271,14 @@ process subtract_rfi {
     
     script:
         """
-        fits="$finder_fits"
-        bin=\${fits:9:2}
-        sleep \$bin     # stagger starts of parallel processes
-        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/setup_parseltongue3
         fi
-        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
-        #echo "RFI fits is $rfi_fits"
-        #ls -l 
-        #md5sum "$rfi_fits"
-        #md5sum "$finder_fits"
-        #ls -l "$rfi_fits"
-        #sleep 3
-        #hostname
-        #ls -l *
-        #echo "md5sum $rfi_fits" >> douvsubscaled
-        #echo "md5sum $finder_fits" >> douvsubscaled
-        #echo "ls -ltr" >> douvsubscaled
-        #echo "uvsubScaled.py $finder_fits $rfi_fits \$scale fbin\${bin}_norfi.fits" >> douvsubscaled
-        #chmod 775 douvsubscaled
-        #./douvsubscaled
+        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
+        for fits in `ls finderbin??.fits`; do
+            bin=\${fits:9:2}
+            uvsubScaled.py \$fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
+        done
         """
 }
 
