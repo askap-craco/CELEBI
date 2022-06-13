@@ -31,11 +31,16 @@ workflow process_flux_cal {
             )
         }
 
-        if( new File("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz").exists() ) {
-            flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
+        if ( params.calibrate ) {
+            if( new File("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz").exists() ) {
+                flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
+            }
+            else {
+                flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
+            }
         }
         else {
-            flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
+            flux_cal_solns = ""
         }
     emit:
         flux_cal_solns
