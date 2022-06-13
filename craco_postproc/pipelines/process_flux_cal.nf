@@ -1,8 +1,8 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate as correlate_fluxcal } from './correlate'
-include { determine_flux_cal_solns } from './calibration'
+include { correlate as corr_fcal } from './correlate'
+include { determine_flux_cal_solns as cal_fcal } from './calibration'
 include { generate_binconfig } from './localise'
 
 workflow process_flux_cal {
@@ -25,7 +25,7 @@ workflow process_flux_cal {
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
             empty_binconfig = create_empty_file("binconfig")
-            fits = correlate_fluxcal(
+            fits = corr_fcal(
                 label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
                 fluxflagfile, "fluxcal"
             )
@@ -35,7 +35,7 @@ workflow process_flux_cal {
             flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
         }
         else {
-            flux_cal_solns = determine_flux_cal_solns(fits, fluxflagfile, target, cpasspoly).solns
+            flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
         }
     emit:
         flux_cal_solns

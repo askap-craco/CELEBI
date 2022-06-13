@@ -1,9 +1,8 @@
 nextflow.enable.dsl=2
 
-include { process_flux_cal } from './process_flux_cal'
-include { process_pol_cal } from './process_pol_cal'
-include { process_frb } from './process_frb'
-include { create_empty_file } from './utils'
+include { process_flux_cal as fcal } from './process_flux_cal'
+include { process_pol_cal as pcal } from './process_pol_cal'
+include { process_frb as frb } from './process_frb'
 
 // Defaults
 params.cpasspoly_fluxcal = 5
@@ -28,7 +27,7 @@ params.nocalibrate = false
 params.beamform = false
 
 workflow {
-    flux_cal_solns = process_flux_cal(
+    flux_cal_solns = fcal(
         "${params.label}_fluxcal",
         params.label,
         params.data_fluxcal,
@@ -40,7 +39,7 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    pol_cal_solns = process_pol_cal(
+    pol_cal_solns = pcal(
         "${params.label}_polcal",
         params.label,
         params.data_polcal,
@@ -58,7 +57,7 @@ workflow {
         params.dm_polcal,
         params.centre_freq_polcal
     )
-    process_frb(
+    frb(
         params.label,
         params.data_frb,
         params.snoopy,

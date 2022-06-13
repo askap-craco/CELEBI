@@ -1,9 +1,9 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate as correlate_polcal } from './correlate'
-include { beamform as beamform_polcal } from './beamform'
-include { apply_flux_cal_solns_polcal; determine_pol_cal_solns } from './calibration'
+include { correlate as corr_pcal } from './correlate'
+include { beamform as bform_pcal } from './beamform'
+include { apply_flux_cal_solns_polcal as apply_cal_pcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
 include { generate_binconfig } from './localise'
 
 workflow process_pol_cal {
@@ -32,7 +32,7 @@ workflow process_pol_cal {
         }
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
-            fits = correlate_polcal(
+            fits = corr_pcal(
                 label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, polflagfile, "polcal"
             )
         }
@@ -42,18 +42,18 @@ workflow process_pol_cal {
                 pos = Channel.fromPath("${params.publish_dir}/${params.label}/polcal/polcal.jmfit")
             }
             else {
-                pos = apply_flux_cal_solns_polcal(
+                pos = apply_cal_pcal(
                     fits, flux_cal_solns, polflagfile, target, cpasspoly
                 ).jmfit
             }
         }
 
         if ( params.beamform ) {
-            htr_data = beamform_polcal(
+            htr_data = bform_pcal(
                 label, data, fcm, pos, flux_cal_solns, empty_file,
                 num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
             )
-            pol_cal_solns = determine_pol_cal_solns(htr_data).pol_cal_solns
+            pol_cal_solns = get_cal_pcal(htr_data).pol_cal_solns
         }   
         else {
             pol_cal_solns = ""

@@ -1,13 +1,12 @@
 nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
-include { correlate as correlate_finder; correlate as correlate_rfi;
-    correlate as correlate_field; subtract_rfi as subtract_rfi_finder;
-    subtract_rfi as subtract_rfi_field } from './correlate'
-include { apply_flux_cal_solns_finder;
-    apply_flux_cal_solns_field } from './calibration'
+include { correlate as corr_finder; correlate as corr_rfi;
+    correlate as corr_field; subtract_rfi as subtract_rfi_finder } from './correlate'
+include { apply_flux_cal_solns_finder as cal_finder;
+    apply_flux_cal_solns_field as cal_field } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
-include { beamform as beamform_frb } from './beamform'
+include { beamform as bform_frb } from './beamform'
 
 params.fieldimage = ""
 
@@ -40,7 +39,7 @@ workflow process_frb {
             finder_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/finder/*fits")
         }
         else {
-            finder_fits = correlate_finder(
+            finder_fits = corr_finder(
                 "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
             )
         }
@@ -49,7 +48,7 @@ workflow process_frb {
             rfi_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits")
         }
         else {
-            rfi_fits = correlate_rfi(
+            rfi_fits = corr_rfi(
                 "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
             )
         }
@@ -64,7 +63,7 @@ workflow process_frb {
         }
         else {
             empty_file = create_empty_file("file")
-            field_fits = correlate_field(
+            field_fits = corr_field(
                 "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
             )
         }
@@ -78,11 +77,11 @@ workflow process_frb {
             else {
                 no_rfi_finder_fits = subtract_rfi_finder(finder_fits.collect(), rfi_fits, subtractions, "finder")
 
-                askap_frb_pos = apply_flux_cal_solns_finder(
+                askap_frb_pos = cal_finder(
                     no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
                 ).peak_jmfit
 
-                field_sources = apply_flux_cal_solns_field(
+                field_sources = cal_field(
                     field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, askap_frb_pos
                 ).jmfit
 
@@ -91,7 +90,7 @@ workflow process_frb {
         }
 
         if ( params.beamform ) {
-            beamform_frb(
+            bform_frb(
                 label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
                 num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV"
             )
