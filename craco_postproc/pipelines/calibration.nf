@@ -153,7 +153,7 @@ process apply_flux_cal_solns_field {
         args="\$args --nmaxsources=$params.nfieldsources"
 
         # if we have an already-made field image, skip imaging
-        if [ "$params.fieldimage" == "" ]; then
+        if [ "$params.fieldimage" == "null" ]; then
             args="\$args --targetonly"
             args="\$args -t $target_fits"
             args="\$args -r 3"
