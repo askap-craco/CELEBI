@@ -198,7 +198,7 @@ def _main():
                 "job-name": f"difx_{basename}",
                 "output": f"{basename}.mpilog",
                 "ntasks": 32 * args.numskylakenodes,
-                "time": "08:00",
+                "time": "16:00",
                 "cpus-per-task": 1,
                 "mem-per-cpu": 4000,
             }
