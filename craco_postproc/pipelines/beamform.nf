@@ -28,7 +28,7 @@ process create_calcfiles {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_proc
+            . $launchDir/../setup_proc
         fi
 
         export CRAFTCATDIR="."
@@ -77,7 +77,7 @@ process do_beamform {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_beamform
+            . $launchDir/../setup_beamform
         fi
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
@@ -115,7 +115,7 @@ process sum {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_beamform
+            . $launchDir/../setup_beamform
         fi
         args="--f_dir ."
         args="\$args -f ${label}_frb"
@@ -137,7 +137,7 @@ process deripple {
 
     """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_beamform
+            . $launchDir/../setup_beamform
         fi
     fftlen=\$(( $int_len * 64 ))
 
@@ -169,7 +169,7 @@ process dedisperse {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_beamform
+            . $launchDir/../setup_beamform
         fi
         args="-f $spectrum"
         args="\$args --DM $dm"
@@ -193,7 +193,7 @@ process ifft {
 
     """
     if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/setup_beamform
+        . $launchDir/../setup_beamform
     fi
     args="-f $spectrum"
     args="\$args -o ${label}_frb_sum_${pol}_t.npy"
@@ -217,7 +217,7 @@ process generate_dynspecs {
 
     """
     if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/setup_beamform
+        . $launchDir/../setup_beamform
     fi
     args="-x ${label}_frb_sum_x_t.npy"
     args="\$args -y ${label}_frb_sum_y_t.npy"
@@ -241,7 +241,7 @@ process plot {
     
     """
     if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/setup_beamform
+        . $launchDir/../setup_beamform
     fi
     args="-s $fnames_file"
     args="\$args -f $centre_freq"

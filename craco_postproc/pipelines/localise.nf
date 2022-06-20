@@ -41,7 +41,7 @@ process apply_offset {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_proc
+            . $launchDir/../setup_proc
         fi        
         args="-o ${params.label}_RACS.dat"
         args="\$args -a ${params.label}_ASKAP.dat"

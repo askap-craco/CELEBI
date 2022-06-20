@@ -86,7 +86,7 @@ process process_time_step {
     """
     export CRAFTCATDIR="."  # necessary?
     if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/setup_proc
+        . $launchDir/../setup_proc
     fi
 
     args="-f $fcm"
@@ -228,7 +228,7 @@ process loadfits {
             #loadfits.py \$args
 
             if [ "$params.ozstar" == "true" ]; then
-                echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
             fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
@@ -247,9 +247,9 @@ process loadfits {
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
                 if [ "$params.ozstar" == "true" ]; then
-                    echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                    echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
                 fi    
-                echo ". $launchDir/setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
                 ./doloadfits
@@ -272,7 +272,7 @@ process subtract_rfi {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_parseltongue3
+            . $launchDir/../setup_parseltongue3
         fi
         scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
         for fits in `ls finderbin??.fits`; do
