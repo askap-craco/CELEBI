@@ -137,7 +137,7 @@ process apply_flux_cal_solns_field {
 
     script:
         """
-        if [ "$flagfile" == "" ]; then
+        if [ "$flagfile" == "" ] && [ "$params.fieldimage" == "null" ]; then
             echo "You now need to write the flagfile for ${target_fits} and provide it with --fieldflagfile!"
             exit 2
         fi    
