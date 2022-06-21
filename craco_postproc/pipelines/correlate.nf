@@ -168,12 +168,12 @@ process difx2fits {
                 for b in `seq 0 20`; do
                     bin2="\$(printf "%02d" \$b)"
                     bin4="\$(printf "%04d" \$b)"
-                    difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
+                    difx2fitscmd="difx2fits -v -v -u --ac-always -B \$b \$D2Ds"
                     echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
                     echo "mv CRAFTFR.0.bin\${bin4}.source0000.FITS CRAFT_CARD\${c}_BIN\${bin2}.FITS" >> runalldifx2fits
                 done
             else
-                difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
+                difx2fitscmd="difx2fits -v -v -u --ac-always -B ! \$D2Ds"
                 echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
                 echo "mv CRAFTFR.0.bin0000.source0000.FITS CRAFT_CARD\$c.FITS" >> runalldifx2fits
             fi
@@ -263,7 +263,7 @@ process loadfits {
 
 process subtract_rfi {
     cache 'lenient'
-    
+
     input:
         path finder_fits
         path rfi_fits
