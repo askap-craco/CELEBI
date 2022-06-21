@@ -228,7 +228,7 @@ process loadfits {
             #loadfits.py \$args
 
             if [ "$params.ozstar" == "true" ]; then
-                echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
             fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
@@ -247,9 +247,9 @@ process loadfits {
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
                 if [ "$params.ozstar" == "true" ]; then
-                    echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
+                    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
                 fi    
-                echo ". $launchDir/../setup_parseltongue" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
                 ./doloadfits
