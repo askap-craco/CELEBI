@@ -413,18 +413,17 @@ class AntennaSource:
 
             xfguard_f = xfguard_f * phasor
 
-            return xfguard_f
-
-        with parallel_backend('threading', n_jobs=16):
-            parallel_out = Parallel()(
-                delayed(process_chan)(i, c)
-                for i, c in enumerate(range(corr.ncoarse_chan))
-            )
-
-        for i, c in enumerate(range(corr.ncoarse_chan)):
+            # select the channels for this coarse channel
             fcstart = c * nfine
             fcend = (c + 1) * nfine
-            data_out[:, fcstart:fcend, 0] = parallel_out[i]
+
+            data_out[:, fcstart:fcend, 0] = xfguard_f
+
+
+        Parallel(n_jobs=16, require="sharedmem")(
+            delayed(process_chan)(i, c)
+            for i, c in enumerate(range(corr.ncoarse_chan))
+        )
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
