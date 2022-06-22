@@ -263,9 +263,10 @@ process loadfits {
 
 process subtract_rfi {
     cache 'lenient'
+    maxForks 1
 
     input:
-        path finder_fits
+        each path(finder_fits)
         path rfi_fits
         path subtractions
         val mode
@@ -275,14 +276,16 @@ process subtract_rfi {
     
     script:
         """
+        fits="$finder_fits"
+        bin=\${fits:9:2}
+        sleep \$bin     # stagger starts of parallel processes
+        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
+
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_parseltongue3
         fi
-        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
-        for fits in `ls finderbin??.fits`; do
-            bin=\${fits:9:2}
-            uvsubScaled.py \$fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
-        done
+
+        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
         """
 }
 
