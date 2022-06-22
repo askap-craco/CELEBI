@@ -42,6 +42,7 @@ process apply_offset {
         """
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_proc
+            rm -r ~/.astropy/cache
         fi        
         args="-o ${params.label}_RACS.dat"
         args="\$args -a ${params.label}_ASKAP.dat"
