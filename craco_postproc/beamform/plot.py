@@ -28,6 +28,10 @@ def get_args():
     parser.add_argument(
         "-l", "--label", type=str, help="FRB label"
     )
+    parser.add_argument(
+        "-d", "--DM", type=str, help="Dedispersion DM"
+    )
+
     return parser.parse_args()
 
 
@@ -163,7 +167,7 @@ def plot(args, stokes_fnames):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
 
     # IQUV over four timescales
-    plot_IQUV_dts(stks, args.f, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts.png")
+    plot_IQUV_dts(stks, args.f, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts_{args.DM}.png")
 
 
 if __name__ == "__main__":

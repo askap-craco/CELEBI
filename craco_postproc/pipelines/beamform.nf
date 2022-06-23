@@ -164,7 +164,7 @@ process dedisperse {
         tuple val(pol), path(spectrum)
 
     output:
-        tuple val(pol), path("${label}_frb_sum_${pol}_f_dedispersed.npy")
+        tuple val(pol), path("${label}_frb_sum_${pol}_f_dedispersed_${dm}.npy")
 
     script:
         """
@@ -175,7 +175,7 @@ process dedisperse {
         args="\$args --DM $dm"
         args="\$args --f0 $centre_freq"
         args="\$args --bw 336"
-        args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed.npy"
+        args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed_${dm}.npy"
 
         echo "python3 $beamform_dir/dedisperse.py \$args"
         python3 $beamform_dir/dedisperse.py \$args
@@ -187,16 +187,17 @@ process ifft {
     val label
     tuple val(pol), path(spectrum)
     path pol_cal_solns
+    val dm
 
     output:
-    path("${label}_frb_sum_${pol}_t.npy")
+    path("${label}_frb_sum_${pol}_t_${dm}.npy")
 
     """
     if [ "$params.ozstar" == "true" ]; then
         . $launchDir/../setup_beamform
     fi
     args="-f $spectrum"
-    args="\$args -o ${label}_frb_sum_${pol}_t.npy"
+    args="\$args -o ${label}_frb_sum_${pol}_t_${dm}.npy"
 
     python3 $beamform_dir/ifft.py \$args
     """
@@ -210,6 +211,7 @@ process generate_dynspecs {
         val label
         path pol_time_series
         val ds_args
+        val dm
 
     output:
         path "*.npy", emit: data
@@ -219,9 +221,9 @@ process generate_dynspecs {
     if [ "$params.ozstar" == "true" ]; then
         . $launchDir/../setup_beamform
     fi
-    args="-x ${label}_frb_sum_x_t.npy"
-    args="\$args -y ${label}_frb_sum_y_t.npy"
-    args="\$args -o ${label}_frb_sum_!_@.npy"
+    args="-x ${label}_frb_sum_x_t_${dm}.npy"
+    args="\$args -y ${label}_frb_sum_y_t_${dm}.npy"
+    args="\$args -o ${label}_frb_sum_!_@_${dm}.npy"
 
     python3 $beamform_dir/dynspecs.py \$args $ds_args
     """
@@ -280,9 +282,9 @@ workflow beamform {
         sum(label, do_beamform.out.groupTuple())
         deripple(label, int_len, sum.out)
         dedisperse(label, dm, centre_freq, deripple.out)
-        ifft(label, dedisperse.out, pol_cal_solns)
-        generate_dynspecs(label, ifft.out.collect(), ds_args)
-        plot(label, generate_dynspecs.out.dynspec_fnames, generate_dynspecs.out.data, centre_freq)
+        ifft(label, dedisperse.out, pol_cal_solns, dm)
+        generate_dynspecs(label, ifft.out.collect(), ds_args, dm)
+        plot(label, generate_dynspecs.out.dynspec_fnames, generate_dynspecs.out.data, centre_freq, dm)
     
     emit:
         htr_data = generate_dynspecs.out.data
