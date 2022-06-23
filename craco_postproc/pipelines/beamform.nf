@@ -237,6 +237,7 @@ process plot {
         path fnames_file
         path dynspecs
         val centre_freq
+        val dm
     
     output:
         path "*.png"
@@ -248,6 +249,7 @@ process plot {
     args="-s $fnames_file"
     args="\$args -f $centre_freq"
     args="\$args -l $label"
+    args="\$args -d $dm"
 
     python3 $beamform_dir/plot.py \$args
     """
