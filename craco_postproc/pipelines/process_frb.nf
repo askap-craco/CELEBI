@@ -78,7 +78,7 @@ workflow process_frb {
                 no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
 
                 askap_frb_pos = cal_finder(
-                    no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
+                    no_rfi_finder_fits.collect(), flux_cal_solns, label, cpasspoly
                 ).peak_jmfit
 
                 field_sources = cal_field(
