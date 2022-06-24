@@ -21,6 +21,8 @@ process get_startmjd {
     startmjd - environment variable
         The earliest start time found in the data headers
     *******************************************************************/
+    cache 'lenient'
+
     input:
     val data
     
@@ -36,6 +38,8 @@ process get_startmjd {
 }
 
 process create_bat0 {
+    cache 'lenient'
+    
     input:
     val data
 
