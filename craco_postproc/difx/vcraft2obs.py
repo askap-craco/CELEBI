@@ -130,7 +130,7 @@ def _main():
 
     if args.slurm and len(convertlines) > 0:
         scripts = write_convert_vcraft_script(convertlines, NCODIFPARALLEL)
-        Parallel(n_jobs=len(NCODIFPARALLEL))(delayed(os.system)(f"./{script}") for script in scripts)
+        Parallel(n_jobs=NCODIFPARALLEL)(delayed(os.system)(f"./{script}") for script in scripts)
         #convert_vcraft_slurm(NCODIFPARALLEL)
 
     # Write a machines file and a run.sh file
