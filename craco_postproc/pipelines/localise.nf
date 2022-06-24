@@ -15,6 +15,9 @@ process generate_binconfig {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
 
