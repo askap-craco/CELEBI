@@ -60,6 +60,7 @@ def _main():
 
     # Launch/process final job
     if args.slurm:
+        print("Launching job!")
         os.system("./launchjob")
     else:
         os.system("./run.sh")
@@ -69,6 +70,8 @@ def _main():
             os.system("./run.sh")
             os.system("rm -rf craftfrbD2D*")
             os.system("./runmergedifx")
+    
+    print("Done with job")
     os.chdir("../")
 
 
