@@ -189,7 +189,7 @@ def _main():
                 "export DIFX_MESSAGE_GROUP=`hostname -i`",
                 "export DIFX_BINARY_GROUP=`hostname -i`",
                 "date",
-                f"difxlog {basename} {currentdir}/{basename}.difxlog &",
+                #f"difxlog {basename} {currentdir}/{basename}.difxlog &",
                 f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
                 "./runmergedifx",
             ]
@@ -209,7 +209,7 @@ def _main():
                 "export DIFX_MESSAGE_GROUP=`hostname -i`",
                 "export DIFX_BINARY_GROUP=`hostname -i`",
                 "date",
-                f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
+                #f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
                 f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
                 "./runmergedifx",
             ]
