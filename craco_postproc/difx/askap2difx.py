@@ -154,7 +154,8 @@ def _main():
         # Create a launchjob script that will handle the logging, etc
         launchout = open("launchjob", "w")
         launchout.write("#!/usr/bin/bash\n\n")
-        launchout.write("sbatch -W runparallel\n")
+        #launchout.write("sbatch -W runparallel\n")
+        launchout.write("bash runparallel\n")
         launchout.close()
         os.chmod("launchjob", 0o775)
         print("./launchjob")
@@ -204,7 +205,7 @@ def _main():
             }
 
             sbatchcmds = [
-                f". /home/{currentuser}/setup_difx",
+                #f". /home/{currentuser}/setup_difx",
                 "export DIFX_MESSAGE_GROUP=`hostname -i`",
                 "export DIFX_BINARY_GROUP=`hostname -i`",
                 "date",
