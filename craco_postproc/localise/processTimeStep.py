@@ -73,6 +73,7 @@ def _main():
     
     print("Done with job")
     os.chdir("../")
+    sys.exit()
 
 
 def get_args() -> argparse.Namespace:
