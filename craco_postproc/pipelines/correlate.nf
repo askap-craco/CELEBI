@@ -27,7 +27,10 @@ process get_startmjd {
     output:
     stdout
 
-    """
+    """    
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/../setup_proc
+    fi
     python3 $localise_dir/get_start_mjd.py $data
     """
 }
@@ -40,6 +43,9 @@ process create_bat0 {
     path ".bat0"
 
     """
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/../setup_proc
+    fi
     bat0.pl `find $data/*/*/*vcraft | head -1`
     """
 }
