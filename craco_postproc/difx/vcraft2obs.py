@@ -4,6 +4,7 @@ import glob
 import math
 import os
 import sys
+from joblib import Parallel, delayed
 
 # Global constants
 NCODIFPARALLEL = 8  # Number of vcraft conversions to do at a time
@@ -128,8 +129,9 @@ def _main():
     antlist = ",".join(antnames)
 
     if args.slurm and len(convertlines) > 0:
-        write_convert_vcraft_script(convertlines, NCODIFPARALLEL)
-        convert_vcraft_slurm(NCODIFPARALLEL)
+        scripts = write_convert_vcraft_script(convertlines, NCODIFPARALLEL)
+        Parallel(n_jobs=len(NCODIFPARALLEL))(delayed(os.system)(f"./{script}") for script in scripts)
+        #convert_vcraft_slurm(NCODIFPARALLEL)
 
     # Write a machines file and a run.sh file
     write_run(nant)
@@ -438,20 +440,26 @@ def write_convert_vcraft_script(
     """
     currentuser = getpass.getuser()
 
+    script_fnames = []
+
     # initialise all the convertcodif miniscripts
     for i in range(ncodifparallel):
         output = open("convertcodif.%d" % (i + 1), "w")
         output.write("#!/bin/bash\n")
         # TODO: change this using home directory!
-        output.write(f". /home/{currentuser}/setup_difx\n")
+        #output.write(f". /home/{currentuser}/setup_difx\n")
         output.close()
         os.system("chmod 775 convertcodif.%d" % (i + 1))
+
+        script_fnames += ["convertcodif.%d" % (i + 1)]
 
     # spread out the conversion commands evenly across the miniscripts
     for count, runline in enumerate(convertlines):
         output = open("convertcodif.%d" % ((count % ncodifparallel) + 1), "a")
         output.write(runline + "\n")
         output.close()
+    
+    return script_fnames
 
 
 def convert_vcraft_slurm(ncodifparallel: int) -> None:
