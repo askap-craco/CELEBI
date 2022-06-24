@@ -697,13 +697,13 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--nmaxsources",
         type=int,
-        default=10,
+        default=50,
         help="The maximum number of sources to return from source finding",
     )
     parser.add_argument(
         "--sourcecutoff",
         type=float,
-        default=0.1,
+        default=0.01,
         help="Threshold for source finding as a fraction of the peak flux",
     )
     parser.add_argument(
