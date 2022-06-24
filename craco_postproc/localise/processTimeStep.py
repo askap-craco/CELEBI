@@ -73,6 +73,7 @@ def _main():
     
     print("Done with job")
     os.chdir("../")
+    os.system("ps")
     sys.exit()
 
 
