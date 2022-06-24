@@ -475,7 +475,8 @@ def convert_vcraft_slurm(ncodifparallel: int) -> None:
     output.close()
 
     # Run that sbatch script
-    os.system("sbatch --wait runcraftconversionbatch.sh")
+    #os.system("sbatch --wait runcraftconversionbatch.sh")
+    os.system("bash runcraftconversionbatch.sh")
 
 
 def write_run(nant: int) -> None:
