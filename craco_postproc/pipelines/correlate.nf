@@ -165,6 +165,9 @@ process difx2fits {
     path "*.FITS"
 
     """
+    if [ "$params.ozstar" == "true" ]; then
+        . $launchDir/../setup_proc
+    fi
     for c in `seq 1 7`; do
         D2Ds=""
         if find c\$c*; then
@@ -221,6 +224,9 @@ process loadfits {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
         antlist=`ls -d $data/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
 
         label=$label
