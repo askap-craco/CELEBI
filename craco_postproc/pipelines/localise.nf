@@ -1,6 +1,7 @@
 localise_dir = "$baseDir/../localise/"
 
 process generate_binconfig {
+    cache 'lenient'
     input:
         val data
         path snoopy
