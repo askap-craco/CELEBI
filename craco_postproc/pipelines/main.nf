@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 include { process_flux_cal as fcal } from './process_flux_cal'
 include { process_pol_cal as pcal } from './process_pol_cal'
 include { process_frb as frb } from './process_frb'
+include { create_empty_file } from './utils'
 
 // Defaults
 params.cpasspoly_fluxcal = 5
