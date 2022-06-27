@@ -73,7 +73,7 @@ def _main():
     
     print("Done with job")
     os.chdir("../")
-    os.system("ps")
+    os.system("pkill difxlog")
     sys.exit()
 
 
