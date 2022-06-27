@@ -26,6 +26,8 @@ params.calibrate = false
 params.nocalibrate = false
 params.beamform = false
 
+params.nopolcal = false     // some FRBs have no good pol cal
+
 workflow {
     flux_cal_solns = fcal(
         "${params.label}_fluxcal",
@@ -39,24 +41,29 @@ workflow {
         params.fluxflagfile,
         params.cpasspoly_fluxcal
     )
-    pol_cal_solns = pcal(
-        "${params.label}_polcal",
-        params.label,
-        params.data_polcal,
-        params.data_frb,
-        params.snoopy,
-        params.fcm,
-        params.ra_polcal,
-        params.dec_polcal,
-        params.polflagfile,
-        params.cpasspoly_polcal,
-        flux_cal_solns,
-        params.num_ints_polcal,
-        params.int_len_polcal,
-        params.offset_polcal,
-        params.dm_polcal,
-        params.centre_freq_polcal
-    )
+    if ( params.nopolcal ) {
+        pol_cal_solns = create_empty_file("polcal.dat")
+    }
+    else {
+        pol_cal_solns = pcal(
+            "${params.label}_polcal",
+            params.label,
+            params.data_polcal,
+            params.data_frb,
+            params.snoopy,
+            params.fcm,
+            params.ra_polcal,
+            params.dec_polcal,
+            params.polflagfile,
+            params.cpasspoly_polcal,
+            flux_cal_solns,
+            params.num_ints_polcal,
+            params.int_len_polcal,
+            params.offset_polcal,
+            params.dm_polcal,
+            params.centre_freq_polcal
+        )
+    }
     frb(
         params.label,
         params.data_frb,
