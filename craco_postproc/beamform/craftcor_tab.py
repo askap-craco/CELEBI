@@ -340,7 +340,8 @@ class AntennaSource:
         print(f"do_f_tab (stage 1): {timer()-start} s")
         start = timer()
 
-        def process_chan(i, c):
+        #def process_chan(i, c):
+        for c in range(corr.ncoarse_chan):
             # Channel frequency
             cfreq = corr.freqs[c]
 
@@ -420,10 +421,10 @@ class AntennaSource:
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
 
-        Parallel(n_jobs=16, require="sharedmem")(
-            delayed(process_chan)(i, c)
-            for i, c in enumerate(range(corr.ncoarse_chan))
-        )
+        # Parallel(n_jobs=16, require="sharedmem")(
+        #     delayed(process_chan)(i, c)
+        #     for i, c in enumerate(range(corr.ncoarse_chan))
+        # )
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
