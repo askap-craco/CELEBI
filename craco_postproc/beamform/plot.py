@@ -96,7 +96,10 @@ def plot_IQUV_dts(
 
             peak = peaks[j]
 
-            plot_ds = ds_red[:, peak - time_range : peak + time_range]
+            plot_ds = ds_red[
+                :, max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
+            ]
+
             plot_ts = np.sum(plot_ds, axis=0)
             t = np.linspace(
                 -time_range * dt / 1e3, time_range * dt / 1e3, plot_ts.shape[0]
