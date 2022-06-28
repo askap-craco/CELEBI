@@ -316,9 +316,11 @@ class AntennaSource:
         # To avoid iPFB fractional delay, set FRAMEID such that the remainder is 0
 
         rawd = self.vfile.read(sampoff, nsamp)  # TODO HERE'S THE DATA
+        print(f"rawd (pre-TEMP)\t{rawd}")
         np.save("TEMP_rawd.npy", rawd)
         del rawd
         rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
+        print(f"rawd (post-TEMP)\t{rawd}")
 
         assert rawd.shape == (
             nsamp,
@@ -345,19 +347,6 @@ class AntennaSource:
             print(c)
             # Channel frequency
             cfreq = corr.freqs[c]
-
-            """
-            Array of fine channel frequencies relative to coarse frequency
-            More appropriately named Delta_f?
-            Goes from -0.5 to 0.5
-            """
-            freqs = (
-                np.arange(nfine, dtype=np.float) - float(nfine) / 2.0
-            ) * corr.fine_chanbw
-
-            # TODO: what is sideband?
-            if corr.sideband == -1:
-                freqs = -freqs
 
             print(f'\tfreqs\t\t{freqs}')
 
