@@ -316,11 +316,9 @@ class AntennaSource:
         # To avoid iPFB fractional delay, set FRAMEID such that the remainder is 0
 
         rawd = self.vfile.read(sampoff, nsamp)  # TODO HERE'S THE DATA
-        print(f"rawd (pre-TEMP)\t{rawd}")
         np.save("TEMP_rawd.npy", rawd)
         del rawd
         rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
-        print(f"rawd (post-TEMP)\t{rawd}")
 
         assert rawd.shape == (
             nsamp,
@@ -339,23 +337,17 @@ class AntennaSource:
         np.save("TEMP_freqs.npy", freqs)
         del freqs
         freqs = np.load("TEMP_freqs.npy", mmap_mode="r")
-        print(f"do_f_tab (stage 1): {timer()-start} s")
         start = timer()
 
-        #def process_chan(i, c):
-        for c in range(corr.ncoarse_chan):
-            print(c)
+        def process_chan(c):
             # Channel frequency
             cfreq = corr.freqs[c]
-
-            print(f'\tfreqs\t\t{freqs}')
 
             """
             rawd's shape: (nsamp, corr.ncoarse_chan)
             nsamp = input.i * (64 * input.n)
             """
             x1 = rawd[:, c].reshape(-1, corr.nfft)
-            print(f'\tx1\t\t{x1}')
 
             """
             fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
@@ -365,12 +357,10 @@ class AntennaSource:
             """
             # Fringe rotation for Earth's rotation
             turn_fringe = cfreq * geom_delays_us
-            print(f'\tturn_fringe\t{turn_fringe}')
 
             phasor_fringe = np.exp(
                 np.pi * 2j * turn_fringe, dtype=np.complex64
             )
-            print(f'\tphasor_fringe\t{phasor_fringe}')
 
             x1 = x1 * phasor_fringe
 
@@ -378,16 +368,13 @@ class AntennaSource:
             # xfguard is xf1 with the ends trimmed off
             xf1 = np.fft.fft(x1, axis=1)
             xf1 = np.fft.fftshift(xf1, axes=1)
-            print(f'\txf1\t\t{xf1}')
 
             xfguard_f = xf1[
                 :, corr.nguard_chan : corr.nguard_chan + nfine :
             ]  # scale because oterhwise it overflows
-            print(f'\txfguard_f\t{xfguard_f}')
 
             # Fractional sample phases
             turn_frac = freqs * np.mean(geom_delays_us)
-            print(f'\tturn_frac\t\t{turn_frac}')
 
             # logging.debug('PHASOR %s[%s] chan=%s freq=%sfixed=%f us geom=%f us delta_t %s us coff*fixed = %f deg coff*geom = %f deg',
             #             self.antname, self.ia, c, cfreq, fixed_delay_us, geom_delay_us, delta_t, cfreq*fixed_delay_us*360., cfreq*geom_delay_us*360.)
@@ -398,15 +385,12 @@ class AntennaSource:
 
             # phasors to rotate the data with constant amplitude = 1
             phasor = np.exp(np.pi * 2j * turn_frac, dtype=np.complex64)
-            print(f'\tphasor\t\t{phasor}')
 
             # get absolute frequencies in gigahertz
             freq_ghz = (cfreq + freqs) / 1e3
-            print(f'\tfreq_ghz\t{freq_ghz}')
 
             # get the calibration solutions and apply them to the phasors
             mir_cor = corr.mir.get_solution(iant, 0, freq_ghz)
-            print(f'\tmir_cor\t\t{mir_cor}')
 
             if mir_cor[0] == 0:  # if correction is 0, flag data
                 phasor *= 0
@@ -422,10 +406,10 @@ class AntennaSource:
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
 
-        # Parallel(n_jobs=16, require="sharedmem")(
-        #     delayed(process_chan)(i, c)
-        #     for i, c in enumerate(range(corr.ncoarse_chan))
-        # )
+        Parallel(n_jobs=16, require="sharedmem")(
+            delayed(process_chan)(c)
+            for c in range(corr.ncoarse_chan)
+        )
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
