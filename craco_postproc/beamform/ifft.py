@@ -1,7 +1,10 @@
 import time
 
 import numpy as np
-from scipy.fft import ifft
+try:
+    from scipy.fft import ifft
+except:
+    from scipy.fftpack import ifft
 
 
 def _main():
