@@ -229,8 +229,9 @@ process generate_dynspecs {
     fi
     args="-x ${label}_frb_sum_x_t_${dm}.npy"
     args="\$args -y ${label}_frb_sum_y_t_${dm}.npy"
-    args="\$args -o ${label}_frb_sum_!_@_${dm}.npy"
+    args="\$args -o ${label}_frb_sum_!_@_${dm}.npy" 
 
+    echo "python3 $beamform_dir/dynspecs.py \$args $ds_args"
     python3 $beamform_dir/dynspecs.py \$args $ds_args
     """
 }

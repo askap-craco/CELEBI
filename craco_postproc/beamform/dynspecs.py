@@ -23,6 +23,12 @@ def _main():
         sys.exit(2)
 
     if args.t:
+        if args.X:
+            save(x, args.o, "x", "t")
+        
+        if args.y:
+            save(x, args.o, "y", "t")
+
         if args.I or args.Q or args.U or args.V:
             print("Calculating Stoke parameters")
             calculate_stokes(args, x, y, args.o, "t")
