@@ -206,6 +206,11 @@ process ifft {
     args="\$args -o ${label}_frb_sum_${pol}_t_${dm}.npy"
 
     python3 $beamform_dir/ifft.py \$args
+    if [ ! -d ${params.publish_dir}/${params.label}/htr ]; then
+        mkdir ${params.publish_dir}/${params.label}/htr
+    fi
+
+    cp ${label}_frb_sum_${pol}_t_${dm}.npy ${params.publish_dir}/${params.label}/htr/
     """
 }
 
