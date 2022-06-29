@@ -194,7 +194,13 @@ process ifft {
 
     """
     if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/../setup_beamform
+        module load ipp/2018.2.199
+        module load gcc/9.2.0
+        module load openmpi/4.0.2
+        module load gsl/2.5
+        module load python/3.7.4
+        module load numpy/1.18.2-python-3.7.4
+        module load scipy/1.4.1-python-3.7.4
     fi
     args="-f $spectrum"
     args="\$args -o ${label}_frb_sum_${pol}_t_${dm}.npy"
