@@ -9,6 +9,7 @@ include { apply_offset; generate_binconfig } from './localise'
 include { beamform as bform_frb } from './beamform'
 
 params.fieldimage = ""
+params.flagfinder = false
 
 workflow process_frb {
     take:
@@ -75,7 +76,12 @@ workflow process_frb {
                 askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
             }
             else {
-                no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
+                if ( params.flagfinder ) {
+                    no_rfi_finder_fits = finder_fits
+                }
+                else {
+                    no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
+                }
 
                 askap_frb_pos = cal_finder(
                     no_rfi_finder_fits.collect(), flux_cal_solns, label, cpasspoly

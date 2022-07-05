@@ -67,6 +67,9 @@ process apply_flux_cal_solns_finder {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_parseltongue3
+        fi
         tar -xzvf $cal_solns
         for b in `seq 0 19`; do
             bin="\$(printf "%02d" \$b)"
@@ -88,9 +91,10 @@ process apply_flux_cal_solns_finder {
             args="\$args --nmaxsources=1"
             args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
-            if [ "$params.ozstar" == "true" ]; then
-                . $launchDir/../setup_parseltongue3
+            if [ "$params.flagfinder" == "true" ]; then
+                args="\$args --tarflagfile=$params.fieldflagfile"
             fi
+
             ParselTongue $localise_dir/calibrateFRB.py \$args
 
             for f in `ls finderbin\${bin}*jmfit`; do
