@@ -75,7 +75,7 @@ process apply_flux_cal_solns_finder {
             bin="\$(printf "%02d" \$b)"
 
             args="--targetonly"
-            args="\$args -t fbin\${bin}_norfi.fits"
+            args="\$args -t *bin\${bin}*fits"
             args="\$args -r 3"
             args="\$args --cpasspoly=$cpasspoly"
             args="\$args -i"
