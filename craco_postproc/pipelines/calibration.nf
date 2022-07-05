@@ -1,3 +1,7 @@
+/*
+    Processes for calibration and imaging
+*/
+
 localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
 
@@ -5,7 +9,7 @@ params.finderimagesize = 1024
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
-params.nfieldsources = 50
+params.nfieldsources = 50   // number of field sources to try and find
 
 process determine_flux_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
@@ -22,12 +26,7 @@ process determine_flux_cal_solns {
         path "*ps", emit: plots
 
     script:
-        """
-        if [ "$flagfile" == "" ]; then
-            echo "You now need to write the flagfile for ${cal_fits} and provide it with --fluxflagfile!"
-            exit 2
-        fi        
-
+        """       
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
@@ -141,10 +140,6 @@ process apply_flux_cal_solns_field {
 
     script:
         """
-        if [ "$flagfile" == "" ] && [ "$params.fieldimage" == "null" ]; then
-            echo "You now need to write the flagfile for ${target_fits} and provide it with --fieldflagfile!"
-            exit 2
-        fi    
         tar -xzvf $cal_solns
 
         args="--imagename=field"
@@ -204,10 +199,6 @@ process apply_flux_cal_solns_polcal {
 
     script:
         """
-        if [ "$flagfile" == "" ]; then
-            echo "You now need to write the flagfile for ${target_fits} and provide it with --polcalflagfile!"
-            exit 2
-        fi    
         tar -xzvf $cal_solns
 
         args="--targetonly"

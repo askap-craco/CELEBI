@@ -76,6 +76,10 @@ workflow process_frb {
                 askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
             }
             else {
+                if ( params.fieldflagfile == "" ) {
+                    println "No field flag file!"
+                    System.exit(1)
+                }
                 if ( params.flagfinder ) {
                     no_rfi_finder_fits = finder_fits
                 }

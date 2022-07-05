@@ -42,6 +42,10 @@ workflow process_pol_cal {
                 pos = Channel.fromPath("${params.publish_dir}/${params.label}/polcal/polcal.jmfit")
             }
             else {
+                if ( params.polflagfile == "" ) {
+                    println "No polcal flag file!"
+                    System.exit(1)
+                }
                 pos = apply_cal_pcal(
                     fits, flux_cal_solns, polflagfile, target, cpasspoly
                 ).jmfit

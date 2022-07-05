@@ -36,6 +36,10 @@ workflow process_flux_cal {
                 flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
             }
             else {
+                if ( params.fluxflagfile == "" ) {
+                    println "No fluxcal flag file!"
+                    System.exit(1)
+                }
                 flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
             }
         }
