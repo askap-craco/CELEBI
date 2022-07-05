@@ -66,16 +66,14 @@ process determine_flux_cal_solns {
 
 process apply_flux_cal_solns_finder {
     /*
-        For each finder bin:
+        For a single finder bin:
             - Flux calibrate
             - Image
             - Find and fit a single source
-        
-        Then find the bin with the highest-S/N fit (the peak bin) and return it
 
         Input
             target_fits: path
-                Finder bin visibilities in FITS files
+                Finder bin visibilities in a FITS file
             cal_solns: path
                 Tarball containing calibration solutions
             target: val
@@ -84,31 +82,29 @@ process apply_flux_cal_solns_finder {
                 Order of polynomial to fit bandpass with
         
         Output
-            all_jmfits: path
-                JMFIT outputs for all finder bins
-            peak_fits_image: path
-                FITS-format image of peak bin
-            peak_jmfit: path
-                JMFIT output of peak bin
-            peak_reg: path
-                DS9 region file of source fit in peak bin
-            peak_ms: path
-                Calibrated peak bin measurement set
+            jmfit: path
+                JMFIT outputs for this finder bin
+            fits_image: path
+                FITS-format image of this bin
+            reg: path
+                DS9 region file of source fit in this bin
+            ms: path
+                Calibrated bin measurement set
     */
     publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
+    maxForks 1
 
     input:
-        path target_fits
+        each path(target_fits)
         path cal_solns
         val target
         val cpasspoly
 
     output:
-        path "*.jmfit", emit: all_jmfits
-        path "${params.label}.fits", emit: peak_fits_image
-        path "${params.label}.jmfit", emit: peak_jmfit
-        path "${params.label}.reg", emit: peak_reg
-        path "${params.label}_calibrated_uv.ms", emit: peak_ms
+        path "fbin*.jmfit", emit: jmfit
+        path "fbin*.fits", emit: fits_image
+        path "fbin*.reg", emit: reg
+        path "fbin*_calibrated_uv.ms", emit: ms
 
     script:
         """
@@ -117,42 +113,84 @@ process apply_flux_cal_solns_finder {
         fi
 
         tar -xzvf $cal_solns
+        target_fits=$target_fits
+        bin=\${target_fits:9:2}
 
-        for b in `seq 0 19`; do
-            bin="\$(printf "%02d" \$b)"
+        args="--targetonly"
+        args="\$args -t $target_fits"
+        args="\$args -r 3"
+        args="\$args --cpasspoly=$cpasspoly"
+        args="\$args -i"
+        args="\$args -j"
+        args="\$args --cleanmfs"
+        args="\$args --pols=I"
+        args="\$args --imagename=fbin\${bin}"
+        args="\$args --imagesize=$params.finderimagesize"
+        args="\$args -a 16"
+        args="\$args -u 500"
+        args="\$args --skipplot"
+        args="\$args --src=$target"
+        args="\$args --nmaxsources=1"
+        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
-            args="--targetonly"
-            args="\$args -t *bin\${bin}*fits"
-            args="\$args -r 3"
-            args="\$args --cpasspoly=$cpasspoly"
-            args="\$args -i"
-            args="\$args -j"
-            args="\$args --cleanmfs"
-            args="\$args --pols=I"
-            args="\$args --imagename=finderbin\${bin}"
-            args="\$args --imagesize=$params.finderimagesize"
-            args="\$args -a 16"
-            args="\$args -u 500"
-            args="\$args --skipplot"
-            args="\$args --src=$target"
-            args="\$args --nmaxsources=1"
-            args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        if [ "$params.flagfinder" == "true" ]; then
+            args="\$args --tarflagfile=$params.fieldflagfile"
+        fi
 
-            if [ "$params.flagfinder" == "true" ]; then
-                args="\$args --tarflagfile=$params.fieldflagfile"
-            fi
+        ParselTongue $localise_dir/calibrateFRB.py \$args
 
-            ParselTongue $localise_dir/calibrateFRB.py \$args
-
-            for f in `ls finderbin\${bin}*jmfit`; do
-                echo \$f
-                python3 $localise_dir/get_region_str.py \$f FRB \
-                    >> finderbin\${bin}_sources.reg
-            done
+        for f in `ls fbin\${bin}*jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f FRB \
+                >> fbin\${bin}_sources.reg
         done
+        """
+}
 
+process get_peak {
+    /*
+        Find the bin in which the S/N of the single fit source is highest,
+        and return its related files. All outputs are renamed to [FRB name].*
+
+        Input
+            jmfit: path
+                All JMFIT output files from finder bins
+            fits_image: path
+                All finder bin FITS images
+            reg: path
+                All finder bin DS9 region files
+            ms: path
+                All finder bin calibrated visibility measurement sets
+        
+        Output
+            peak_jmfit: path
+                JMFIT output file of peak bin
+            peak_fits_image: path
+                FITS image of peak bin
+            peak_reg: path
+                DS9 region file of peak bin
+            peak_ms: path
+                Calibrated visibility measurement set of peak bin    
+    */
+    publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
+
+    input:
+        path jmfit
+        path fits_image
+        path reg
+        path ms
+    
+    output:
+        path "${params.label}.jmfit", emit: peak_jmfit
+        path "${params.label}.fits", emit: peak_fits_image
+        path "${params.label}.reg", emit: peak_reg
+        path "${params.label}_calibrated_uv.ms", emit: peak_ms
+
+    script:
+        """
         # Remove empty .jmfit and .reg files
-        find . -type f -empty -print -delete
+        find *jmfit -type f -empty -print -delete
+        find *reg -type f -empty -print -delete
 
         # parse jmfits for S/N then find index of maximum
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`

@@ -4,7 +4,7 @@ include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_field; subtract_rfi as subtract_rfi_finder } from './correlate'
 include { apply_flux_cal_solns_finder as cal_finder;
-    apply_flux_cal_solns_field as cal_field } from './calibration'
+    apply_flux_cal_solns_field as cal_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
 include { beamform as bform_frb } from './beamform'
 
@@ -87,8 +87,13 @@ workflow process_frb {
                     no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
                 }
 
-                askap_frb_pos = cal_finder(
-                    no_rfi_finder_fits.collect(), flux_cal_solns, label, cpasspoly
+                bin_jmfits, bin_images, bin_regs, bin_mss = cal_finder(
+                    no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
+                )
+
+                askap_frb_pos = get_peak(
+                    bin_jmfits.collect(), bin_images.collect(), 
+                    bin_regs.collect(), bin_mss.collect()
                 ).peak_jmfit
 
                 field_sources = cal_field(
