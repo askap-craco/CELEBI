@@ -21,37 +21,35 @@ process get_startmjd {
     startmjd - environment variable
         The earliest start time found in the data headers
     *******************************************************************/
-    cache 'lenient'
-
     input:
-    val data
+        val data
     
     output:
-    stdout
+        stdout
 
-    """    
-    if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/../setup_proc
-    fi
-    python3 $localise_dir/get_start_mjd.py $data
-    """
+    script:
+        """    
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+        python3 $localise_dir/get_start_mjd.py $data
+        """
 }
 
 process create_bat0 {
-    cache 'lenient'
-    
     input:
-    val data
+        val data
 
     output:
-    path ".bat0"
+        path ".bat0"
 
-    """
-    if [ "$params.ozstar" == "true" ]; then
-        . $launchDir/../setup_proc
-    fi
-    bat0.pl `find $data/*/*/*vcraft | head -1`
-    """
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+        bat0.pl `find $data/*/*/*vcraft | head -1`
+        """
 }
 
 process process_time_step {
@@ -76,8 +74,6 @@ process process_time_step {
         completed or not, since the correlated_data directory will exist
         even if the process has started without completing.
     *******************************************************************/
-    cache 'lenient'
-    
     input:
     val label
     val data
@@ -301,7 +297,7 @@ process subtract_rfi {
             . $launchDir/../setup_parseltongue3
         fi
 
-        uvsubScaled.py $finder_fits *_rfi.fits \$scale fbin\${bin}_norfi.fits
+        uvsubScaled.py $finder_fits *_rfi.fits \$scale norfifbin\${bin}.fits
         """
 }
 

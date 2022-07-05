@@ -87,12 +87,16 @@ workflow process_frb {
                     no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
                 }
 
-                bin_jmfits, bin_images, bin_regs, bin_mss = cal_finder(
+                bins_out = cal_finder(
                     no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
                 )
+                bin_jmfits = bins_out.jmfit
+                bin_fits_images = bins_out.fits_image
+                bin_regs = bins_out.reg
+                bin_mss = bins_out.ms
 
                 askap_frb_pos = get_peak(
-                    bin_jmfits.collect(), bin_images.collect(), 
+                    bin_jmfits.collect(), bin_fits_images.collect(), 
                     bin_regs.collect(), bin_mss.collect()
                 ).peak_jmfit
 
