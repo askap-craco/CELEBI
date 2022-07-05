@@ -12,6 +12,27 @@ params.polcalimagesize = 128
 params.nfieldsources = 50   // number of field sources to try and find
 
 process determine_flux_cal_solns {
+    /*
+        Determine flux calibration solutions
+
+        Input
+            cal_fits: path
+                Flux calibrator visibilities in a FITS file
+            flagfile: val
+                Absolute path to AIPS flag file for flux calibrator
+            target: val
+                Global label (usually FRB name)
+            cpasspoly: val
+                Order of polynomial to fit bandpass with
+            
+        Output
+            solns: path
+                Tarball containing calibration solutions
+            ms: path
+                Calibrated flux calibrator measurement set
+            plot: path
+                AIPS postscript plots of calibration solutions
+    */
     publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
 
     input:
@@ -44,6 +65,36 @@ process determine_flux_cal_solns {
 }
 
 process apply_flux_cal_solns_finder {
+    /*
+        For each finder bin:
+            - Flux calibrate
+            - Image
+            - Find and fit a single source
+        
+        Then find the bin with the highest-S/N fit (the peak bin) and return it
+
+        Input
+            target_fits: path
+                Finder bin visibilities in FITS files
+            cal_solns: path
+                Tarball containing calibration solutions
+            target: val
+                Global label (usually FRB name)
+            cpasspoly: val
+                Order of polynomial to fit bandpass with
+        
+        Output
+            all_jmfits: path
+                JMFIT outputs for all finder bins
+            peak_fits_image: path
+                FITS-format image of peak bin
+            peak_jmfit: path
+                JMFIT output of peak bin
+            peak_reg: path
+                DS9 region file of source fit in peak bin
+            peak_ms: path
+                Calibrated peak bin measurement set
+    */
     publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
 
     input:
@@ -53,12 +104,7 @@ process apply_flux_cal_solns_finder {
         val cpasspoly
 
     output:
-        // path "*.image", emit: all_images
-        // path "f*.fits", emit: all_fits_images
-        // path "*_calibrated_uv.ms", emit: all_ms
         path "*.jmfit", emit: all_jmfits
-        // path "*.reg", emit: all_regs
-        // path "${params.label}.image", emit: peak_image
         path "${params.label}.fits", emit: peak_fits_image
         path "${params.label}.jmfit", emit: peak_jmfit
         path "${params.label}.reg", emit: peak_reg
@@ -69,7 +115,9 @@ process apply_flux_cal_solns_finder {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_parseltongue3
         fi
+
         tar -xzvf $cal_solns
+
         for b in `seq 0 19`; do
             bin="\$(printf "%02d" \$b)"
 
@@ -98,7 +146,8 @@ process apply_flux_cal_solns_finder {
 
             for f in `ls finderbin\${bin}*jmfit`; do
                 echo \$f
-                python3 $localise_dir/get_region_str.py \$f FRB >> finderbin\${bin}_sources.reg
+                python3 $localise_dir/get_region_str.py \$f FRB \
+                    >> finderbin\${bin}_sources.reg
             done
         done
 
@@ -113,7 +162,6 @@ process apply_flux_cal_solns_finder {
 
         echo "\$peak determined to be peak bin"
         cp \$peak_jmfit ${params.label}.jmfit
-        # cp -r \${peak}.image ${params.label}.image
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
         cp -r fbin\${peakbin}_norfi_calibrated_uv.ms ${params.label}_calibrated_uv.ms
@@ -121,6 +169,38 @@ process apply_flux_cal_solns_finder {
 }
 
 process apply_flux_cal_solns_field {
+    /*
+        Apply flux calibration to field visibilties and create field image,
+        unless we have an already-made deep field image, then find and fit
+        sources.
+
+        Input
+            target_fits: path
+                Field visibilities in FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+            flagfile: val
+                Absolute path to AIPS flag file for field data
+            target: val
+                Global label (usually FRB name)
+            cpasspoly: val
+                Order of polynomial to fit bandpass with
+            dummy: val
+                A dummy variable used to force field calibration to wait for
+                finder calibration (otherwise calibrateFRB.py steps on itself)
+        
+        Output
+            fitsimage: path, optional
+                FITS format field image. Won't be output if using a deep field
+                image
+            ms: path, optional
+                Calibrated field visibility measurement set. Won't be output if
+                using a deep field image
+            jmfit: path
+                JMFIT output files for all sources found in image
+            regions: path
+                DS9 region file containing regions for all sources fit.
+    */
     publishDir "${params.publish_dir}/${params.label}/field", mode: "copy"
 
     input:
@@ -129,10 +209,9 @@ process apply_flux_cal_solns_field {
         val flagfile
         val target
         val cpasspoly
-        val dummy   // so we can force this to wait for finder to finish
+        val dummy
 
     output:
-        // path "*.image", emit: image
         path "f*.fits", emit: fitsimage, optional: true
         path "*_calibrated_uv.ms", emit: ms, optional: true
         path "*jmfit", emit: jmfit
@@ -181,6 +260,32 @@ process apply_flux_cal_solns_field {
 }
 
 process apply_flux_cal_solns_polcal {
+    /*
+        Apply flux calibration to and image polarisation calibrator
+        visbilities, then fit a single source
+
+        Input
+            target_fits: path
+                Polarisation calibrator visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+            flagfile: val
+                Absolute path to AIPS flag file for polarisation calibrator
+            target: val
+                Global label (usually FRB name)
+            cpasspoly: val
+                Order of polynomial to fit bandpass with
+        
+        Output
+            fitsimage: path
+                FITS format image of polarisation calibrator
+            ms: path
+                Calibrated polarisation calibrator visibility measurement set
+            jmfit: path
+                JMFIT output for source fit
+            regions: path
+                DS9 region of source fit    
+    */
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
 
     input:
@@ -233,6 +338,9 @@ process apply_flux_cal_solns_polcal {
 }
 
 process determine_pol_cal_solns {
+    /*
+        Determine polarisation calibration solutions. Work in progress.
+    */
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
     
     input:
