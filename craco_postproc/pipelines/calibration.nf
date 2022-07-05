@@ -104,7 +104,7 @@ process apply_flux_cal_solns_finder {
         path "fbin*.jmfit", emit: jmfit
         path "fbin*.fits", emit: fits_image
         path "fbin*.reg", emit: reg
-        path "fbin*_calibrated_uv.ms", emit: ms
+        path "*_calibrated_uv.ms", emit: ms
 
     script:
         """
