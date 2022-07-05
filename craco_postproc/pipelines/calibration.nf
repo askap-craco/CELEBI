@@ -164,7 +164,7 @@ process apply_flux_cal_solns_finder {
         cp \$peak_jmfit ${params.label}.jmfit
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
-        cp -r fbin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
+        cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
         """    
 }
 
