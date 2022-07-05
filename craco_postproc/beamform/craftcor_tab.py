@@ -315,6 +315,8 @@ class AntennaSource:
         )
         # To avoid iPFB fractional delay, set FRAMEID such that the remainder is 0
 
+        print("samp_start + nsamp <= self.nsamps")
+        print(f"{sampoff} + {nsamp} <= {self.vfile.nsamps}")
         rawd = self.vfile.read(sampoff, nsamp)  # TODO HERE'S THE DATA
         np.save("TEMP_rawd.npy", rawd)
         del rawd
