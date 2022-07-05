@@ -196,7 +196,7 @@ process get_peak {
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
         peak_jmfit=\$(python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)")
         peak="\${peak_jmfit%.*}"
-        peakbin=\${peak:9:2}
+        peakbin=\${peak:4:2}
 
         echo "\$peak determined to be peak bin"
         cp \$peak_jmfit ${params.label}.jmfit
