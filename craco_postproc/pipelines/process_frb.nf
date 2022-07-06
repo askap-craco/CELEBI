@@ -49,9 +49,11 @@ workflow process_frb {
             rfi_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits")
         }
         else {
-            rfi_fits = corr_rfi(
-                "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
-            )
+            if ( ! params.flagfinder ) {
+                rfi_fits = corr_rfi(
+                    "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
+                )
+            }
         }
 
         if ( (params.fieldimage != "") or new File("${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits").exists() ) {
