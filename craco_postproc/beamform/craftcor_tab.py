@@ -1032,7 +1032,6 @@ class MiriadGainSolutions:
             )
             bp_value = bp_fit(freq_ghz * 1e3)
         else:  # AIPS polyfit coefficient doesn't exist. Use Miriad/AIPS bandpass interpolation
-            print(iant, len(self.bp_real_interp))
             f_real = self.bp_real_interp[iant](freq_ghz)
             f_imag = self.bp_imag_interp[iant](freq_ghz)
             bp_value = f_real + 1j * f_imag
