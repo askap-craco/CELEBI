@@ -466,7 +466,9 @@ class Correlator:
         ].lower()
         self.abs_delay = abs_delay
         # self.refant = filter(lambda a:a.antname == refantname, ants)[0]
-        self.refant = ants[0]
+        # self.refant = ants[0]
+        trigger_frames = [a.trigger_frame for a in self.ants]
+        self.refant = ants[np.argmax(trigger_frames)]
         self.calcresults = ResultsFile(values.calcfile)
         self.dutc = 0
         self.mjd0 = self.refant.mjdstart + self.dutc / 86400.0
