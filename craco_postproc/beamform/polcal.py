@@ -158,8 +158,8 @@ def _main():
 
     # Solve using matrices
     tan_phi = np.full((freqs.shape[0], 2), np.nan)
-    u_prime = S_noisesub[1] / S_noisesub[0]  # Q/I
-    v_prime = S_noisesub[2] / S_noisesub[0]  # U/I
+    u_prime = S_noisesub[2] / S_noisesub[0]  # U/I
+    v_prime = S_noisesub[3] / S_noisesub[0]  # V/I
     for i, f in enumerate(freqs.value):
         pa_prime = psi_sky + faraday_angle(f, rm, offset)
 
