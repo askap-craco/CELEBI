@@ -465,17 +465,33 @@ class Correlator:
             "cp.ingest.tasks.FringeRotationTask.params.refant"
         ].lower()
         self.abs_delay = abs_delay
-        # self.refant = filter(lambda a:a.antname == refantname, ants)[0]
-        # self.refant = ants[0]
+
+        # Set reference antenna to be one with latest trigger_frame so
+        # we always have a positive first sample index
         trigger_frames = [a.trigger_frame for a in self.ants]
         self.refant = ants[np.argmax(trigger_frames)]
+
+        # Determine nfft and nguard_chan such that we always have the
+        # maximal number of samples.
+        # First get maximum sample offset (assumes no given offset)
+        n_offsets = [int(np.round(self.refant.trigger_frame - a.trigger_frame)) for a in self.ants]
+        max_n_offset = max(n_offsets)
+
+        # number of samples in final spectra
+        nsamp = self.refant.vfile.nsamps - max_n_offset
+
+        self.nfft = nsamp // 64
+        self.nguard_chan = 5 * nsamp // 64
+
+        # old way: user specified
+        # self.nfft = 64 * values.fft_size
+        # self.nguard_chan = 5 * values.fft_size
+
         self.calcresults = ResultsFile(values.calcfile)
         self.dutc = 0
         self.mjd0 = self.refant.mjdstart + self.dutc / 86400.0
         self.frame0 = self.refant.trigger_frame
         self.nint = values.nint
-        self.nfft = 64 * values.fft_size
-        self.nguard_chan = 5 * values.fft_size
         self.oversamp = 32.0 / 27.0
         self.fs = self.oversamp  # samples per microsecnd
         self.ncoarse_chan = len(self.refant.vfile.freqs)
