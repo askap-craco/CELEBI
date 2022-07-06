@@ -478,10 +478,10 @@ class Correlator:
         max_n_offset = max(n_offsets)
 
         # number of samples in final spectra
-        nsamp = self.refant.vfile.nsamps - max_n_offset
+        nsamp = int(self.refant.vfile.nsamps - max_n_offset)
 
-        self.nfft = nsamp // 64
-        self.nguard_chan = 5 * nsamp // 64
+        self.nfft = int(nsamp // 64)
+        self.nguard_chan = int(5 * nsamp // 64)
 
         # old way: user specified
         # self.nfft = 64 * values.fft_size
