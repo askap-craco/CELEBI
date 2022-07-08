@@ -480,7 +480,7 @@ class Correlator:
         # number of samples in final spectra
         nsamp = int(self.refant.vfile.nsamps - max_n_offset)
 
-        self.nfft = int(nsamp // 64)
+        self.nfft = nsamp
         self.nguard_chan = int(5 * nsamp // 64)
 
         print(f"DEBUG: self.nfft = {self.nfft}")
