@@ -408,7 +408,7 @@ class AntennaSource:
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
 
-        Parallel(n_jobs=16, require="sharedmem")(
+        Parallel(n_jobs=corr.values.cpus, require="sharedmem")(
             delayed(process_chan)(c)
             for c in range(corr.ncoarse_chan)
         )
@@ -1208,6 +1208,12 @@ def _main():
         type=float,
         default=0,
         help="Polarisation calibration offset",
+    )
+    parser.add_argument(
+        "--cpus",
+        type=int,
+        default=1,
+        help="Number of CPUs to parallelise across (Default = 1)"
     )
     parser.set_defaults(verbose=False)
     values = parser.parse_args()

@@ -159,6 +159,11 @@ process do_beamform {
         args="\$args --pol $pol"
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args --tab"
+        if [ "$params.ozstar" == "true" ]; then
+            args="\$args --cpus=32"
+        else
+            args="\$args --cpus=16"
+        fi
 
         # Legacy compatibility: some very old FRBs need a hwfile
         if [ ! "$params.hwfile" = "N/A" ]; then
