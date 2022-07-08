@@ -81,8 +81,8 @@ workflow process_frb {
             if( new File("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit").exists()
                 and new File("${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt").exists() ) 
             {
-                // askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
-                println "frb\taskap_frb_pos = $askap_frb_pos"
+                askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
+                // println "frb\taskap_frb_pos = $askap_frb_pos"
             }
             else {
                 if ( (params.fieldimage == "") and (params.fieldflagfile == "") ) {
