@@ -85,7 +85,7 @@ workflow process_frb {
                 println "frb\taskap_frb_pos = $askap_frb_pos"
             }
             else {
-                if ( params.fieldimage == "" and params.fieldflagfile == "" ) {
+                if ( (params.fieldimage) == "" and (params.fieldflagfile == "") ) {
                     println "No field flag file!"
                     System.exit(1)
                 }
