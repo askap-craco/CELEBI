@@ -38,7 +38,7 @@ workflow process_frb {
         int_time = binconfig.int_time
         if ( new File("${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits").exists() ) {
             finder_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/finder/*fits")
-            println "frb\tfinder_fits = $finder_fits"
+            // println "frb\tfinder_fits = $finder_fits"
         }
         else {
             finder_fits = corr_finder(
@@ -48,26 +48,26 @@ workflow process_frb {
 
         if ( new File("${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits").exists() ) {
             rfi_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits")
-            println "frb\trfi_fits = $rfi_fits"
+            // println "frb\trfi_fits = $rfi_fits"
         }
         else {
             if ( ! params.flagfinder ) {
-                println "not flagfinder"
+                // println "not flagfinder"
                 rfi_fits = corr_rfi(
                     "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
                 )
             }
         }
 
-        println "frb\tparams.fieldimage = $params.fieldimage"
+        // println "frb\tparams.fieldimage = $params.fieldimage"
         if ( (params.fieldimage != "") or new File("${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits").exists() ) {
             if( params.fieldimage == "" ) {
                 field_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits")
-                println "frb\tfield_fits = $field_fits"
+                // println "frb\tfield_fits = $field_fits"
             }
             else {
                 field_fits = Channel.fromPath("${params.fieldimage}")
-                println "frb\tfield_fits = $field_fits"
+                // println "frb\tfield_fits = $field_fits"
             }
         }
         else {
@@ -81,11 +81,11 @@ workflow process_frb {
             if( new File("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit").exists()
                 and new File("${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt").exists() ) 
             {
-                askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
+                // askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
                 println "frb\taskap_frb_pos = $askap_frb_pos"
             }
             else {
-                if ( params.fieldflagfile == "" ) {
+                if ( params.fieldimage == "" and params.fieldflagfile == "" ) {
                     println "No field flag file!"
                     System.exit(1)
                 }
