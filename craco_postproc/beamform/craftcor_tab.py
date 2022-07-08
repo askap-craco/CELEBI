@@ -707,6 +707,7 @@ class Correlator:
         nsamp = self.nint
         nchan = self.ncoarse_chan * self.nfine_per_coarse
 
+        print(nsamp, nchan, self.npol_in)
         sum_aligned = np.zeros(
             (nsamp, nchan, self.npol_in), dtype=np.complex64
         )
