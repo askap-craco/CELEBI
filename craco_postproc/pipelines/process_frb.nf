@@ -59,6 +59,7 @@ workflow process_frb {
             }
         }
 
+        println "frb\tparams.fieldimage = $params.fieldimage"
         if ( (params.fieldimage != "") or new File("${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits").exists() ) {
             if( params.fieldimage == "" ) {
                 field_fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits")
