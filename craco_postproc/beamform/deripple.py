@@ -108,7 +108,7 @@ def generate_deripple(nfft, res, dir):
     #                use scipy's fft instead of numpy's, as np's was segfaulting for huuuuge multiple*passbandLength*2
     h_0 = np.zeros(multiple * passbandLength * 2)
     h_0[: h.shape[0]] = h
-    temp = abs(fft.fft(h_0))  # ,multiple*passbandLength*2))
+    temp = abs(fft(h_0))  # ,multiple*passbandLength*2))
     print(
         "saving {}".format(
             dir + "/deripple_res" + str(res) + "_nfft" + str(nfft)
