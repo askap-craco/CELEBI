@@ -1256,10 +1256,10 @@ def _main():
     # hacking delays
     start = timer()
     delaymap = parse_delays(values)
-    antennas = Parallel(n_jobs=values.cpus)(
-        delayed(AntennaSource)(mux)
+    antennas = [
+        AntennaSource(mux)
         for mux in vcraft.mux_by_antenna(vcraftfiles, delaymap)
-    )
+    ]
     print(f"Parse antennas: {timer()-start} s")
     print(("NUMBER OF ANTENNAS", len(antennas)))
     # antennas = [AntennaSource(vcraft.VcraftFile(f)) for f in values.files]
