@@ -79,13 +79,13 @@ workflow process_frb {
 
         if ( params.calibrate ) {
             if( new File("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit").exists()
-                and new File("${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt").exists() ) 
+                && new File("${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt").exists() ) 
             {
                 askap_frb_pos = Channel.fromPath("${params.publish_dir}/${params.label}/finder/${params.label}.jmfit")
                 // println "frb\taskap_frb_pos = $askap_frb_pos"
             }
             else {
-                if ( (params.fieldimage == "") and (params.fieldflagfile == "") ) {
+                if ( (params.fieldimage == "") && (params.fieldflagfile == "") ) {
                     println "No field flag file!"
                     System.exit(1)
                 }
