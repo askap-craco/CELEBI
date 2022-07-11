@@ -246,7 +246,11 @@ process deripple {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_beamform
+            module load gcc/9.2.0
+            module load openmpi/4.0.2
+            module load python/3.7.4
+            module load numpy/1.18.2-python-3.7.4
+            module load scipy/1.6.0-python-3.7.4
         fi
 
         if [ ! -d $beamform_dir/.deripple_coeffs ]; then
