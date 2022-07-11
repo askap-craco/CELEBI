@@ -138,7 +138,8 @@ process do_beamform {
         val fcm
 
     output:
-        tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy")
+        tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
+        env FFTLEN, emit: FFTLEN
 
     script:
         """
@@ -237,6 +238,7 @@ process deripple {
         val label
         val int_len
         tuple val(pol), path(spectrum)
+        env FFTLEN
 
     output:
         tuple val(pol), path("${label}_frb_sum_${pol}_f_derippled.npy")
@@ -246,14 +248,13 @@ process deripple {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_beamform
         fi
-        fftlen=\$(( $int_len * 64 ))
 
         if [ ! -d $beamform_dir/.deripple_coeffs ]; then
             mkdir $beamform_dir/.deripple_coeffs
         fi
 
         args="-f $spectrum"
-        args="\$args -l \$fftlen"
+        args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
         args="\$args -c $beamform_dir/.deripple_coeffs"
 
@@ -533,8 +534,8 @@ workflow beamform {
             label, data, calcfiles, polarisations, antennas, flux_cal_solns,
             num_ints, int_len, offset, fcm
         )
-        sum(label, do_beamform.out.groupTuple())
-        deripple(label, int_len, sum.out)
+        sum(label, do_beamform.out.data.groupTuple())
+        deripple(label, int_len, sum.out, do_beamform.out.FFTLEN)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns, dm)
         generate_dynspecs(label, ifft.out.collect(), ds_args, dm)
