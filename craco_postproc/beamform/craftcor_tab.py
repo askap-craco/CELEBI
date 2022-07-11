@@ -484,7 +484,7 @@ class Correlator:
         self.nguard_chan = int(5 * nsamp // 64)
 
         with open("fftlen", "w") as f:
-            f.write(nsamp)
+            f.write(f"{nsamp}")
 
         print(f"DEBUG: self.nfft = {self.nfft}")
         print(f"DEBUG: self.nguard_chan = {self.nguard_chan}")
