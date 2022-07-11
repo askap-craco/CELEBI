@@ -139,7 +139,7 @@ process do_beamform {
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
-        env FFTLEN, emit: FFTLEN
+        path "fftlen", emit: fftlen
 
     script:
         """
@@ -238,7 +238,7 @@ process deripple {
         val label
         val int_len
         tuple val(pol), path(spectrum)
-        env FFTLEN
+        path fftlen
 
     output:
         tuple val(pol), path("${label}_frb_sum_${pol}_f_derippled.npy")
@@ -253,6 +253,8 @@ process deripple {
             mkdir $beamform_dir/.deripple_coeffs
         fi
 
+        FFTLEN=`cat fftlen`
+        
         args="-f $spectrum"
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
@@ -535,7 +537,7 @@ workflow beamform {
             num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.data.groupTuple())
-        deripple(label, int_len, sum.out, do_beamform.out.FFTLEN)
+        deripple(label, int_len, sum.out, do_beamform.out.fftlen)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns, dm)
         generate_dynspecs(label, ifft.out.collect(), ds_args, dm)
