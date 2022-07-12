@@ -166,74 +166,56 @@ def _main():
         u = L_amp * np.sin(2 * pa_prime)
         v = 0.05  # TODO: ???
 
-        A = np.array([[u + v, v - u], [u - v, u + v]])
-        x = np.array([[u_prime[i] + v_prime[i]], [u_prime[i] - v_prime[i]]])
+        A = np.array([[u + v, v - u],
+                      [u - v, u + v]])
+        x = np.array([[u_prime[i] + v_prime[i]],
+                      [u_prime[i] - v_prime[i]]])
         y = np.matmul(np.linalg.inv(A), x)
 
         tan_phi[i, 0] = y[0]
         tan_phi[i, 1] = y[1]
 
-    # linear fit for solutions
-    # Because the phi we get has a non-linear part in it but we don't know
-    # where it is, split the frequency into four bands and fit each, then take
-    # the fit with the smallest fractional error
-    n_bands = 4
-    band_width = tan_phi.shape[0] // n_bands
-    slices = [
-        slice(i * band_width, (i + 1) * band_width) for i in range(n_bands - 1)
-    ]
-    slices += [slice((n_bands - 1) * band_width, None)]
-
     phi = np.arctan2(tan_phi[:, 1], tan_phi[:, 0])
-    delays_ns = []
-    offsets = []
+    pfit, pcov = np.polyfit(freqs.value, phi, 1, cov=True)
+    perr = np.sqrt(np.diag(pcov))
 
-    for i, s in enumerate(slices):
-        pfit, pcov = np.polyfit(freqs[s].value, phi[s], 1, cov=True)
-        perr = np.sqrt(np.diag(pcov))
+    delay_ns = pfit[0] / (2 * np.pi * 1e6)
+    delay_err_ns = perr[0] / (2 * np.pi * 1e6)
+    offset = pfit[1]
+    offset_err = perr[1]
 
-        delay_ns = pfit[0] / (2 * np.pi * 1e6)
-        delay_err_ns = perr[0] / (2 * np.pi * 1e6)
-        delays_ns += [(delay_ns, delay_err_ns)]
-        offset = pfit[1]
-        offset_err = perr[1]
-        offsets += [(offset, offset_err)]
-
-        print(f"Band {i+1}: {freqs[s][0]} - {freqs[s][-1]}")
-        print(
-            f"Delay:  {delay_ns} +- {delay_err_ns} s "
-            f"({int(delay_err_ns/delay_ns*100)}% error)"
-        )
-        print(
-            f"Offset: {offset} +- {offset_err} "
-            f"({int(offset_err/offset*100)}% error)"
-        )
+    print(f"Band {i+1}: {freqs[s][0]} - {freqs[s][-1]}")
+    print(
+        f"Delay:  {delay_ns} +- {delay_err_ns} s "
+        f"({int(delay_err_ns/delay_ns*100)}% error)"
+    )
+    print(
+        f"Offset: {offset} +- {offset_err} "
+        f"({int(offset_err/offset*100)}% error)"
+    )
 
     if args.plot:
         fig, ax = plt.subplots()
         ax = ax_plot(ax, freqs, phi, label="Solved")
-        for i, s in enumerate(slices):
-            p = np.poly1d([delays_ns[i][0] * (2 * np.pi * 1e6), offsets[i][0]])
-            ax = ax_plot(
-                ax,
-                freqs[s],
-                p(freqs[s].value),
-                label="Fit",
-                c="r",
-                type="line",
-            )
+        p = np.poly1d([delay_ns * (2 * np.pi * 1e6), offset])
+        ax = ax_plot(
+            ax,
+            freqs,
+            p(freqs.value),
+            label="Fit",
+            c="r",
+            type="line",
+        )
         ax.set_xlabel("Frequency (MHz)")
         ax.set_ylabel(r"$\Delta \Phi$")
         ax.legend()
         plt.tight_layout()
         fig.savefig(f"{args.plotdir}/{args.label}_solved_deltaphi.png")
 
-    best_band = np.argmin([np.abs(d[1] / d[0]) for d in delays_ns])
-    print(f"Band {best_band+1} is the best band")
 
     with open(args.o, "w") as f:
-        f.write(f"delay={delays_ns[best_band][0]}\n")
-        f.write(f"offset={offsets[best_band][0]}")
+        f.write(f"delay\t{delay_ns}\t+-\t{delay_err_ns}\n")
+        f.write(f"offset\t{offset}\t+-\t{offset_err}")
 
 
 def get_args() -> argparse.Namespace:
