@@ -403,10 +403,10 @@ process determine_pol_cal_solns {
             module load scipy/1.6.0-python-3.7.4
             module load astropy/4.0.1-python-3.7.4
         fi
-        args="-i ${params.label}_polcal_frb_sum_i_dynspec.npy"
-        args="\$args -q ${params.label}_polcal_frb_sum_q_dynspec.npy"
-        args="\$args -u ${params.label}_polcal_frb_sum_u_dynspec.npy"
-        args="\$args -v ${params.label}_polcal_frb_sum_v_dynspec.npy"
+        args="-i ${params.label}_polcal_frb_sum_i_dynspec_${params.dm_polcal}.npy"
+        args="\$args -q ${params.label}_polcal_frb_sum_q_dynspec_${params.dm_polcal}.npy"
+        args="\$args -u ${params.label}_polcal_frb_sum_u_dynspec_${params.dm_polcal}.npy"
+        args="\$args -v ${params.label}_polcal_frb_sum_v_dynspec_${params.dm_polcal}.npy"
         args="\$args -p $params.period_polcal"
         args="\$args -f $params.centre_freq_polcal"
         args="\$args -b 336"
