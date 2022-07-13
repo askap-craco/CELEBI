@@ -1,7 +1,30 @@
 localise_dir = "$baseDir/../localise/"
 
 process generate_binconfig {
-    cache 'lenient'
+    /*
+        Create binconfig files for each correlation mode
+
+        Input
+            data: val
+                Absolute path to data base directory (the dir. with the ak* 
+                directories)
+        
+        Output
+            TODO: describe the modes here
+            finder: path
+                Finder mode binconfig
+            gate: path
+                Gate mode binconfig
+            rfi: path
+                RFI mode binconfig
+            polyco: path
+                TODO: describe polyco
+            subtractions: path
+                File containing subtractions commands with correctly calculated
+                scale argument
+            int_time: env
+                Integration time in seconds
+    */
     input:
         val data
         path snoopy
@@ -30,6 +53,28 @@ process generate_binconfig {
 }
 
 process apply_offset {
+    /*
+        Compare fitted field sources to RACS sources to calculate systematic
+        offset in images created from voltages, then apply that offset to the
+        fitted FRB position to obtain the final localisation
+
+        Input
+            field sources: path
+                File containing positions of sources identified in field image
+            askap_frb_pos: path
+                JMFIT output file of FRB position fit
+        
+        Output
+            final_position: path
+                Text file containing final FRB position with errors
+            dat: path
+                Files containing RACS source information
+            reg: path
+                DS9 region file of identified RACS sources
+            png: path
+                Plots generated while calculating offset for verification and
+                troubleshooting
+    */
     publishDir "${params.publish_dir}/${params.label}/position", mode: "copy"
 
     input:
@@ -62,8 +107,10 @@ process apply_offset {
 
         python3 $localise_dir/src_offsets.py \$args
 
-        python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat
+        python3 $localise_dir/weighted_multi_image_fit_updated.py \
+            askap2racs_offsets_unc.dat
 
-        python3 $localise_dir/apply_offset.py --frb $askap_frb_pos --offset offset0.dat > ${params.label}_final_position.txt
+        python3 $localise_dir/apply_offset.py --frb $askap_frb_pos \
+            --offset offset0.dat > ${params.label}_final_position.txt
         """
 }
