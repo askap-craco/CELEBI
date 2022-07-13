@@ -163,7 +163,7 @@ def _main():
         pa_prime = psi_sky + faraday_angle(f, rm, offset)
 
         u = L_amp * np.sin(2 * pa_prime)
-        v = 0.05  # TODO: ???
+        v = -0.05
 
         A = np.array([[u + v, v - u],
                       [u - v, u + v]])
