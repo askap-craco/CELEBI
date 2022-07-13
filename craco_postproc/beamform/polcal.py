@@ -183,7 +183,6 @@ def _main():
     offset = pfit[1]
     offset_err = perr[1]
 
-    print(f"Band {i+1}: {freqs[s][0]} - {freqs[s][-1]}")
     print(
         f"Delay:  {delay_ns} +- {delay_err_ns} s "
         f"({int(delay_err_ns/delay_ns*100)}% error)"
