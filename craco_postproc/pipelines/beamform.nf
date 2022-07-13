@@ -251,6 +251,7 @@ process deripple {
             module load python/3.7.4
             module load numpy/1.18.2-python-3.7.4
             module load scipy/1.6.0-python-3.7.4
+            export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
         fi
 
         if [ ! -d $beamform_dir/.deripple_coeffs ]; then
