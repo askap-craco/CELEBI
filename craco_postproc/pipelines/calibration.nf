@@ -377,16 +377,25 @@ process apply_flux_cal_solns_polcal {
 
 process determine_pol_cal_solns {
     /*
-        Determine polarisation calibration solutions. Work in progress.
+        Determine polarisation calibration solutions.
+
+        Input
+            htr_data: path
+                Stokes I, Q, U, V dynamic spectra of polarisation calibrator
+                beamformed data as numpy files
+        
+        Output
+            pol_cal_solns: path
+                A file containing the delay (in ns) and phase offset solutions
+                with errors
+            plots: path
+                A set of .png plots generated at various stages of polcal.py
+                for troubleshooting/verifying solutions
     */
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
     
     input:
         path htr_data
-        // path I
-        // path Q
-        // path U
-        // path V
 
     output:
         path "${params.label}_polcal.dat", emit: pol_cal_solns
