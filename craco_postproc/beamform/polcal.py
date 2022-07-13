@@ -1,7 +1,6 @@
 import argparse
 from functools import reduce
 
-import astropy
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as un
