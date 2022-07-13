@@ -74,7 +74,7 @@ def deripple(
     dr_c_file = f"{coeff_dir}/deripple_res6_nfft{fftLength}.npy"
     if os.path.exists(dr_c_file) == False:
         print("No derippling coefficient found. Generating one...")
-        generate_deripple(fftLength, 6, coeff_dir)
+        generate_deripple(fftLength, 6, coeff_dir, cpus)
 
     temp = np.load(dr_c_file)
     print("Interpolating...")
@@ -110,7 +110,7 @@ def deripple(
     return FFFF
 
 
-def generate_deripple(nfft, res, dir):
+def generate_deripple(nfft, res, dir, cpus):
     N = 1536
     OS_De = 27.0
     OS_Nu = 32.0
@@ -123,7 +123,7 @@ def generate_deripple(nfft, res, dir):
     #                use scipy's fft instead of numpy's, as np's was segfaulting for huuuuge multiple*passbandLength*2
     h_0 = np.zeros(multiple * passbandLength * 2)
     h_0[: h.shape[0]] = h
-    temp = abs(fft.fft(h_0))  # ,multiple*passbandLength*2))
+    temp = abs(fft.fft(h_0, workers=cpus))
     print(
         "saving {}".format(
             dir + "/deripple_res" + str(res) + "_nfft" + str(nfft)
