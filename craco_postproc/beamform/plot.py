@@ -169,11 +169,25 @@ def plot_IQUV_dts(
         plt.savefig(fname)
 
 
+def plot_ts(ds, fname):
+    ts = np.sum(ds, axis=0)
+    ts = reduce(ts, 1000)
+    plt.figure(figsize=(10, 5))
+    plt.plot(ts)
+    plt.xlabel("Time (ms)")
+    plt.ylabel("I")
+    plt.tight_layout()
+    plt.savefig(fname)
+
+
 def plot(args, stokes_fnames):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
 
     # IQUV over four timescales
     plot_IQUV_dts(stks, args.f, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts_{args.DM}.png")
+
+    # plot full Stokes I time series at 1 ms time resolution
+    plot_ts(stks[0], f"{args.label}_I_{args.DM}.png")
 
 
 if __name__ == "__main__":
