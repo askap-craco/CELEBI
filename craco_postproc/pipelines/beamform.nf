@@ -263,6 +263,7 @@ process deripple {
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
         args="\$args -c $beamform_dir/.deripple_coeffs"
+        args="\$args --cpus 16"
 
         python3 $beamform_dir/deripple.py \$args
         """

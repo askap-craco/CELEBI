@@ -5,13 +5,14 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
 import numpy as np
 from scipy import fft, io
 from scipy.interpolate import interp1d
+from joblib import Parallel, delayed
 
 
 def _main():
     start = time.time()
     args = get_args()
     sum_f = np.load(args.f)
-    sum_f_deripple = deripple(sum_f, args.coeffs, args.l, args.bw)
+    sum_f_deripple = deripple(sum_f, args.coeffs, args.l, args.bw, args.cpus)
     np.save(args.o, sum_f_deripple)
     end = time.time()
     print(f"deripple.py finished in {end-start} s")
@@ -36,11 +37,14 @@ def get_args() -> Namespace:
     parser.add_argument(
         "--bw", type=float, help="Spectrum bandwidth in MHz", default=336
     )
+    parser.add_argument(
+        "--cpus", type=int, help="Number of cpus to parallelise across", default=1
+    )
     return parser.parse_args()
 
 
 def deripple(
-    FFFF: np.ndarray, coeff_dir: str, fftLength: int, bw: float
+    FFFF: np.ndarray, coeff_dir: str, fftLength: int, bw: float, cpus: int
 ) -> np.ndarray:
     """Deripple a fine spectrum.
 
@@ -52,6 +56,8 @@ def deripple(
     :type fftLength: int
     :param bw: Bandwidth of spectrum in MHz
     :type bw: float
+    :param cpus: Number of CPUs to parallelise across
+    :type cpus: int
     :return: Derippled fine spectrum
     :rtype: :class:`np.ndarray`
     """
@@ -80,17 +86,26 @@ def deripple(
         interp(np.arange(passbandLength + 1))
     )
 
-    for chan in range(bw):
-        print(chan)
-        for ii in range(passbandLength):
-            FFFF[ii + chan * passbandLength * 2] = (
-                FFFF[ii + chan * passbandLength * 2]
-                * deripple[passbandLength - ii]
-            )
-            FFFF[passbandLength + ii + chan * passbandLength * 2] = (
-                FFFF[passbandLength + ii + chan * passbandLength * 2]
-                * deripple[ii]
-            )
+    def do_deripple(chan, ii):
+        FFFF[ii + chan * passbandLength * 2] = (
+            FFFF[ii + chan * passbandLength * 2]
+            * deripple[passbandLength - ii]
+        )
+        FFFF[passbandLength + ii + chan * passbandLength * 2] = (
+            FFFF[passbandLength + ii + chan * passbandLength * 2]
+            * deripple[ii]
+        )        
+
+    if cpus > 1:
+
+        Parallel(n_jobs=cpus, require="sharedmem")(
+            delayed(do_deripple)(chan, ii)
+            for ii in range(passbandLength) for chan in range(bw)
+        )
+    else: 
+        for chan in range(bw):
+            for ii in range(passbandLength):
+                do_deripple(chan, ii)
 
     return FFFF
 
