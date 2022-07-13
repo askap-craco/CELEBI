@@ -27,7 +27,7 @@ workflow process_flux_cal {
             empty_binconfig = create_empty_file("binconfig")
             fits = corr_fcal(
                 label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
-                fluxflagfile, "fluxcal"
+                "fluxcal"
             )
         }
 

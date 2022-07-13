@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
-    correlate as corr_field; subtract_rfi as subtract_rfi_finder } from './correlate'
+    correlate as corr_field; subtract_rfi } from './correlate'
 include { apply_flux_cal_solns_finder as cal_finder;
     apply_flux_cal_solns_field as cal_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
@@ -42,7 +42,7 @@ workflow process_frb {
         }
         else {
             finder_fits = corr_finder(
-                "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "N/A", "finder"
+                "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, "finder"
             )
         }
 
@@ -54,7 +54,7 @@ workflow process_frb {
             if ( ! params.flagfinder ) {
                 // println "not flagfinder"
                 rfi_fits = corr_rfi(
-                    "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "N/A", "rfi"
+                    "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, int_time, "rfi"
                 )
             }
         }
@@ -73,7 +73,7 @@ workflow process_frb {
         else {
             empty_file = create_empty_file("file")
             field_fits = corr_field(
-                "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "N/A", "field"
+                "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "field"
             )
         }
 
@@ -89,11 +89,12 @@ workflow process_frb {
                     println "No field flag file!"
                     System.exit(1)
                 }
+                
                 if ( params.flagfinder ) {
                     no_rfi_finder_fits = finder_fits
                 }
                 else {
-                    no_rfi_finder_fits = subtract_rfi_finder(finder_fits, rfi_fits, subtractions, "finder")
+                    no_rfi_finder_fits = subtract_rfi(finder_fits, rfi_fits, subtractions)
                 }
 
                 bins_out = cal_finder(
