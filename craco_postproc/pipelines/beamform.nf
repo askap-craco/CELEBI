@@ -212,6 +212,42 @@ process sum {
         """
 }
 
+process generate_deripple {
+    /*
+        Generate deripple coefficients based on number of samples in fine
+        spectra
+
+        Input
+            fftlen: path
+                File containing number of samples in fine spectra
+        
+        Output
+            coeffs: path
+                Derippling coefficients
+    */
+    input:
+        path fftlen
+    
+    output:
+        path "*npy", emit: coeffs
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            module load gcc/9.2.0
+            module load openmpi/4.0.2
+            module load python/3.7.4
+            module load numpy/1.18.2-python-3.7.4
+            module load scipy/1.6.0-python-3.7.4
+            export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
+        fi
+
+        FFTLEN=`cat fftlen`
+
+        python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
+        """
+}
+
 process deripple {
     /*
         Apply derippling coefficients to summed fine spectrum to cancel out
@@ -225,6 +261,10 @@ process deripple {
                 Integration length (units unclear?)
             pol, spectrum: tuple(val, path)
                 Polarisation and fine spectrum file
+            fftlen: path
+                File containing number of samples in fine spectra
+            coeffs: path
+                Derippling coefficients
         
         Output:
             pol, derippled spectrum: tuple(val, path)
@@ -239,6 +279,7 @@ process deripple {
         val int_len
         tuple val(pol), path(spectrum)
         path fftlen
+        path coeffs
 
     output:
         tuple val(pol), path("${label}_frb_sum_${pol}_f_derippled.npy")
@@ -250,12 +291,7 @@ process deripple {
             module load openmpi/4.0.2
             module load python/3.7.4
             module load numpy/1.18.2-python-3.7.4
-            module load scipy/1.6.0-python-3.7.4
             export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
-        fi
-
-        if [ ! -d $beamform_dir/.deripple_coeffs ]; then
-            mkdir $beamform_dir/.deripple_coeffs
         fi
 
         FFTLEN=`cat fftlen`
@@ -263,7 +299,7 @@ process deripple {
         args="-f $spectrum"
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
-        args="\$args -c $beamform_dir/.deripple_coeffs"
+        args="\$args -c $coeffs"
         args="\$args --cpus 1"
 
         python3 $beamform_dir/deripple.py \$args
@@ -543,7 +579,8 @@ workflow beamform {
             num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.data.groupTuple())
-        deripple(label, int_len, sum.out, do_beamform.out.fftlen)
+        coeffs = generate_deripple(do_beamform.out.fftlen)
+        deripple(label, int_len, sum.out, do_beamform.out.fftlen, coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns, dm)
         generate_dynspecs(label, ifft.out.collect(), ds_args, dm)
