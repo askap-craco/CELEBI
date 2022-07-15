@@ -16,6 +16,10 @@ def _main():
 
     h_0 = np.zeros(multiple * passbandLength * 2)
     h_0[: h.shape[0]] = h
+    np.save("h_0.npy", h_0)
+    del h_0
+    h_0 = np.load("h_0.npy", mmap_mode="r")
+
     temp = abs(fft.fft(h_0))
     np.save(f"deripple_res{res}_nfft{nfft}.npy", temp)
 
