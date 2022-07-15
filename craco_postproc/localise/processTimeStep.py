@@ -223,6 +223,12 @@ def get_args() -> argparse.Namespace:
         help="Force a particular start MJD without searching "
         "files for one.",
     )
+    parser.add_argument(
+        "--uppersideband", 
+        default=False, 
+        action="store_true", 
+        help="Force upper sideband for all channels"
+    )
     args = parser.parse_args()
     verify_args(args, parser)
     return args
