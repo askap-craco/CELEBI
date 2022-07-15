@@ -10,6 +10,8 @@ fpgas = Channel.fromList(params.fpgas)
 
 localise_dir = "$baseDir/../localise/"
 
+params.uppersideband = false
+
 process get_startmjd {
     /*
         Find the start time of the data by finding the earliest listed 
@@ -148,6 +150,11 @@ process process_time_step {
         args="\$args --freqlabel \$freqlabel"
         args="\$args --dir=$baseDir/../difx"
         args="\$args --startmjd=$startmjd"
+
+        # High-band FRBs need --upersideband
+        if [ "$params.uppersideband" == "true" ]; then
+            args="\$args --uppersideband"
+        fi
 
         # if running on ozstar, use the slurm queue, otherwise run locally 
         # across 16 cpus
