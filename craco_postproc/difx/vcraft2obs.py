@@ -100,7 +100,7 @@ def _main():
     write_obs(rastr, decstr, correlateseconds, startmjd)
 
     # Write the chandefs file
-    sideband = "U" if args.sideband else "L"
+    sideband = "U" if args.uppersideband else "L"
     write_chandefs(xfreqs, npol, sideband)
 
     if args.ts > 0:
