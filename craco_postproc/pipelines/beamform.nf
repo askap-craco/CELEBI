@@ -579,7 +579,7 @@ workflow beamform {
             num_ints, int_len, offset, fcm
         )
         sum(label, do_beamform.out.data.groupTuple())
-        coeffs = generate_deripple(do_beamform.out.fftlen)
+        coeffs = generate_deripple(do_beamform.out.fftlen.collect())
         deripple(label, int_len, sum.out, do_beamform.out.fftlen, coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, pol_cal_solns, dm)
