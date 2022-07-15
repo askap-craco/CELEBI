@@ -100,7 +100,8 @@ def _main():
     write_obs(rastr, decstr, correlateseconds, startmjd)
 
     # Write the chandefs file
-    write_chandefs(xfreqs, npol)
+    sideband = "U" if args.sideband else "L"
+    write_chandefs(xfreqs, npol, sideband)
 
     if args.ts > 0:
         print("Waiting on CRAFTConverter to finish")
@@ -238,6 +239,12 @@ def get_args() -> argparse.Namespace:
         type=float,
         help="Force a particular start MJD without searching files for one. Optional.",
     )
+    parser.add_argument(
+        "--uppersideband", 
+        default=False, 
+        action="store_true", 
+        help="Force upper sideband for all channels"
+    )
     args = parser.parse_args()
 
     # Check that sensible options were given for the queue destination
@@ -361,7 +368,7 @@ def write_obs(
     output.close()
 
 
-def write_chandefs(freqs: "list[str]", npol: int) -> None:
+def write_chandefs(freqs: "list[str]", npol: int, sideband: str) -> None:
     """Write the chandefs file containing channel definitions. Currently
     vcraft headers have a 1 MHz frequency offset - this is corrected
     for here.
@@ -371,6 +378,8 @@ def write_chandefs(freqs: "list[str]", npol: int) -> None:
     :type freqs: list[str]
     :param npol: Number of polarisations being processed
     :type npol: int
+    :param sideband: "L" for lower sideband, "U" for upper sideband
+    :type sideband: str
     """
     output = open("chandefs.txt", "w")
     for i in range(npol):
@@ -378,7 +387,7 @@ def write_chandefs(freqs: "list[str]", npol: int) -> None:
             # Correct the 1 MHz offset in the headers
             # WARN This should probably be regularly checked!
             # Also this can be upper sideband in some cases!
-            output.write("%s L 1.185185185185185185\n" % str(int(f) - 1))
+            output.write(f"{int(f) - 1} {sideband} 1.185185185185185185\n")
 
     output.close()
 
