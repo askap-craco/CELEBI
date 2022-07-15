@@ -139,7 +139,7 @@ process do_beamform {
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
-        path "fftlen", emit: fftlen
+        env FFTLEN, emit: fftlen
 
     script:
         """
@@ -169,6 +169,8 @@ process do_beamform {
 
         python3 $beamform_dir/craftcor_tab.py \$args
         rm TEMP*
+
+        export FFTLEN=`cat fftlen`
         """
 }
 
@@ -218,15 +220,15 @@ process generate_deripple {
         spectra
 
         Input
-            fftlen: path
-                File containing number of samples in fine spectra
+            fftlen: env
+                Number of samples in fine spectra
         
         Output
             coeffs: path
                 Derippling coefficients
     */
     input:
-        path fftlen
+        env FFTLEN
     
     output:
         path "*npy", emit: coeffs
@@ -241,8 +243,6 @@ process generate_deripple {
             module load scipy/1.6.0-python-3.7.4
             export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
         fi
-
-        FFTLEN=`cat fftlen`
 
         python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
         """
@@ -261,8 +261,8 @@ process deripple {
                 Integration length (units unclear?)
             pol, spectrum: tuple(val, path)
                 Polarisation and fine spectrum file
-            fftlen: path
-                File containing number of samples in fine spectra
+            fftlen: env
+                Number of samples in fine spectra
             coeffs: path
                 Derippling coefficients
         
@@ -294,8 +294,6 @@ process deripple {
             export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
         fi
 
-        FFTLEN=`cat fftlen`
-        
         args="-f $spectrum"
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
