@@ -231,7 +231,7 @@ process generate_deripple {
         env FFTLEN
     
     output:
-        path "*npy", emit: coeffs
+        path "deripple*npy", emit: coeffs
 
     script:
         """
