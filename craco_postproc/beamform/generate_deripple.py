@@ -20,8 +20,12 @@ def _main():
     del h_0
     h_0 = np.load("h_0.npy", mmap_mode="r")
 
-    temp = abs(fft.fft(h_0))
-    np.save(f"deripple_res{res}_nfft{nfft}.npy", temp)
+    temp = fft.fft(h_0, overwrite_x=True)
+    np.save("temp", temp)
+    del temp
+    temp = np.load("temp.npy", mmap_mode="r")
+    abstemp = np.abs(temp)
+    np.save(f"deripple_res{res}_nfft{nfft}.npy", abstemp)
 
 
 if __name__ == "__main__":
