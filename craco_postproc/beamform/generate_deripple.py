@@ -12,7 +12,7 @@ def _main():
     OS_Nu = 32.0
     h = io.loadmat(dr)["c"][0]
     passbandLength = int(((nfft / 2) * OS_De) / OS_Nu)
-    multiple = int(1536 / res)
+    multiple = int(N / res)
 
     h_0 = np.zeros(multiple * passbandLength * 2)
     h_0[: h.shape[0]] = h
