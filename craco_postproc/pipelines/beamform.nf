@@ -278,7 +278,7 @@ process deripple {
         val label
         val int_len
         tuple val(pol), path(spectrum)
-        path fftlen
+        env FFTLEN
         path coeffs
 
     output:
