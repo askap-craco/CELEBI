@@ -1236,7 +1236,7 @@ def _main():
         elif values.pol == "y":
             vcraftfiles += sorted(glob.glob(beamdirs[1] + "/*[ac]*vcraft"))
         else:
-            print(args.pol + " is not a valid polarisation! Must be x or y")
+            print(values.pol + " is not a valid polarisation! Must be x or y")
             sys.exit(1)
 
     start = timer()
