@@ -29,6 +29,8 @@ params.beamform = false
 
 params.nopolcal = false     // some FRBs have no good pol cal
 
+params.outdir = "${params.publish_dir}/${params.label}"
+
 workflow {
     flux_cal_solns = fcal(
         "${params.label}_fluxcal",

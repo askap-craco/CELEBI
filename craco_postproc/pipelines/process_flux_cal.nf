@@ -6,21 +6,57 @@ include { determine_flux_cal_solns as cal_fcal } from './calibration'
 include { generate_binconfig } from './localise'
 
 workflow process_flux_cal {
+    /*
+        Process voltages to obtain flux+phase calibration solutions
+
+        Take
+            label: val
+                FRB name and context as a string (no spaces)
+            target: val
+                FRB name as string (e.g. 181112)
+            data: val
+                Absolute path to flux calibrator data base directory (the dir. 
+                with the ak* directories)
+            data_frb: val
+                Absolute path to FRB data base directory (the dir. with the ak*
+                directories)
+            snoopy: val
+                Absolute path to snoopyv2.log file of FRB trigger
+            fcm: val
+                Absolute path to fcm (hardware delays) file
+            ra: val
+                Flux calibrator right ascension as "hh:mm:ss"
+            dec: val
+                Flux calibrator declination as "dd:mm:ss"
+            fluxflagfile: val
+                Absolute path to AIPS flag file for flux calibrator. If set to
+                a blank string, the workflow will end before calibrating.
+            cpasspoly: val
+                Order of polynomial to fit bandpass with
+        
+        Emit
+            flux_cal_solns: val/path
+                Flux calibration solutions. Either an empty string if solutions
+                were not found (e.g. because the data has not been flagged yet)   
+                or a tarball containing the solutions.
+    */
     take:
-        label   // val
-        target  // val
-        data    // val
-        data_frb // val
-        snoopy // val
-        fcm // val
-        ra  // val
-        dec // val
-        fluxflagfile    // val
-        cpasspoly   // val
+        label
+        target
+        data
+        data_frb
+        snoopy
+        fcm
+        ra
+        dec
+        fluxflagfile
+        cpasspoly
 
     main:
-        if( new File("${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits").exists() ) {
-            fits = Channel.fromPath("${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits")
+        // Correlation
+        fluxcal_fits_path = "${params.outdir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
+        if(new File(fluxcal_fits_path).exists()) {
+            fits = Channel.fromPath(fluxcal_fits_path)
         }
         else {
             binconfig = generate_binconfig(data_frb, snoopy)
@@ -31,12 +67,14 @@ workflow process_flux_cal {
             )
         }
 
-        if ( params.calibrate ) {
-            if( new File("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz").exists() ) {
-                flux_cal_solns = Channel.fromPath("${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz")
+        // Calibration
+        fluxcal_solns_path = "${params.outdir}/fluxcal/calibration_noxpol_${target}.tar.gz"
+        if(params.calibrate) {
+            if(new File(fluxcal_solns_path).exists()) {
+                flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
             }
             else {
-                if ( params.fluxflagfile == "" ) {
+                if(params.fluxflagfile == "") {
                     println "No fluxcal flag file!"
                     System.exit(1)
                 }
@@ -46,6 +84,7 @@ workflow process_flux_cal {
         else {
             flux_cal_solns = ""
         }
+        
     emit:
         flux_cal_solns
 }
