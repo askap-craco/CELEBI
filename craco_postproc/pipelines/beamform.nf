@@ -554,18 +554,18 @@ workflow beamform {
                 Numpy files containing Stokes time series and dynamic spectra    
     */
     take:
-        label   // val
-        data    // val
-        fcm // val
-        pos // path
-        flux_cal_solns  // path
-        pol_cal_solns   // path
-        num_ints    // val
-        int_len // val
-        offset  // val
-        dm  // val
-        centre_freq // val
-        ds_args // val
+        label
+        data
+        fcm
+        pos
+        flux_cal_solns
+        pol_cal_solns
+        num_ints
+        int_len
+        offset
+        dm 
+        centre_freq
+        ds_args
     
     main:
         // preliminaries
