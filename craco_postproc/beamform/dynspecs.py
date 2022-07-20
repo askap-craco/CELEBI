@@ -136,13 +136,18 @@ def calculate_stokes(args, x, y, outfile, type):
 
     stk_args = [args.I, args.Q, args.U, args.V]
     fnames = []
+    means = None
+    stds = None
 
     for idx, stk in enumerate(["i", "q", "u", "v"]):
         if stk_args[idx]:
             print(f"Calculating {stk} {type}")
             par = stokes[stk](x, y)
             if type == "dynspec":
-                par_norm = normalise(par)
+                if means is None and stds is None:  # stk == "i"
+                    means, stds = get_norm(par)
+
+                par_norm = (par - means)/stds
                 del par
                 par = par_norm.transpose()
                 del par_norm
@@ -152,19 +157,17 @@ def calculate_stokes(args, x, y, outfile, type):
     return fnames
 
 
-def normalise(ds):
+def get_norm(ds):
     """
-    Normalises a dynamic spectrum along frequency channels to cancel out RFI
+    Gets normalisation parameters to apply to dynamic spectra to
+    normalise them
 
     :param ds: Input dynspec to normalise
     """
     T, F = ds.shape
-    out_ds = ds.copy()
-    norm = lambda x: (x - np.mean(x)) / np.std(x)
-    for f in range(F):
-        out_ds[:, f] = norm(ds[:, f])
-    del ds
-    return out_ds
+    means = np.tile(np.mean(ds, axis=0), [T, 1])
+    stds = np.tile(np.std(ds, axis=0), [T, 1])
+    return means, stds
 
 
 if __name__ == "__main__":
