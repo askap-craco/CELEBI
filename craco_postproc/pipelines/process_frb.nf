@@ -77,7 +77,9 @@ workflow process_frb {
         // Correlate finder
         finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
         if(new File(finder_fits_path).exists()) {
-            finder_fits = Channel.fromPath(finder_fits_path)
+            finder_fits = Channel.fromPath(
+                "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
+            )
         }
         else {
             finder_fits = corr_finder(
@@ -130,6 +132,8 @@ workflow process_frb {
                     System.exit(1)
                 }
                 
+                finder_fits.view()
+
                 if(params.flagfinder){
                     no_rfi_finder_fits = finder_fits
                 }
