@@ -4,7 +4,7 @@ include { create_empty_file } from './utils'
 include { correlate as corr_fcal } from './correlate'
 include { determine_flux_cal_solns as cal_fcal } from './calibration'
 include { generate_binconfig } from './localise'
-
+ 
 workflow process_flux_cal {
     /*
         Process voltages to obtain flux+phase calibration solutions
@@ -54,7 +54,7 @@ workflow process_flux_cal {
 
     main:
         // Correlation
-        fluxcal_fits_path = "${params.outdir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
+        fluxcal_fits_path = "${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits"
         if(new File(fluxcal_fits_path).exists()) {
             fits = Channel.fromPath(fluxcal_fits_path)
         }
@@ -68,7 +68,7 @@ workflow process_flux_cal {
         }
 
         // Calibration
-        fluxcal_solns_path = "${params.outdir}/fluxcal/calibration_noxpol_${target}.tar.gz"
+        fluxcal_solns_path = "${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz"
         if(params.calibrate) {
             if(new File(fluxcal_solns_path).exists()) {
                 flux_cal_solns = Channel.fromPath(fluxcal_solns_path)

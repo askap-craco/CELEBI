@@ -76,7 +76,7 @@ workflow process_pol_cal {
         empty_file = create_empty_file("file")
 
         // Correlation
-        polcal_fits_path = "${params.outdir}/loadfits/polcal/${params.label}_polcal.fits"
+        polcal_fits_path = "${params.publish_dir}/${params.label}/loadfits/polcal/${params.label}_polcal.fits"
         if(new File(polcal_fits_path).exists()) {
             fits = Channel.fromPath(polcal_fits_path)
         }
@@ -89,7 +89,7 @@ workflow process_pol_cal {
 
         // Calibration
         if(params.calibrate) {
-            polcal_jmfit_path = "${params.outdir}/polcal/polcal.jmfit"
+            polcal_jmfit_path = "${params.publish_dir}/${params.label}/polcal/polcal.jmfit"
             if(new File(polcal_jmfit_path).exists()) {
                 pos = Channel.fromPath(polcal_jmfit_path)
             }

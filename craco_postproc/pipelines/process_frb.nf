@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
-    correlate as corr_field; subtract_rfi } from './correlate'
+    correlate as corr_field;:% subtract_rfi } from './correlate'
 include { apply_flux_cal_solns_finder as cal_finder;
     apply_flux_cal_solns_field as cal_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
@@ -75,7 +75,7 @@ workflow process_frb {
         int_time = binconfig.int_time
 
         // Correlate finder
-        finder_fits_path = "${params.outdir}/loadfits/finder/finderbin20.fits"
+        finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
         if(new File(finder_fits_path).exists()) {
             finder_fits = Channel.fromPath(finder_fits_path)
         }
@@ -87,7 +87,7 @@ workflow process_frb {
         }
 
         // Correlate RFI (if not directly flagging finder)
-        rfi_fits_path = "${params.outdir}/loadfits/rfi/${params.label}_rfi.fits"
+        rfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits"
         if ( new File(rfi_fits_path).exists() ) {
             rfi_fits = Channel.fromPath(rfi_fits_path)
         }
@@ -101,7 +101,7 @@ workflow process_frb {
         }
 
         // Correlate field (if not using deep field image)
-        field_fits_path = "${params.outdir}/loadfits/field/${params.label}_field.fits"
+        field_fits_path = "${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits"
         if((params.fieldimage != "") or new File(field_fits_path).exists() ) {
             if(params.fieldimage == "") {
                 field_fits = Channel.fromPath(field_fits_path)
@@ -119,8 +119,8 @@ workflow process_frb {
 
         // Calibrate (i.e. image finder and field)
         if(params.calibrate) {
-            frb_jmfit_path = "${params.outdir}/finder/${params.label}.jmfit"
-            frb_pos_path = "${params.outdir}/position/${params.label}_final_position.txt"
+            frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
+            frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
             if(new File(frb_jmfit_path).exists() && new File(frb_pos_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)
             }
