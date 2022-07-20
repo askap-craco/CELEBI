@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
-    correlate as corr_field;:% subtract_rfi } from './correlate'
+    correlate as corr_field; subtract_rfi } from './correlate'
 include { apply_flux_cal_solns_finder as cal_finder;
     apply_flux_cal_solns_field as cal_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
