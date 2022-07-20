@@ -380,7 +380,8 @@ def get_pulsar_spec(
         plt.tight_layout()
         plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_peak.png")
 
-    spec = np.sum(folded_ds_red[:, turn_on:turn_off], axis=1)
+    # [::-1] because it will be in the wrong order otherwise
+    spec = np.sum(folded_ds_red[:, turn_on:turn_off], axis=1)[::-1]
 
     # roll folded data halfway along time axis and get noise with same indexes
     folded_ds_red = np.roll(
