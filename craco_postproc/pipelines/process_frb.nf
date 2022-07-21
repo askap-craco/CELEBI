@@ -10,6 +10,7 @@ include { beamform as bform_frb } from './beamform'
 
 params.fieldimage = ""
 params.flagfinder = ""
+params.skiprfi = false
 
 workflow process_frb {
     /*
@@ -94,7 +95,7 @@ workflow process_frb {
             rfi_fits = Channel.fromPath(rfi_fits_path)
         }
         else {
-            if(!params.flagfinder) {
+            if(!params.skiprfi) {
                 rfi_fits = corr_rfi(
                     "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, 
                     int_time, "rfi"
@@ -132,7 +133,7 @@ workflow process_frb {
                     System.exit(1)
                 }
                 
-                if(params.flagfinder != ""){
+                if(params.skiprfi){
                     no_rfi_finder_fits = finder_fits
                 }
                 else {
