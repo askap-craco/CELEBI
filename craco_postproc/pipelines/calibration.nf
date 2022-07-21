@@ -133,8 +133,8 @@ process apply_flux_cal_solns_finder {
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
-        if [ "$params.flagfinder" == "true" ]; then
-            args="\$args --tarflagfile=$params.fieldflagfile"
+        if [ "$params.flagfinder" != "" ]; then
+            args="\$args --tarflagfile=$params.flagfinder"
         fi
 
         ParselTongue $localise_dir/calibrateFRB.py \$args

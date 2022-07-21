@@ -9,7 +9,7 @@ include { apply_offset; generate_binconfig } from './localise'
 include { beamform as bform_frb } from './beamform'
 
 params.fieldimage = ""
-params.flagfinder = false
+params.flagfinder = ""
 
 workflow process_frb {
     /*
@@ -130,7 +130,7 @@ workflow process_frb {
                     System.exit(1)
                 }
                 
-                if(params.flagfinder){
+                if(params.flagfinder != ""){
                     no_rfi_finder_fits = finder_fits
                 }
                 else {
