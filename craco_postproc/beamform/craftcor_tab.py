@@ -273,7 +273,7 @@ class Correlator:
         ]
 
         sample_offsets = [
-            max(a.sample_offsets) for a in self.ants
+            max(a.vfile.sample_offsets) for a in self.ants
         ]
 
         # number of samples in final spectra
