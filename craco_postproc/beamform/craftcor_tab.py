@@ -267,14 +267,19 @@ class Correlator:
         # Determine nfft and nguard_chan such that we always have the
         # maximal number of samples.
         # First get maximum sample offset (assumes no given offset)
-        n_offsets = [
+        trigger_offsets = [
             int(np.round(self.refant.trigger_frame - a.trigger_frame)) 
             for a in self.ants
         ]
-        max_n_offset = max(n_offsets)
+
+        sample_offsets = [
+            max(a.sample_offsets) for a in self.ants
+        ]
 
         # number of samples in final spectra
-        nsamp = int(self.refant.vfile.nsamps - max_n_offset)
+        nsamp = int(self.refant.vfile.nsamps 
+                - max(trigger_offsets) 
+                - max(sample_offsets))
 
         self.nfft = nsamp
         self.nguard_chan = int(5 * nsamp // 64)
