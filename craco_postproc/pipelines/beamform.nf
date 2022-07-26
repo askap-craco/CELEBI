@@ -159,7 +159,6 @@ process do_beamform {
         args="\$args --an $ant_idx"
         args="\$args --pol $pol"
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
-        args="\$args --tab"
         args="\$args --cpus=16"
 
         # Legacy compatibility: some very old FRBs need a hwfile
