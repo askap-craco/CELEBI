@@ -131,8 +131,8 @@ def _main():
 
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
     popt, pcov = curve_fit(QoverI_askap, pol_ang, Q_askap, p0=[0.95, -0.8])
-    L_amp, rm, offset, psi_sky = popt
-    L_amp_err, rm_err, offset_err, psi_sky_err = np.diag(pcov)
+    L_amp, psi_sky = popt
+    L_amp_err, psi_sky_err = np.diag(pcov)
 
     print(f"L_amp\t= {L_amp:.3f}\t+-{L_amp_err:.3f}")
     print(f"psi_sky\t= {psi_sky:.3f}\t+-{psi_sky_err:.3f}")
