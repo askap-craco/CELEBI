@@ -130,7 +130,7 @@ def _main():
         return L_amp * np.cos(2 * faraday_angle(f, rm, offset) + psi_sky)
 
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    popt, pcov = curve_fit(QoverI_askap, freqs.value, Q_askap, p0=[-0.8, 0.95])
+    popt, pcov = curve_fit(QoverI_askap, freqs.value, Q_askap, p0=[0.95, 37, -1.8, -0.8])
     L_amp, rm, offset, psi_sky = popt
     L_amp_err, rm_err, offset_err, psi_sky_err = np.diag(pcov)
 
