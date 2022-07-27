@@ -150,7 +150,7 @@ def _main():
         ax = ax_plot(
             ax,
             freqs,
-            QoverI_askap(pa_askap, *popt),
+            QoverI_askap(pa_askap, psi_sky, L_amp),
             label=r"$\psi_{sky}$ fit",
             c="r",
             type="line",
