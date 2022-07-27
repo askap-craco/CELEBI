@@ -152,10 +152,10 @@ def _main():
 
     if args.plot:
         fig, ax = plt.subplots()
-        ax = ax_plot(ax, freqs, Q_askap, label=r"$Q/I$ (askap)$")
+        ax = ax_plot(ax, pa_askap, Q_askap, label=r"$Q/I$ (askap)$")
         ax = ax_plot(
             ax,
-            freqs,
+            pa_askap,
             QoverI_askap(pa_askap, psi_sky, L_amp),
             label=r"$\psi_{sky}$ fit",
             c="r",
