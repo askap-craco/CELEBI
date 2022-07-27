@@ -134,7 +134,7 @@ def _main():
 
     pa_askap = faraday_angle(freqs.value, rm, offset)
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    popt, pcov = curve_fit(QoverI_askap, pa_askap, Q_askap, p0=[-0.8, 0.95])
+    popt, pcov = curve_fit(QoverI_askap, pa_askap, Q_askap, p0=[-0.8, 0.95], loss="soft_l1")
     psi_sky = popt[0]
     L_amp = popt[1]
     print(f"psi_sky = {psi_sky} +- {pcov[0,0]}")
