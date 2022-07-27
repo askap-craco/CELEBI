@@ -130,7 +130,7 @@ def _main():
         return L_amp * np.cos(2 * pa + psi_sky)
 
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    popt, pcov = curve_fit(QoverI_askap, pa, Q_askap, p0=[0.95, -0.8])
+    popt, pcov = curve_fit(QoverI_askap, pol_ang, Q_askap, p0=[0.95, -0.8])
     L_amp, rm, offset, psi_sky = popt
     L_amp_err, rm_err, offset_err, psi_sky_err = np.diag(pcov)
 
@@ -139,11 +139,11 @@ def _main():
 
     if args.plot:
         fig, ax = plt.subplots()
-        ax = ax_plot(ax, pa, Q_askap, label=r"$Q/I$ (askap)$")
+        ax = ax_plot(ax, pol_ang, Q_askap, label=r"$Q/I$ (askap)$")
         ax = ax_plot(
             ax,
-            pa,
-            QoverI_askap(pa, *popt),
+            pol_ang,
+            QoverI_askap(pol_ang, *popt),
             label=r"$\psi_{sky}$ fit",
             c="r",
             type="line",
