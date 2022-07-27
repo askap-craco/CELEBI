@@ -161,7 +161,7 @@ def _main():
             c="r",
             type="line",
         )
-        ax.set_xlabel("Frequency (MHz)")
+        ax.set_xlabel("PA (rad)")
         ax.set_ylabel("Q/I")
         ax.legend()
         plt.tight_layout()
@@ -361,7 +361,7 @@ def reduce(a, n, transpose=False, pbar=True):
 
 
 def get_pulsar_spec(
-    ds, period, dt, args, par, peak=None, red_fac=100, width=10
+    ds, period, dt, args, par, peak=None, red_fac=10, width=10
 ):
     folded_ds = fold_ds(ds, period, dt)
     folded_ds_red = reduce(folded_ds, red_fac, transpose=True).transpose()
