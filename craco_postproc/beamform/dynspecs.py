@@ -137,17 +137,17 @@ def calculate_stokes(args, x, y, outfile, type):
     stk_args = [args.I, args.Q, args.U, args.V]
     fnames = []
     means = None
-    stds = None
 
     for idx, stk in enumerate(["i", "q", "u", "v"]):
         if stk_args[idx]:
             print(f"Calculating {stk} {type}")
             par = stokes[stk](x, y)
             if type == "dynspec":
-                if means is None and stds is None:  # stk == "i"
-                    means, stds = get_norm(par)
+                this_means, this_stds = get_norm(par)
+                if stk == "i":
+                    stds = this_stds
 
-                par_norm = (par - means)/stds
+                par_norm = (par - this_means)/stds
                 del par
                 par = par_norm.transpose()
                 del par_norm
