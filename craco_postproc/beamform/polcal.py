@@ -6,7 +6,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as un
-from scipy.optimize import least_squares
+from scipy.optimize import curve_fit
 
 
 def _main():
@@ -36,13 +36,6 @@ def _main():
     Q_noisesub = Q_f - Q_noise
     U_noisesub = U_f - U_noise
     V_noisesub = V_f - V_noise
-
-    # TODO: temp: chop off last channel that sometimes acts weird
-    freqs = freqs[:-1]
-    I_noisesub = I_noisesub[:-1]
-    Q_noisesub = Q_noisesub[:-1]
-    U_noisesub = U_noisesub[:-1]
-    V_noisesub = V_noisesub[:-1]
 
     S_noisesub = [I_noisesub, Q_noisesub, U_noisesub, V_noisesub]
     S_names = ["I", "Q", "U", "V"]
@@ -131,24 +124,21 @@ def _main():
         plt.tight_layout()
         fig.savefig(f"{args.plotdir}/{args.label}_polang.png")
 
-    # rm, offset, stokes_ratio_pks = polcal_ref(args)
-    rm = 37.43534317649634
-    offset = -1.80339213320941
-
     # determine ASKAP psi_sky
     # psi'(nu) = psi(nu) + psi_sky
-    def QoverI_askap(pa, psi_sky, Lamp):
-        return Lamp * np.cos(2 * (pa + psi_sky))
-    
-    def fun_QoverI(x, pa, y):
-        return QoverI_askap(pa, x[0], x[1]) - y
+    def QoverI_askap(f, L_amp, rm, offset, psi_sky):
+        return L_amp * np.cos(2 * faraday_angle(f, rm, offset) + psi_sky)
 
     pa_askap = faraday_angle(freqs.value, rm, offset)
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    res = least_squares(fun_QoverI, [-0.8, 0.95], args=(pa_askap, Q_askap), loss="cauchy")
-    psi_sky = res.x[0]
-    L_amp = res.x[1]
-    print(res)
+    popt, pcov = curve_fit(QoverI_askap, freqs.value, Q_askap, p0=[-0.8, 0.95])
+    L_amp, rm, offset, psi_sky = popt
+    L_amp_err, rm_err, offset_err, psi_sky_err = np.diag(pcov)
+
+    print(f"L_amp\t= {L_amp:.3f}\t+-{L_amp_err:.3f}")
+    print(f"rm\t= {rm:.3f}\t+-{rm_err:.3f}")
+    print(f"offset\t= {offset:.3f}\t+-{offset_err:.3f}")
+    print(f"psi_sky\t= {psi_sky:.3f}\t+-{psi_sky_err:.3f}")
 
     if args.plot:
         fig, ax = plt.subplots()
@@ -156,7 +146,7 @@ def _main():
         ax = ax_plot(
             ax,
             pa_askap,
-            QoverI_askap(pa_askap, psi_sky, L_amp),
+            QoverI_askap(pa_askap, *popt),
             label=r"$\psi_{sky}$ fit",
             c="r",
             type="line",
