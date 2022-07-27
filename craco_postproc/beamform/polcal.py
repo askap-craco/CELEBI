@@ -129,7 +129,6 @@ def _main():
     def QoverI_askap(f, L_amp, rm, offset, psi_sky):
         return L_amp * np.cos(2 * faraday_angle(f, rm, offset) + psi_sky)
 
-    pa_askap = faraday_angle(freqs.value, rm, offset)
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
     popt, pcov = curve_fit(QoverI_askap, freqs.value, Q_askap, p0=[-0.8, 0.95])
     L_amp, rm, offset, psi_sky = popt
@@ -142,11 +141,11 @@ def _main():
 
     if args.plot:
         fig, ax = plt.subplots()
-        ax = ax_plot(ax, pa_askap, Q_askap, label=r"$Q/I$ (askap)$")
+        ax = ax_plot(ax, freqs, Q_askap, label=r"$Q/I$ (askap)$")
         ax = ax_plot(
             ax,
-            pa_askap,
-            QoverI_askap(pa_askap, *popt),
+            freqs,
+            QoverI_askap(freqs, *popt),
             label=r"$\psi_{sky}$ fit",
             c="r",
             type="line",
