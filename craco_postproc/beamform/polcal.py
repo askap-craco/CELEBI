@@ -137,6 +137,8 @@ def _main():
     popt, pcov = curve_fit(QoverI_askap, pa_askap, Q_askap, p0=[-0.8, 0.95])
     psi_sky = popt[0]
     L_amp = popt[1]
+    print(f"psi_sky = {psi_sky} +- {pcov[0,0]}")
+    print(f"L_amp = {psi_sky} +- {pcov[1,1]}")
 
     if args.plot:
         fig, ax = plt.subplots()
