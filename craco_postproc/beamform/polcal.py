@@ -37,6 +37,13 @@ def _main():
     U_noisesub = U_f - U_noise
     V_noisesub = V_f - V_noise
 
+    # TODO: temp: chop off last channel that sometimes acts weird
+    freqs = freqs[:-1]
+    I_noisesub = I_noisesub[:-1]
+    Q_noisesub = Q_noisesub[:-1]
+    U_noisesub = U_noisesub[:-1]
+    V_noisesub = V_noisesub[:-1]
+
     S_noisesub = [I_noisesub, Q_noisesub, U_noisesub, V_noisesub]
     S_names = ["I", "Q", "U", "V"]
 
