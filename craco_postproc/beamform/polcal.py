@@ -6,7 +6,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as un
-from scipy.optimize import bisect, curve_fit
+from scipy.optimize import least_squares
 
 
 def _main():
@@ -133,14 +133,16 @@ def _main():
     # TODO: tidy this up, copied almost verbatim from polcal_with_VELA_for_shivani.ipynb
     def QoverI_askap(pa, psi_sky, Lamp):
         return Lamp * np.cos(2 * (pa + psi_sky))
+    
+    def fun_QoverI(x, pa, y):
+        return QoverI_askap(pa, x[0], x[1]) - y
 
     pa_askap = faraday_angle(freqs.value, rm, offset)
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    popt, pcov = curve_fit(QoverI_askap, pa_askap, Q_askap, p0=[-0.8, 0.95], loss="soft_l1")
-    psi_sky = popt[0]
-    L_amp = popt[1]
-    print(f"psi_sky = {psi_sky} +- {pcov[0,0]}")
-    print(f"L_amp = {psi_sky} +- {pcov[1,1]}")
+    res = least_squares(fun_QoverI, [-0.8, 0.95], args=(pa_askap, Q_askap), loss="soft_l1")
+    psi_sky = res.x[0]
+    L_amp = res.x[1]
+    print(res)
 
     if args.plot:
         fig, ax = plt.subplots()
