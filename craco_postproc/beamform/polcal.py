@@ -130,7 +130,6 @@ def _main():
 
     # determine ASKAP psi_sky
     # psi'(nu) = psi(nu) + psi_sky
-    # TODO: tidy this up, copied almost verbatim from polcal_with_VELA_for_shivani.ipynb
     def QoverI_askap(pa, psi_sky, Lamp):
         return Lamp * np.cos(2 * (pa + psi_sky))
     
@@ -139,7 +138,7 @@ def _main():
 
     pa_askap = faraday_angle(freqs.value, rm, offset)
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    res = least_squares(fun_QoverI, [-0.8, 0.95], args=(pa_askap, Q_askap), loss="soft_l1")
+    res = least_squares(fun_QoverI, [-0.8, 0.95], args=(pa_askap, Q_askap), loss="cauchy")
     psi_sky = res.x[0]
     L_amp = res.x[1]
     print(res)
