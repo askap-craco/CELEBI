@@ -27,6 +27,7 @@ params.calibrate = false
 params.nocalibrate = false
 params.beamform = false
 
+params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
 
 params.outdir = "${params.publish_dir}/${params.label}"
@@ -67,21 +68,23 @@ workflow {
             params.centre_freq_polcal
         )
     }
-    frb(
-        params.label,
-        params.data_frb,
-        params.snoopy,
-        params.fcm,
-        params.ra_frb,
-        params.dec_frb,
-        params.fieldflagfile,
-        flux_cal_solns,
-        pol_cal_solns,
-        params.cpasspoly_frb,
-        params.num_ints_frb,
-        params.int_len_frb,
-        params.offset_frb,
-        params.dm_frb,
-        params.centre_freq_frb
-    )
+    if(!params.nofrb){
+        frb(
+            params.label,
+            params.data_frb,
+            params.snoopy,
+            params.fcm,
+            params.ra_frb,
+            params.dec_frb,
+            params.fieldflagfile,
+            flux_cal_solns,
+            pol_cal_solns,
+            params.cpasspoly_frb,
+            params.num_ints_frb,
+            params.int_len_frb,
+            params.offset_frb,
+            params.dm_frb,
+            params.centre_freq_frb
+        )
+    }
 }
