@@ -6,6 +6,7 @@ localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
 
 params.finderimagesize = 1024
+params.finderpixelsize = 1
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
@@ -126,6 +127,7 @@ process apply_flux_cal_solns_finder {
         args="\$args --pols=I"
         args="\$args --imagename=fbin\${bin}"
         args="\$args --imagesize=$params.finderimagesize"
+        args="\$args --pixelsize=$params.finderpixelsize"
         args="\$args -a 16"
         args="\$args -u 500"
         args="\$args --skipplot"
