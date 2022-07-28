@@ -100,6 +100,16 @@ def _main():
     print("Calculating Polarisation Angle")
     pol_ang = np.arctan2(U_noisesub, Q_noisesub) / 2
 
+    # fit RM and offset
+    popt, pcov = curve_fit(faraday_angle, freqs, pol_ang, p0=[30, 0])
+    RM, offset = popt
+    RM_err, offset_err = np.diag(pcov)
+
+    PA_fit = faraday_angle(freqs, RM, offset)
+
+    print(f"RM\t= {RM:.3f}\t+- {RM_err:.5f}")
+    print(f"offset\t= {offset:.3f}\t+- {offset_err:.5f}")
+
     if args.plot:
         fig, ax = plt.subplots()
         ax = ax_plot(
@@ -109,6 +119,15 @@ def _main():
             type="scatter",
             xlabel="Frequency (MHz)",
             ylabel="Pol angle",
+            label="PA"
+        )
+        ax = ax_plot(
+            ax,
+            freqs,
+            PA_fit,
+            type="line",
+            c="r",
+            label="Fit"
         )
         ax.set_ylim(-np.pi / 2, np.pi / 2)
         plt.yticks(
@@ -130,7 +149,7 @@ def _main():
         return L_amp * np.cos(2 * pa + psi_sky)
 
     Q_askap = np.copy(S_noisesub[1] / S_noisesub[0])
-    popt, pcov = curve_fit(QoverI_askap, pol_ang, Q_askap, p0=[0.95, -0.8])
+    popt, pcov = curve_fit(QoverI_askap, PA_fit, Q_askap, p0=[0.95, -0.8])
     L_amp, psi_sky = popt
     L_amp_err, psi_sky_err = np.diag(pcov)
 
@@ -139,11 +158,11 @@ def _main():
 
     if args.plot:
         fig, ax = plt.subplots()
-        ax = ax_plot(ax, pol_ang, Q_askap, label=r"$Q/I$ (askap)$")
+        ax = ax_plot(ax, PA_fit, Q_askap, label=r"$Q/I$ (askap)$", type="scatter")
         ax = ax_plot(
             ax,
-            pol_ang,
-            QoverI_askap(pol_ang, *popt),
+            PA_fit,
+            QoverI_askap(PA_fit, *popt),
             label=r"$\psi_{sky}$ fit",
             c="r",
             type="line",
@@ -159,7 +178,7 @@ def _main():
     u_prime = S_noisesub[2] / S_noisesub[0]  # U/I
     v_prime = S_noisesub[3] / S_noisesub[0]  # V/I
     for i, f in enumerate(freqs.value):
-        pa_prime = psi_sky + pol_ang#faraday_angle(f, rm, offset)
+        pa_prime = psi_sky + PA_fit
 
         u = L_amp * np.sin(2 * pa_prime)
         v = -0.05
