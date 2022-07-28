@@ -178,7 +178,7 @@ def _main():
     u_prime = S_noisesub[2] / S_noisesub[0]  # U/I
     v_prime = S_noisesub[3] / S_noisesub[0]  # V/I
     for i, f in enumerate(freqs.value):
-        pa_prime = psi_sky + PA_fit
+        pa_prime = psi_sky + PA_fit[i]
 
         u = L_amp * np.sin(2 * pa_prime)
         v = -0.05
