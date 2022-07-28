@@ -101,11 +101,11 @@ def _main():
     pol_ang = np.arctan2(U_noisesub, Q_noisesub) / 2
 
     # fit RM and offset
-    popt, pcov = curve_fit(faraday_angle, freqs, pol_ang, p0=[30, 0])
+    popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
     RM, offset = popt
     RM_err, offset_err = np.diag(pcov)
 
-    PA_fit = faraday_angle(freqs, RM, offset)
+    PA_fit = faraday_angle(freqs.value, RM, offset)
 
     print(f"RM\t= {RM:.3f}\t+- {RM_err:.5f}")
     print(f"offset\t= {offset:.3f}\t+- {offset_err:.5f}")
