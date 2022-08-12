@@ -86,21 +86,37 @@ def plot_IQUV_dts(
     fig = plt.figure(figsize=(2.5 * len(facs), 2.5 * len(ds_list)))
     spec = gs.GridSpec(nrows=len(ds_list) + 1, ncols=3 * len(facs) + 1)
 
+    abs_peak = None
     peaks = []
 
     prof_axs = [fig.add_subplot(spec[0, 3 * j : 3 * (j + 1)]) for j in range(len(facs))]
 
     for i, ds in enumerate(ds_list):
-        for j, dt in enumerate(facs):
+        print(f"{i}")
+        j = len(prof_axs) - 1
+        prev_fac = None
+        for k, dt in enumerate(facs[::-1]):
+            print(f"  {j}, {dt}")
             ds_red = reduce(ds, dt, axis=1)
-            if len(peaks) == j:
-                # first time through timescales
-                peaks.append(np.argmax(np.sum(ds_red, axis=0)))
+            ts_red = np.sum(ds_red, axis=0)
+            if abs_peak is None:
+                abs_peak = (np.argmax(ts_red) * dt,
+                            np.argmax(ts_red) * dt+dt+1)
+            
+            if len(peaks) < len(prof_axs):
+                peaks.append(
+                    abs_peak[0] // dt + 
+                    np.argmax(ts_red[abs_peak[0]//dt:abs_peak[1]//dt])
+                )
 
-            peak = peaks[j]
+            # choose peak within abs_peak
+            peak = peaks[k]
 
+            print(f"  peak = {peak}")
+            
             plot_ds = ds_red[
-                :, max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
+                :, 
+                max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
             ]
 
             plot_ts = np.sum(plot_ds, axis=0)
@@ -142,6 +158,9 @@ def plot_IQUV_dts(
                 ds_ax.set_ylabel("Frequency (MHz)")
             else:
                 ds_ax.set_yticks([])
+
+            j -= 1
+            prev_fac = dt
 
         # spectrum column
         plot_spec = ds_red[:, peak]
