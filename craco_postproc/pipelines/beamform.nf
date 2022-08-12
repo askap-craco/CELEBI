@@ -496,6 +496,7 @@ process plot {
     
     output:
         path "*.png"
+        paths "crops"
     
     script:
         """
@@ -506,6 +507,8 @@ process plot {
         args="\$args -f $centre_freq"
         args="\$args -l $label"
         args="\$args -d $dm"
+
+        mkdir crops
 
         python3 $beamform_dir/plot.py \$args
         """

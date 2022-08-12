@@ -187,6 +187,21 @@ def plot_IQUV_dts(
     if fname:
         plt.savefig(fname)
 
+    return peaks[-1]  # 1 us peak
+
+
+def crop(stks, peak, facs, labels, time_range, prefix):
+    c = slice(peak - time_range//2, peak + time_range//2, 1)
+    for i, dt in enumerate(facs):
+        for j, s in enumerate(stks):
+            s_red = reduce(s, dt, axis=1)
+            red_c = slice(
+                c.start // dt,
+                c.stop // dt,
+                1
+            )
+            np.save(f"{prefix}{dt:03d}us_{labels[j]}.npy", s_red[:, red_c])
+
 
 def plot_ts(ds, fname):
     ts = np.sum(ds, axis=0)
@@ -203,7 +218,22 @@ def plot(args, stokes_fnames):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
 
     # IQUV over four timescales
-    plot_IQUV_dts(stks, args.f, labels=["I", "Q", "U", "V"], fname=f"{args.label}_IQUV_dts_{args.DM}.png")
+    peak = plot_IQUV_dts(
+        stks, 
+        args.f,
+        facs=[1, 3, 10, 30, 100, 300],
+        labels=["I", "Q", "U", "V"], 
+        fname=f"{args.label}_IQUV_dts_{args.DM}.png"
+    )
+
+    crop(
+        stks,
+        peak,
+        [1, 3, 10, 30, 100, 300],
+        ["I", "Q", "U", "V"],
+        100*1000,    # 100 ms
+        f"crops/{args.label}_{args.DM}_"
+    )
 
     # plot full Stokes I time series at 1 ms time resolution
     plot_ts(stks[0], f"{args.label}_I_{args.DM}.png")
