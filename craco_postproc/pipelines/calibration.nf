@@ -382,9 +382,11 @@ process determine_pol_cal_solns {
         Determine polarisation calibration solutions.
 
         Input
-            htr_data: path
+            polcal_htr_data: path
                 Stokes I, Q, U, V dynamic spectra of polarisation calibrator
                 beamformed data as numpy files
+            frb_htr_data: path
+                Beamformed FRB data as numpy files
         
         Output
             pol_cal_solns: path
@@ -397,7 +399,8 @@ process determine_pol_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
     
     input:
-        path htr_data
+        path polcal_htr_data
+        path frb_htr_data
 
     output:
         path "${params.label}_polcal.dat", emit: pol_cal_solns
@@ -414,10 +417,10 @@ process determine_pol_cal_solns {
             module load scipy/1.6.0-python-3.7.4
             module load astropy/4.0.1-python-3.7.4
         fi
-        args="-i ${params.label}_polcal_frb_sum_i_dynspec_${params.dm_polcal}.npy"
-        args="\$args -q ${params.label}_polcal_frb_sum_q_dynspec_${params.dm_polcal}.npy"
-        args="\$args -u ${params.label}_polcal_frb_sum_u_dynspec_${params.dm_polcal}.npy"
-        args="\$args -v ${params.label}_polcal_frb_sum_v_dynspec_${params.dm_polcal}.npy"
+        args="-i ${params.label}_polcal_frb_sum_I_dynspec_${params.dm_polcal}.npy"
+        args="\$args -q ${params.label}_polcal_frb_sum_Q_dynspec_${params.dm_polcal}.npy"
+        args="\$args -u ${params.label}_polcal_frb_sum_U_dynspec_${params.dm_polcal}.npy"
+        args="\$args -v ${params.label}_polcal_frb_sum_V_dynspec_${params.dm_polcal}.npy"
         args="\$args -p $params.period_polcal"
         args="\$args -f $params.centre_freq_polcal"
         args="\$args -b 336"
