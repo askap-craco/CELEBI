@@ -382,11 +382,9 @@ process determine_pol_cal_solns {
         Determine polarisation calibration solutions.
 
         Input
-            polcal_htr_data: path
+            htr_data: path
                 Stokes I, Q, U, V dynamic spectra of polarisation calibrator
                 beamformed data as numpy files
-            frb_htr_data: path
-                Beamformed FRB data as numpy files
         
         Output
             pol_cal_solns: path
@@ -399,8 +397,7 @@ process determine_pol_cal_solns {
     publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
     
     input:
-        path polcal_htr_data
-        path frb_htr_data
+        path htr_data
 
     output:
         path "${params.label}_polcal.dat", emit: pol_cal_solns
