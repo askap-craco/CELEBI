@@ -304,7 +304,7 @@ process loadfits {
             #loadfits.py \$args
 
             if [ "$params.ozstar" == "true" ]; then
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_proc" | tr ! 0 >> doloadfits
             fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
@@ -323,9 +323,9 @@ process loadfits {
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
                 if [ "$params.ozstar" == "true" ]; then
-                    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                    echo ". $launchDir/../setup_proc" | tr ! 0 >> doloadfits
                 fi    
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                echo ". $launchDir/../setup_proc" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
                 ./doloadfits
@@ -372,7 +372,7 @@ process subtract_rfi {
         scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
 
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+            . $launchDir/../setup_proc
         fi
 
         uvsubScaled.py $finder_fits *_rfi.fits \$scale norfifbin\${bin}.fits
