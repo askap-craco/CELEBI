@@ -128,23 +128,24 @@ def save(arr, fname, id, type):
 def calculate_stokes(args, x, y, outfile, type):
     # lambda functions for each of the Stokes parameters
     stokes = {
-        "i": lambda x, y: np.abs(x) ** 2 + np.abs(y) ** 2,
-        "q": lambda x, y: np.abs(x) ** 2 - np.abs(y) ** 2,
-        "u": lambda x, y: 2 * np.real(np.conj(x) * y),
-        "v": lambda x, y: 2 * np.imag(np.conj(x) * y),
+        "I": lambda x, y: np.abs(x) ** 2 + np.abs(y) ** 2,
+        "Q": lambda x, y: np.abs(x) ** 2 - np.abs(y) ** 2,
+        "U": lambda x, y: 2 * np.real(np.conj(x) * y),
+        "V": lambda x, y: 2 * np.imag(np.conj(x) * y),
     }
 
     stk_args = [args.I, args.Q, args.U, args.V]
     fnames = []
-    means = None
 
-    for idx, stk in enumerate(["i", "q", "u", "v"]):
+    pars = ["I"] if type == "t" else ["I", "Q", "U", "V"]
+
+    for idx, stk in enumerate(pars):
         if stk_args[idx]:
             print(f"Calculating {stk} {type}")
             par = stokes[stk](x, y)
             if type == "dynspec":
                 this_means, this_stds = get_norm(par)
-                if stk == "i":
+                if stk == "I":
                     stds = this_stds
 
                 par_norm = (par - this_means)/stds
