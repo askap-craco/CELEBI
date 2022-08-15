@@ -369,8 +369,8 @@ def _main():
 
 
     with open(args.o, "w") as f:
-        f.write(f"delay\t{delay_fit[0]}\t+-\t{delay_fit[1]} rad us\n")
-        f.write(f"offset\t{offset_fit[0]}\t+-\t{offset_fit[1]}")
+        f.write(f"{delay_fit[0]}\n")
+        f.write(f"{offset_fit[0]}\n")
 
 
 def get_args() -> argparse.Namespace:
