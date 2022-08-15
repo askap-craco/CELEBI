@@ -363,9 +363,6 @@ process ifft {
                 spaces)
             pol, spectrum: tuple(val, path)
                 Polarisation and fine spectrum file
-            pol_cal_solns: path
-                Polarisation calibration solutions to be applied. If this is
-                an empty file, polarisation calibration will not be applied.
             dm: val
                 Dispersion measure the data has been dedispersed to
         
@@ -376,7 +373,6 @@ process ifft {
     input:
         val label
         tuple val(pol), path(spectrum)
-        path pol_cal_solns
         val dm
 
     output:
@@ -429,6 +425,9 @@ process generate_dynspecs {
                 series or dynamic spectrum) to generate.
             dm: val
                 Dispersion measure the data has been dedispersed to
+            pol_cal_solns: path
+                Polarisation calibration solutions to be applied. If this is
+                an empty file, polarisation calibration will not be applied.
         
         Output:
             data: path
@@ -444,6 +443,7 @@ process generate_dynspecs {
         path pol_time_series
         val ds_args
         val dm
+        path pol_cal_solns
 
     output:
         path "*.npy", emit: data
@@ -496,7 +496,7 @@ process plot {
     
     output:
         path "*.png"
-        paths "crops"
+        path "crops"
     
     script:
         """
@@ -583,8 +583,8 @@ workflow beamform {
         coeffs = generate_deripple(do_beamform.out.fftlen.first())
         deripple(label, int_len, sum.out, do_beamform.out.fftlen.first(), coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
-        ifft(label, dedisperse.out, pol_cal_solns, dm)
-        generate_dynspecs(label, ifft.out.collect(), ds_args, dm)
+        ifft(label, dedisperse.out, dm)
+        generate_dynspecs(label, ifft.out.collect(), ds_args, dm, pol_cal_solns)
         plot(label, generate_dynspecs.out.dynspec_fnames, generate_dynspecs.out.data, centre_freq, dm)
     
     emit:
