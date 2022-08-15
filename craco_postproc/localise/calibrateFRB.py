@@ -1138,7 +1138,7 @@ def run_split(data, outfname: str, sourcename: str) -> None:
         "CRAFTSRC", "SPLIT", AIPSDISK, SEQNO
     )
     vlbatasks.splitmulti(data, clversion, OUTKLASS, sourcename, SEQNO)
-    vlbatasks.writedata(data, outfname + ".unaveraged", True)
+    vlbatasks.writedata(data, outfname + ".unavg", True)
     vlbatasks.writedata(outputdata, outfname, True)
 
 
