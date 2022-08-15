@@ -49,7 +49,7 @@ def _main():
         V_noisesub / I_noisesub,
     ])
 
-    if args.noavg:  # fit in each time step
+    if args.nopeak:  # fit in each time step
         pol_fs = np.zeros((t.shape[0], freqs.shape[0]))
         pol_fits = np.zeros(t.shape)
         pas = np.zeros(pol_fs.shape)
@@ -239,7 +239,7 @@ def _main():
 
         Q_askap, L_amp_fit, psi_sky_fit, Q_fit = fit_psi_sky(freqs, S_ratio, pa_fit)
 
-        phi, delay_ns_fit, offset_fit, phi_fit = fit_phi(
+        phi, delay_fit, offset_fit, phi_fit = fit_phi(
             freqs, S_ratio, pa_fit, L_amp_fit[0], psi_sky_fit[0]
         )
 
@@ -352,11 +352,11 @@ def _main():
             fig, ax = plt.subplots()
             ax = ax_plot(ax, freqs, phi, label="Solved")
             # for i, s in enumerate(slices):
-            p = np.poly1d([delay_ns_fit[0] * (2 * np.pi * 1e6), offset_fit[0]])
+            # p = np.poly1d([delay_fit[0], offset_fit[0]])
             ax = ax_plot(
                 ax,
                 freqs,
-                p(freqs.value),
+                phi_fit,
                 label="Best fit",
                 c="r",
                 lw = 1,
@@ -369,7 +369,7 @@ def _main():
 
 
     with open(args.o, "w") as f:
-        f.write(f"delay\t{delay_ns_fit[0]}\t+-\t{delay_ns_fit[1]}\n")
+        f.write(f"delay\t{delay_fit[0]}\t+-\t{delay_fit[1]} rad us\n")
         f.write(f"offset\t{offset_fit[0]}\t+-\t{offset_fit[1]}")
 
 
@@ -413,10 +413,10 @@ def get_args() -> argparse.Namespace:
         help="Directory to plot reference data into.",
     )
     parser.add_argument(
-        "--noavg",
+        "--nopeak",
         action="store_true",
         default=False,
-        help="Do not average spectra and fit per time step"
+        help="DEBUG: Do not take peak spectra and fit per time step"
     )
     return parser.parse_args()
 
@@ -446,7 +446,6 @@ def get_freqs(c_freq, bw, n_chan, reduce_df):
     df = freqs[1] - freqs[0]
     dt = (1 / df) * reduce_df
     print(f"df = {df}")
-    print(f"dt = {dt.to(un.us)}")
 
     return freqs[:-1], df, dt
 
@@ -517,6 +516,8 @@ def get_pulsar_spec(
     folded_ds = fold_ds(ds, period, dt)
     folded_ds_red = reduce(folded_ds, red_fac, transpose=True).transpose()
 
+    print(f"dt = {dt.to(un.us) * red_fac}")
+
     if args.reduce_df > 1:
         folded_ds_red = reduce(folded_ds_red, args.reduce_df)
 
@@ -544,7 +545,7 @@ def get_pulsar_spec(
         plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_peak.png")
 
     # [::-1] because it will be in the wrong order otherwise
-    if args.noavg:
+    if args.nopeak:
         spec = folded_ds_red[::-1, turn_on:turn_off][:-1]
     else:
         spec = folded_ds_red[:, peak][::-1][:-1]
@@ -570,7 +571,7 @@ def get_pulsar_spec(
         plt.tight_layout()
         plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_noise.png")
 
-    if args.noavg:
+    if args.nopeak:
         noise = folded_ds_red[::-1, turn_on:turn_off][:-1]
     else:
         noise = folded_ds_red[:, peak][::-1][:-1]
@@ -660,7 +661,7 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
         for i in range(n_bands*overlap-(overlap-1))
     ]
 
-    delays_ns = []
+    delays = []
     offsets = []
     r2s = []
 
@@ -668,15 +669,15 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
         pfit, pcov = np.polyfit(freqs[s].value, phi[s], 1, cov=True)
         perr = np.sqrt(np.diag(pcov))
 
-        delay_ns = pfit[0] / (2 * np.pi * 1e6)
-        delay_err_ns = perr[0] / (2 * np.pi * 1e6)
-        delays_ns += [(delay_ns, delay_err_ns)]
+        delay = pfit[0]
+        delay_err = perr[0]
+        delays += [(delay, delay_err)]
 
         offset = pfit[1]
         offset_err = perr[1]
         offsets += [(offset, offset_err)]
 
-        p = np.poly1d([delay_ns * (2 * np.pi * 1e6), offset])
+        p = np.poly1d([delay * (2 * np.pi * 1e6), offset])
 
         #https://stackoverflow.com/questions/29003241/how-to-quantitatively-measure-goodness-of-fit-in-scipy
         ss_res = np.sum((phi[s] - p(freqs[s].value)**2))
@@ -685,7 +686,7 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
 
         print(f"Band {i+1}: {freqs[s][0]} - {freqs[s][-1]}")
         print(
-            f"Delay:  {delay_ns} +- {delay_err_ns} s "
+            f"Delay:  {delay} +- {delay_err} rad us"
         )
         print(
             f"Offset: {offset} +- {offset_err} "
@@ -695,10 +696,10 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
     print(f"Band {best_band+1} is the best band")
 
     phi_fit = np.poly1d(
-        [delays_ns[best_band][0] * (2 * np.pi * 1e6), offsets[best_band][0]]
+        [delays[best_band][0], offsets[best_band][0]]
     )(freqs.value)
 
-    return phi, delays_ns[best_band], offsets[best_band], phi_fit
+    return phi, delays[best_band], offsets[best_band], phi_fit
 
 
 def polcal_ref(args):
