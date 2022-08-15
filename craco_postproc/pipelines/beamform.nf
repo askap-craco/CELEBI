@@ -380,7 +380,7 @@ process ifft {
         val dm
 
     output:
-        path("${label}_frb_sum_${pol}_t_${dm}.npy")
+        path("${label}_${pol}_t_${dm}.npy")
 
     script:
         """
@@ -394,7 +394,7 @@ process ifft {
             module load scipy/1.4.1-python-3.7.4
         fi
         args="-f $spectrum"
-        args="\$args -o ${label}_frb_sum_${pol}_t_${dm}.npy"
+        args="\$args -o ${label}_${pol}_t_${dm}.npy"
 
         python3 $beamform_dir/ifft.py \$args
 
@@ -454,9 +454,9 @@ process generate_dynspecs {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_beamform
         fi
-        args="-x ${label}_frb_sum_x_t_${dm}.npy"
-        args="\$args -y ${label}_frb_sum_y_t_${dm}.npy"
-        args="\$args -o ${label}_frb_sum_!_@_${dm}.npy" 
+        args="-x ${label}_x_t_${dm}.npy"
+        args="\$args -y ${label}_y_t_${dm}.npy"
+        args="\$args -o ${label}_!_@_${dm}.npy" 
 
         echo "python3 $beamform_dir/dynspecs.py \$args $ds_args"
         python3 $beamform_dir/dynspecs.py \$args $ds_args
