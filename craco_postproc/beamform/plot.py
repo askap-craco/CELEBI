@@ -190,17 +190,19 @@ def plot_IQUV_dts(
     return peaks[-1]  # 1 us peak
 
 
-def crop(stks, peak, facs, labels, time_range, prefix):
-    c = slice(peak - time_range//2, peak + time_range//2, 1)
-    for i, dt in enumerate(facs):
-        for j, s in enumerate(stks):
-            s_red = reduce(s, dt, axis=1)
-            red_c = slice(
-                c.start // dt,
-                c.stop // dt,
-                1
-            )
-            np.save(f"{prefix}{dt:03d}us_{labels[j]}.npy", s_red[:, red_c])
+def crop(stks, peak, dt, labels, time_range, prefix):
+    if time_range is None:
+        c = slice(0, -1, 1)
+    else:
+        c = slice(
+            max(0, (peak - time_range//2)//dt),
+            min((peak + time_range//2)//dt, stks[0].shape[1]//dt), 
+            1
+        )
+
+    for j, s in enumerate(stks):
+        s_red = reduce(s, dt, axis=1)
+        np.save(f"{prefix}{labels[j]}.npy", s_red[:, c])
 
 
 def plot_ts(ds, fname):
@@ -223,16 +225,37 @@ def plot(args, stokes_fnames):
         args.f,
         facs=[1, 3, 10, 30, 100, 300],
         labels=["I", "Q", "U", "V"], 
-        fname=f"{args.label}_IQUV_dts_{args.DM}.png"
+        fname=f"{args.label}_IQUV_{args.DM}.png"
     )
 
+    # Full series at 1 ms
     crop(
         stks,
         peak,
-        [1, 3, 10, 30, 100, 300],
+        1000,
         ["I", "Q", "U", "V"],
-        100*1000,    # 100 ms
-        f"crops/{args.label}_{args.DM}_"
+        None,    # Full range
+        f"crops/{args.label}_{args.DM}_1ms_"
+    )
+
+    # +- 50 ms at 50 us
+    crop(
+        stks,
+        peak,
+        50,
+        ["I", "Q", "U", "V"],
+        100*1000,
+        f"crops/{args.label}_{args.DM}_50us_"
+    )
+
+    # +- 10 ms at 1 us
+    crop(
+        stks,
+        peak,
+        1,
+        ["I", "Q", "U", "V"],
+        10*1000,
+        f"crops/{args.label}_{args.DM}_1us_"
     )
 
     # plot full Stokes I time series at 1 ms time resolution
