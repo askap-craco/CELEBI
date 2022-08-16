@@ -423,6 +423,8 @@ process generate_dynspecs {
                 String containing arguments to be passed to dynspecs.py. Use
                 this to specify which Stokes parameters and data types (time
                 series or dynamic spectrum) to generate.
+            centre_freq: val
+                Central frequency of spectra (MHz)
             dm: val
                 Dispersion measure the data has been dedispersed to
             pol_cal_solns: path
@@ -442,6 +444,7 @@ process generate_dynspecs {
         val label
         path pol_time_series
         val ds_args
+        val centre_freq
         val dm
         path pol_cal_solns
 
@@ -456,10 +459,17 @@ process generate_dynspecs {
         fi
         args="-x ${label}_x_t_${dm}.npy"
         args="\$args -y ${label}_y_t_${dm}.npy"
-        args="\$args -o ${label}_!_@_${dm}.npy" 
+        args="\$args -o ${label}_!_@_${dm}.npy"
+        args="\$args -f $centre_freq"
+        args="\$args --bw 336"
+        if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
+            args="\$args -p $pol_cal_solns"
+        fi
 
         echo "python3 $beamform_dir/dynspecs.py \$args $ds_args"
         python3 $beamform_dir/dynspecs.py \$args $ds_args
+
+        rm TEMP*
         """
 }
 
@@ -584,7 +594,7 @@ workflow beamform {
         deripple(label, int_len, sum.out, do_beamform.out.fftlen.first(), coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
-        generate_dynspecs(label, ifft.out.collect(), ds_args, dm, pol_cal_solns)
+        generate_dynspecs(label, ifft.out.collect(), ds_args, centre_freq, dm, pol_cal_solns)
         plot(label, generate_dynspecs.out.dynspec_fnames, generate_dynspecs.out.data, centre_freq, dm)
     
     emit:
