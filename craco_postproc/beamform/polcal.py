@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as un
 from scipy.optimize import curve_fit
-import cmasher as cmr
 
 
 def _main():
@@ -158,7 +157,6 @@ def _main():
                 ylabel="Frequency (MHz)",
                 title="Fit PA",
                 extent=ext,
-                cmap=cmr.emergency_s,
                 vmin=-np.pi/2,
                 vmax=np.pi/2,
             )
@@ -169,7 +167,6 @@ def _main():
                 ylabel="Frequency (MHz)",
                 title="Measured PA",
                 extent=ext,
-                cmap=cmr.emergency_s,
                 vmin=-np.pi/2,
                 vmax=np.pi/2,
                 #cbar="PA",
@@ -192,7 +189,6 @@ def _main():
                 ylabel="PA (rad.)",
                 title="Fit Q/I",
                 extent=pa_ext,
-                cmap=cmr.emergency_s,
                 vmin=-1,
                 vmax=1,
             )
@@ -203,7 +199,6 @@ def _main():
                 ylabel="PA (rad.)",
                 title="Measured Q/I",
                 extent=pa_ext,
-                cmap=cmr.emergency_s,
                 vmin=-1,
                 vmax=1,
             )
@@ -860,7 +855,7 @@ def im_plot(
     aspect="auto",
     interpolation="none",
     orientation="vertical",
-    cmap=cmr.arctic,
+    cmap='viridis',
     **kwargs,
 ):
     im = ax.imshow(
