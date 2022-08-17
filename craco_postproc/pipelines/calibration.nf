@@ -200,7 +200,7 @@ process get_peak {
         beamBMIN=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$4}'`
         beamBMAX=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$5}'`
 
-        largebeam_ind=$(python3 $localise_dir/argBeamExceed.py "\$(echo $BMINs)" "\$(echo $BMAXs)" "\$(echo $beamBMIN)" "\$(echo $beamBMAX)" "\$(ls *jmfit)")
+        largebeam_ind=\$(python3 $localise_dir/argBeamExceed.py "\$(echo $BMINs)" "\$(echo $BMAXs)" "\$(echo $beamBMIN)" "\$(echo $beamBMAX)" "\$(ls *jmfit)")
         echo "\$largebeam_ind are files to be removed"
 
         for file in \$largebeam_ind
