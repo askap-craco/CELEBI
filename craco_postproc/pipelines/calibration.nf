@@ -194,6 +194,21 @@ process get_peak {
         find *jmfit -type f -empty -print -delete
         find *reg -type f -empty -print -delete
 
+        #filter out jmfit files that have a large beam size
+        BMINs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print $1}'`
+        BMAXs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print $2}'`
+        beamBMIN=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print $4}'`
+        beamBMAX=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print $5}'`
+
+        largebeam_ind=$(python3 $localise_dir/argBeamExceed.py "$(echo $BMINs)" "$(echo $BMAXs)" "$(echo $beamBMIN)" "$(echo $beamBMAX)" "$(ls *jmfit)")
+        echo "$largebeam_ind are files to be removed"
+
+        for file in $largebeam_ind
+        do
+            mv ${file} ${file}REJECT
+            #cp ${file} ${file}REJECT
+        done
+
         # parse jmfits for S/N then find index of maximum
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
         peak_jmfit=\$(python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)")
