@@ -564,25 +564,25 @@ process npy2fil {
         fi
 
         # parse final position file for RA and Dec
-        ra_line=$(head -2 $final_position | tail -1)
-        dec_line=$(tail -1 $final_position.txt)
+        ra_line=\$(head -2 $final_position | tail -1)
+        dec_line=\$(tail -1 $final_position.txt)
 
-        ra=$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
-        dec=$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
+        ra=\$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
+        dec=\$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
         
         for npy in \$(ls crops); do
             # get tsamp from filename and convert to us
-            tsamp=$(echo \$npy | awk -F "_" '{print \$(NF-1)}')
-            tsamp_val=$(echo \$tsamp | sed 's/[a-z]//g')
-            tsamp_unit=$(echo \$tsamp | sed 's/[0-9]//g')
+            tsamp=\$(echo \$npy | awk -F "_" '{print \$(NF-1)}')
+            tsamp_val=\$(echo \$tsamp | sed 's/[a-z]//g')
+            tsamp_unit=\$(echo \$tsamp | sed 's/[0-9]//g')
             if [ "\$unit" == "ms" ]; then
                     tsamp_val=\$((tsamp_val*1000))
             fi
 
             # get Stokes parameter from filename
-            par=$(echo \$npy | awk -F "_" '{print \$NF}')
+            par=\$(echo \$npy | awk -F "_" '{print \$NF}')
 
-            outfile=$(echo \$npy | sed 's/npy/fil/g')
+            outfile=\$(echo \$npy | sed 's/npy/fil/g')
 
             args="-s FRB$params.label"
             args="\$args --tsamp \$tsamp_val"
