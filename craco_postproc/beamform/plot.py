@@ -1,6 +1,7 @@
 import matplotlib as mpl
 mpl.use('agg')
 
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 import matplotlib.gridspec as gs
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +18,6 @@ def _main():
 
 
 def get_args():
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
     parser = ArgumentParser(
         description="Plots FRB Stokes dynamic spectra"
@@ -159,11 +159,13 @@ def plot_IQUV_dts(
             else:
                 ds_ax.set_yticks([])
 
+            if k == 0:  # lowest time resolution
+                plot_spec = ds_red[:, peak]
+
             j -= 1
             prev_fac = dt
 
         # spectrum column
-        plot_spec = ds_red[:, peak]
         freqs = np.linspace(f0 - 336 / 2, f0 + 336 / 2, plot_spec.shape[0])
 
         spec_ax = fig.add_subplot(spec[i + 1, -1])
