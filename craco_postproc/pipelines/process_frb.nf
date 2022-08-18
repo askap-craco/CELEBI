@@ -12,6 +12,133 @@ params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
 
+process plot {
+    /*
+        Plot dynamic spectra across different time resolutions to produce
+        summary plot.
+
+        Input
+            label: val
+                FRB name and context of process instance as a string (no
+                spaces)
+            fnames_file: path
+                File containing file names of dynamic spectra
+            dynspecs: path
+                Stokes parameter dynamic spectra
+            centre_freq: val
+                Central frequency of fine spectrum (MHz)
+            dm: val
+                Dispersion measure the data has been dedispersed to
+        
+        Output:
+            plot: path
+                Plotted dynamic spectra across different time resolutions
+            crops: path
+                Directory containing cropped numpy files
+    */
+    publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
+
+    input:
+        val label
+        path fnames_file
+        path dynspecs
+        val centre_freq
+        val dm
+    
+    output:
+        path "*.png"
+        path "crops", emit: crops
+    
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_beamform
+        fi
+        args="-s $fnames_file"
+        args="\$args -f $centre_freq"
+        args="\$args -l $label"
+        args="\$args -d $dm"
+
+        mkdir crops
+
+        python3 $beamform_dir/plot.py \$args
+        """
+}
+
+process npy2fil {
+    /*
+        Convert cropped numpy files to filterbank
+
+        Input
+            label: val
+                FRB name and context of process instance as a string (no
+                spaces)
+            crops: path
+                Directory containing cropped numpy files to convert
+            startmjd: val
+                Earliest data start time in Modified Julian Day (MJD) 
+            centre_freq: val
+                Central frequency of fine spectrum (MHz)
+            final_position: path
+                Text file containing final position and error
+            
+        Output:
+            fils: path
+                Directory containing converted filterbank files
+    */
+    publishDir "${params.publish_dir}/${params.label}/htr/fils", mode: "copy"
+
+    input:
+        val label
+        path crops
+        val startmjd
+        val centre_freq
+        path final_position
+    
+    output:
+        path "*fil"
+    
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
+        # parse final position file for RA and Dec
+        ra_line=\$(head -2 $final_position | tail -1)
+        dec_line=\$(tail -1 $final_position.txt)
+
+        ra=\$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
+        dec=\$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
+        
+        for npy in \$(ls crops); do
+            # get tsamp from filename and convert to us
+            tsamp=\$(echo \$npy | awk -F "_" '{print \$(NF-1)}')
+            tsamp_val=\$(echo \$tsamp | sed 's/[a-z]//g')
+            tsamp_unit=\$(echo \$tsamp | sed 's/[0-9]//g')
+            if [ "\$unit" == "ms" ]; then
+                    tsamp_val=\$((tsamp_val*1000))
+            fi
+
+            # get Stokes parameter from filename
+            par=\$(echo \$npy | awk -F "_" '{print \$NF}')
+
+            outfile=\$(echo \$npy | sed 's/npy/fil/g')
+
+            args="-s FRB$params.label"
+            args="\$args --tsamp \$tsamp_val"
+            args="\$args --tstart $startmjd"
+            args="\$args --f0 $centre_freq"
+            args="\$args -r \$ra"
+            args="\$args -d=\$dec"
+            args="\$args -o \$outfile"
+            args="\$args \$npy"
+
+            python3 $beamform_dir/npy2fil.py \$args
+        done
+        """
+}
+
 workflow process_frb {
     /*
         Process voltages to obtain an FRB position
@@ -167,8 +294,12 @@ workflow process_frb {
         if(params.beamform) {
             bform_frb(
                 label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV",
-                final_position
+                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV"
             )
+            plot(
+                label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
+                centre_freq, dm
+            )
+            npy2fil(label, plot.out.crops, 0, centre_freq, final_position)
         }
 }
