@@ -160,14 +160,15 @@ workflow process_frb {
                     askap_frb_pos
                 ).jmfit
 
-                apply_offset(field_sources, askap_frb_pos)
+                final_position = apply_offset(field_sources, askap_frb_pos)
             }
         }
 
         if(params.beamform) {
             bform_frb(
                 label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV"
+                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV",
+                final_position
             )
         }
 }
