@@ -528,7 +528,6 @@ workflow beamform {
         dm 
         centre_freq
         ds_args
-        final_position
     
     main:
         // preliminaries
