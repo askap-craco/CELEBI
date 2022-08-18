@@ -592,6 +592,8 @@ process npy2fil {
             args="\$args -d=\$dec"
             args="\$args -o \$outfile"
             args="\$args \$npy"
+
+            python3 $beamform_dir/npy2fil.py \$args
         done
         """
 }
