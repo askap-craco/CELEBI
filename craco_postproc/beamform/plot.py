@@ -1,3 +1,4 @@
+from mmap import mmap
 import matplotlib as mpl
 mpl.use('agg')
 
@@ -33,6 +34,12 @@ def get_args():
     )
     parser.add_argument(
         "-d", "--DM", type=str, help="Dedispersion DM"
+    )
+    parser.add_argument(
+        "-x", type=str, help="X fine spectrum"
+    )
+    parser.add_argument(
+        "-y", type=str, help="Y fine spectrum"
     )
 
     return parser.parse_args()
@@ -192,19 +199,23 @@ def plot_IQUV_dts(
     return peaks[-1]  # 1 us peak
 
 
-def crop(stks, peak, dt, labels, time_range, prefix):
-    if time_range is None:
-        c = slice(0, -1, 1)
-    else:
-        c = slice(
-            max(0, (peak - time_range//2)//dt),
-            min((peak + time_range//2)//dt, stks[0].shape[1]//dt), 
-            1
-        )
+def crop(stks, peak, dt, labels, time_range, prefix, c=None):
+    if c is None:
+        if time_range is None:
+            c = slice(0, -1, 1)
+        else:
+            c = slice(
+                max(0, (peak - time_range//2)//dt),
+                min((peak + time_range//2)//dt, stks[0].shape[1]//dt), 
+                1
+            )
 
     for j, s in enumerate(stks):
-        s_red = reduce(s, dt, axis=1)
-        np.save(f"{prefix}{labels[j]}.npy", s_red[:, c])
+        s_red = reduce(s, dt, axis=1) if dt > 1 else s
+        # .T twice so this works on 1D arrays too
+        np.save(f"{prefix}{labels[j]}.npy", s_red.T[c].T)
+    
+    return c
 
 
 def plot_ts(ds, fname):
@@ -231,7 +242,7 @@ def plot(args, stokes_fnames):
     )
 
     # Full series at 1 ms
-    crop(
+    c_full = crop(
         stks,
         peak,
         1000,
@@ -241,7 +252,7 @@ def plot(args, stokes_fnames):
     )
 
     # +- 50 ms at 50 us
-    crop(
+    c_100ms_50us = crop(
         stks,
         peak,
         50,
@@ -251,13 +262,31 @@ def plot(args, stokes_fnames):
     )
 
     # +- 10 ms at 1 us
-    crop(
+    c_20ms_1us = crop(
         stks,
         peak,
         1,
         ["I", "Q", "U", "V"],
-        10*1000,
+        20*1000,
         f"crops/{args.label}_{args.DM}_1us_"
+    )
+
+    # Crop 1D XY time series
+    X = np.load(args.x, mmap_mode="r")
+    Y = np.load(args.y, mmap_mode="r")
+    c_1D = slice(
+        c_20ms_1us.start,
+        c_20ms_1us.stop,
+        1
+    )
+    crop(
+        [X, Y],
+        peak*336,
+        1,
+        ["X", "Y"],
+        None,
+        f"crops/{args.label}_{args.DM}_",
+        c=c_1D
     )
 
     # plot full Stokes I time series at 1 ms time resolution

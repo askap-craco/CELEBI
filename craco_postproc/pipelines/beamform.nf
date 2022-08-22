@@ -7,7 +7,7 @@ nextflow.enable.dsl=2
 
 include { get_startmjd } from './correlate'
 
-params.pols = ['x', 'y']
+params.pols = ['X', 'Y']
 polarisations = Channel
     .fromList(params.pols)
 params.nants = 2
@@ -544,9 +544,11 @@ workflow beamform {
         deripple(label, int_len, sum.out, do_beamform.out.fftlen.first(), coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
-        generate_dynspecs(label, ifft.out.collect(), ds_args, centre_freq, dm, pol_cal_solns)
+        xy = ifft.out.collect()
+        generate_dynspecs(label, xy, ds_args, centre_freq, dm, pol_cal_solns)
     
     emit:
         dynspec_fnames = generate_dynspecs.out.dynspec_fnames
         htr_data = generate_dynspecs.out.data
+        xy
 }

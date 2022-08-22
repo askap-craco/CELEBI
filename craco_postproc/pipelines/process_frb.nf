@@ -31,6 +31,8 @@ process plot {
                 Central frequency of fine spectrum (MHz)
             dm: val
                 Dispersion measure the data has been dedispersed to
+            xy: path
+                High-time resolution time series of X and Y pols
         
         Output:
             plot: path
@@ -46,6 +48,7 @@ process plot {
         path dynspecs
         val centre_freq
         val dm
+        path xy
     
     output:
         path "*.png"
@@ -64,6 +67,8 @@ process plot {
         args="\$args -f $centre_freq"
         args="\$args -l $label"
         args="\$args -d $dm"
+        args="\$args -x ${label}*X_t*npy"
+        args="\$args -y ${label}*Y_t*npy"
 
         mkdir crops
 
@@ -303,7 +308,7 @@ workflow process_frb {
             )
             plot(
                 label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                centre_freq, dm
+                centre_freq, dm, bform_frb.out.xy
             )
             npy2fil(label, plot.out.crops, 0, centre_freq, final_position)
         }
