@@ -12,6 +12,8 @@ params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
 
+beamform_dir = "$baseDir/../beamform/"
+
 process plot {
     /*
         Plot dynamic spectra across different time resolutions to produce
