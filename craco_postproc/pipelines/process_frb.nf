@@ -112,7 +112,7 @@ process npy2fil {
 
         # parse final position file for RA and Dec
         ra_line=\$(head -2 $final_position | tail -1)
-        dec_line=\$(tail -1 $final_position.txt)
+        dec_line=\$(tail -1 $final_position)
 
         ra=\$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
         dec=\$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
