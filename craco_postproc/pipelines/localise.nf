@@ -82,7 +82,7 @@ process apply_offset {
         path askap_frb_pos
     
     output:
-        path "${params.label}_final_position.txt" into final_position
+        path "${params.label}_final_position.txt", emit: final_position
         path "*.dat" 
         path "*.reg"
         path "*.png"
