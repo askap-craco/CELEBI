@@ -106,11 +106,11 @@ workflow process_pol_cal {
 
         // Beamforming
         if(params.beamform) {
-            htr_data = bform_pcal(
+            bform_pcal(
                 label, data, fcm, pos, flux_cal_solns, empty_file,
                 num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
             )
-            pol_cal_solns = get_cal_pcal(htr_data).pol_cal_solns
+            pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   
         else {
             pol_cal_solns = ""
