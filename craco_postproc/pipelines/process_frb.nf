@@ -248,48 +248,46 @@ workflow process_frb {
         }
 
         // Calibrate (i.e. image finder and field)
-        if(params.calibrate) {
-            frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
-            frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
-            if(new File(frb_jmfit_path).exists() && new File(frb_pos_path).exists()) {
-                askap_frb_pos = Channel.fromPath(frb_jmfit_path)
-                final_position = Channel.fromPath(frb_pos_path)
+        frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
+        frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
+        if(new File(frb_jmfit_path).exists() && new File(frb_pos_path).exists()) {
+            askap_frb_pos = Channel.fromPath(frb_jmfit_path)
+            final_position = Channel.fromPath(frb_pos_path)
+        }
+        else if(params.calibrate) {
+            if((params.fieldimage == "") && (params.fieldflagfile == "")){
+                println "No field flag file!"
+                System.exit(1)
+            }
+            
+            if(params.skiprfi){
+                no_rfi_finder_fits = finder_fits
             }
             else {
-                if((params.fieldimage == "") && (params.fieldflagfile == "")){
-                    println "No field flag file!"
-                    System.exit(1)
-                }
-                
-                if(params.skiprfi){
-                    no_rfi_finder_fits = finder_fits
-                }
-                else {
-                    no_rfi_finder_fits = subtract_rfi(
-                        finder_fits, rfi_fits, subtractions
-                    )                
-                }
-
-                bins_out = cal_finder(
-                    no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
-                )
-                bin_jmfits = bins_out.jmfit
-                bin_fits_images = bins_out.fits_image
-                bin_regs = bins_out.reg
-                bin_mss = bins_out.ms
-
-                askap_frb_pos = get_peak(
-                    bin_jmfits.collect(), bin_fits_images.collect(), 
-                    bin_regs.collect(), bin_mss.collect()
-                ).peak_jmfit
-
-                field_sources = cal_field(
-                    field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, 
-                    askap_frb_pos
-                ).jmfit
-
-                final_position = apply_offset(field_sources, askap_frb_pos)
+                no_rfi_finder_fits = subtract_rfi(
+                    finder_fits, rfi_fits, subtractions
+                )                
             }
+
+            bins_out = cal_finder(
+                no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
+            )
+            bin_jmfits = bins_out.jmfit
+            bin_fits_images = bins_out.fits_image
+            bin_regs = bins_out.reg
+            bin_mss = bins_out.ms
+
+            askap_frb_pos = get_peak(
+                bin_jmfits.collect(), bin_fits_images.collect(), 
+                bin_regs.collect(), bin_mss.collect()
+            ).peak_jmfit
+
+            field_sources = cal_field(
+                field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, 
+                askap_frb_pos
+            ).jmfit
+
+            final_position = apply_offset(field_sources, askap_frb_pos)
         }
 
         if(params.beamform) {
