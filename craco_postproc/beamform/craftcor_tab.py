@@ -36,9 +36,9 @@ def _main():
     for a in antennadirs:
         beamdirs = sorted(glob.glob(a + "/*"))
 
-        if values.pol == "x":
+        if values.pol == "X":
             vcraftfiles += sorted(glob.glob(beamdirs[0] + "/*[ac]*vcraft"))
-        elif values.pol == "y":
+        elif values.pol == "Y":
             vcraftfiles += sorted(glob.glob(beamdirs[1] + "/*[ac]*vcraft"))
         else:
             print(f"{values.pol} is not a valid polarisation! Must be x or y")
