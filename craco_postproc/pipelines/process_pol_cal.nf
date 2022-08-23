@@ -88,12 +88,11 @@ workflow process_pol_cal {
         }
 
         // Calibration
-        if(params.calibrate) {
-            polcal_jmfit_path = "${params.publish_dir}/${params.label}/polcal/polcal.jmfit"
-            if(new File(polcal_jmfit_path).exists()) {
-                pos = Channel.fromPath(polcal_jmfit_path)
-            }
-            else {
+        polcal_jmfit_path = "${params.publish_dir}/${params.label}/polcal/polcal.jmfit"
+        if(new File(polcal_jmfit_path).exists()) {
+            pos = Channel.fromPath(polcal_jmfit_path)
+        }
+        else if(params.calibrate) {
                 if(params.polflagfile == "") {
                     println "No polcal flag file!"
                     System.exit(1)
@@ -101,7 +100,6 @@ workflow process_pol_cal {
                 pos = apply_cal_pcal(
                     fits, flux_cal_solns, polflagfile, target, cpasspoly
                 ).jmfit
-            }
         }
 
         // Beamforming
