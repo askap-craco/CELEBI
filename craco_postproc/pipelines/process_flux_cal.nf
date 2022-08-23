@@ -69,17 +69,15 @@ workflow process_flux_cal {
 
         // Calibration
         fluxcal_solns_path = "${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz"
-        if(params.calibrate) {
-            if(new File(fluxcal_solns_path).exists()) {
-                flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
+        if(new File(fluxcal_solns_path).exists()) {
+            flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
+        }
+        else if(params.calibrate) {
+            if(params.fluxflagfile == "") {
+                println "No fluxcal flag file!"
+                System.exit(1)
             }
-            else {
-                if(params.fluxflagfile == "") {
-                    println "No fluxcal flag file!"
-                    System.exit(1)
-                }
-                flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
-            }
+            flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
         }
         else {
             flux_cal_solns = ""
