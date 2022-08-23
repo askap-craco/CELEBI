@@ -144,7 +144,8 @@ process do_beamform {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_beamform
+            #. $launchDir/../setup_beamform
+            . $launchDir/../setup_proc
         fi
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
@@ -202,7 +203,8 @@ process sum {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_beamform
+            #. $launchDir/../setup_beamform
+            . $launchDir/../setup_proc
         fi
         args="--f_dir ."
         args="\$args -f ${label}_frb"
@@ -340,7 +342,8 @@ process dedisperse {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_beamform
+            #. $launchDir/../setup_beamform
+            . $launchDir/../setup_proc
         fi
         args="-f $spectrum"
         args="\$args --DM $dm"
@@ -455,7 +458,8 @@ process generate_dynspecs {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_beamform
+            #. $launchDir/../setup_beamform
+            . $launchDir/../setup_proc
         fi
         args="-x ${label}_x_t_${dm}.npy"
         args="\$args -y ${label}_y_t_${dm}.npy"
