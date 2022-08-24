@@ -30,7 +30,6 @@ def _main():
     )
 
     sigproc_object.write_header(args.outfile)
-    print(data.shape)
     sigproc_object.append_spectra(data, args.outfile)
 
 

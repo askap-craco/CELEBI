@@ -122,7 +122,7 @@ process npy2fil {
         ra=\$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
         dec=\$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
         
-        for npy in \$(ls crops); do
+        for npy in \$(ls crops/*[IQUV]*); do
             # get tsamp from filename and convert to us
             tsamp=\$(echo \$npy | awk -F "_" '{print \$(NF-1)}')
             tsamp_val=\$(echo \$tsamp | sed 's/[a-z]//g')
@@ -143,7 +143,7 @@ process npy2fil {
             args="\$args -r \$ra"
             args="\$args -d=\$dec"
             args="\$args -o \$outfile"
-            args="\$args crops/\$npy"
+            args="\$args \$npy"
 
             python3 $beamform_dir/npy2fil.py \$args
         done
