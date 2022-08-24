@@ -461,8 +461,8 @@ process generate_dynspecs {
             #. $launchDir/../setup_beamform
             . $launchDir/../setup_proc
         fi
-        args="-x ${label}_x_t_${dm}.npy"
-        args="\$args -y ${label}_y_t_${dm}.npy"
+        args="-x ${label}_Y_t_${dm}.npy"
+        args="\$args -y ${label}_X_t_${dm}.npy"
         args="\$args -o ${label}_!_@_${dm}.npy"
         args="\$args -f $centre_freq"
         args="\$args --bw 336"
