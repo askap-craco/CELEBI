@@ -134,7 +134,7 @@ process npy2fil {
             # get Stokes parameter from filename
             par=\$(echo \$npy | awk -F "_" '{print \$NF}')
 
-            outfile=\$(echo \$npy | sed 's/npy/fil/g')
+            outfile=\$(echo \$npy | sed 's/npy/fil/g' | | sed 's/crops\///g')
 
             args="-s FRB$params.label"
             args="\$args --tsamp \$tsamp_val"
