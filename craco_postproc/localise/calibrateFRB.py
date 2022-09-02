@@ -249,12 +249,18 @@ def _main():
             "cell": f"{pxsize}arcsec",
             "phasecenter": phasecenter,
             "gridder": "widefield",
-            "wprojplanes": 1024,
+            "wprojplanes": -1,
             "pblimit": -1,
             "deconvolver": "multiscale",
             "weighting": "natural",
             # "mask": maskstr,
             "usemask": "auto-multithresh",
+            "sidelobethreshold": 1.2,
+            "noisethreshold": 6.0,
+            "lownoisethreshold": 4.0,
+            "smoothfactor": 0.25,
+            "minbeamfrac": 0.05,
+            "growiterations": 10,
         }
 
         # Do the cube
