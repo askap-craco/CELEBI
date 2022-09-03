@@ -5,7 +5,7 @@
 
 nextflow.enable.dsl=2
 
-include { get_startmjd } from './correlate'
+include { get_start_mjd } from './correlate'
 
 params.pols = ['X', 'Y']
 polarisations = Channel
@@ -535,7 +535,7 @@ workflow beamform {
     
     main:
         // preliminaries
-        startmjd = get_startmjd(data)
+        startmjd = get_start_mjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
 
         // processing

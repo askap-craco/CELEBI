@@ -12,7 +12,7 @@ localise_dir = "$baseDir/../localise/"
 
 params.uppersideband = false
 
-process get_startmjd {
+process get_start_mjd {
     /*
         Find the start time of the data by finding the earliest listed 
         startmjd in the data's headers. This is to prevent edge cases where 
@@ -72,7 +72,7 @@ process create_bat0 {
         """
 }
 
-process process_time_step {
+process do_correlate {
     /*
         Correlate the data using DiFX
 
@@ -185,13 +185,13 @@ process process_time_step {
         """
 }
 
-process difx2fits {
+process difx_to_fits {
     /*
         Convert correlated data from the DiFX format into FITS.
 
         Input
             correlated_data: path
-                All the c*_f* directories produced by process_time_step
+                All the c*_f* directories produced by do_correlate
             polyco: path
                 TODO: describe polyco 
             mode: val
@@ -247,7 +247,7 @@ process difx2fits {
 
 }
 
-process loadfits {
+process load_fits {
     /*
         Combine the per-card FITS files into a single FITS file
 
@@ -421,19 +421,21 @@ workflow correlate {
         mode
 
     main:
-        startmjd = get_startmjd(data)
+        startmjd = get_start_mjd(data)
         bat0 = create_bat0(data)
 
-        // cards.combine(fpgas) kicks off an instance of process_time_step for
+        // cards.combine(fpgas) kicks off an instance of do_correlate for
         // every unique card-fpga pair, which are then collated with .collect()
-        correlated_data = process_time_step(
+        correlated_data = do_correlate(
             label, data, fcm, ra, dec, binconfig, polyco, inttime, startmjd, 
             cards.combine(fpgas), bat0
         )
-        per_card_fits = difx2fits(correlated_data.cx_fy.collect(), polyco, mode)
+        per_card_fits = difx_to_fits(
+            correlated_data.cx_fy.collect(), polyco, mode
+        )
 
-        loadfits(data, label, per_card_fits, mode)
+        load_fits(data, label, per_card_fits, mode)
     
     emit:
-        fits = loadfits.out
+        fits = load_fits.out
 }
