@@ -36,12 +36,6 @@ workflow process_pol_cal {
                 Flux calibrator solutions tarball
             cpasspoly: val
                 Order of polynomial to fit bandpass with
-            num_ints: val
-                TODO: deprecate
-            int_len: val
-                TODO: deprecate
-            offset: val
-                TODO: deprecate
             dm: val
                 DM to dedisperse to in pc/cm3
             centre_freq: val
@@ -66,9 +60,6 @@ workflow process_pol_cal {
         polflagfile
         cpasspoly
         flux_cal_solns
-        num_ints
-        int_len
-        offset
         dm
         centre_freq
 
@@ -105,8 +96,8 @@ workflow process_pol_cal {
         // Beamforming
         if(params.beamform) {
             bform_pcal(
-                label, data, fcm, pos, flux_cal_solns, empty_file,
-                num_ints, int_len, offset, dm, centre_freq, "-ds -IQUV"
+                label, data, fcm, pos, flux_cal_solns, empty_file, dm, centre_freq, 
+                "-ds -IQUV"
             )
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   

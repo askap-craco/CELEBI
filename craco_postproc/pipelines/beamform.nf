@@ -109,12 +109,6 @@ process do_beamform {
             flux_cal_solns: path
                 Flux calibration solutions. These should be the same solutions 
                 used to image the data and produce a position
-            num_ints: val
-                Number of integrations
-            int_len: val
-                Integration length (units unclear?)
-            offset: val
-                Integration start offset (units unclear, not same as int_len)
             fcm: val
                 Absolute path to fcm (hardware delays) file
 
@@ -132,9 +126,6 @@ process do_beamform {
         each pol
         each ant_idx
         path flux_cal_solns
-        val num_ints
-        val int_len
-        val offset
         val fcm
 
     output:
@@ -150,10 +141,7 @@ process do_beamform {
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
 
-        args="-i $num_ints"
-        args="\$args -n $int_len"
-        args="\$args --offset $offset"
-        args="\$args -d $data"
+        args="-d $data"
         args="\$args --parset $fcm"
         args="\$args --calcfile $imfile"
         args="\$args --aips_c bandpass*txt"
@@ -500,12 +488,6 @@ workflow beamform {
             pol_cal_solns: path
                 Polarisation calibration solutions to be applied. If this is
                 an empty file, polarisation calibration will not be applied.
-            num_ints: val
-                Number of integrations
-            int_len: val
-                Integration length (units unclear?)
-            offset: val
-                Integration start offset (units unclear, not same as int_len)
             dm: val
                 Dispersion measure to dedisperse to (pc/cm3)
             centre_freq: val
@@ -526,9 +508,6 @@ workflow beamform {
         pos
         flux_cal_solns
         pol_cal_solns
-        num_ints
-        int_len
-        offset
         dm 
         centre_freq
         ds_args
@@ -540,8 +519,7 @@ workflow beamform {
 
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations, antennas, flux_cal_solns,
-            num_ints, int_len, offset, fcm
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm
         )
         sum(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())

@@ -177,12 +177,6 @@ workflow process_frb {
                 Polarisation calibration solutions in a text file
             cpasspoly: val
                 Order of polynomial to fit bandpass with
-            num_ints: val
-                TODO: deprecate
-            int_len: val
-                TODO: deprecate
-            offset: val
-                TODO: deprecate
             dm: val
                 DM to dedisperse to in pc/cm3
             centre_freq: val
@@ -199,9 +193,6 @@ workflow process_frb {
         flux_cal_solns
         pol_cal_solns
         cpasspoly
-        num_ints
-        int_len
-        offset
         dm
         centre_freq
 
@@ -304,7 +295,7 @@ workflow process_frb {
         if(params.beamform) {
             bform_frb(
                 label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-                num_ints, int_len, offset, dm, centre_freq, "-ds -t -XYIQUV"
+                dm, centre_freq, "-ds -t -XYIQUV"
             )
             plot(
                 label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
