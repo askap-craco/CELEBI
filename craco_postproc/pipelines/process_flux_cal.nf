@@ -17,8 +17,6 @@ workflow process_flux_cal {
             polyco: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             ra: val
                 Flux calibrator right ascension as "hh:mm:ss"
             dec: val
@@ -37,7 +35,6 @@ workflow process_flux_cal {
         label
         data
         polyco
-        fcm
         ra
         dec
         fluxflagfile
@@ -51,8 +48,7 @@ workflow process_flux_cal {
         else {
             empty_binconfig = create_empty_file("binconfig")
             fits = corr_fcal(
-                label, data, fcm, ra, dec, empty_binconfig, polyco, 0, 
-                "fluxcal"
+                label, data, ra, dec, empty_binconfig, polyco, 0, "fluxcal"
             )
         }
 

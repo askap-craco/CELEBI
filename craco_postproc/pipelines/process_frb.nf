@@ -145,8 +145,6 @@ workflow process_frb {
             binconfig: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             ra0: val
                 FRB right ascension initial guess as "hh:mm:ss"
             dec0: val
@@ -174,7 +172,6 @@ workflow process_frb {
         polyco
         int_time
         // ^^^ binconfig channels ^^^
-        fcm
         ra0
         dec0
         fieldflagfile
@@ -193,7 +190,7 @@ workflow process_frb {
         }
         else {
             finder_fits = corr_finder(
-                "finder", data, fcm, ra0, dec0, binconfig_finder, polyco, int_time, 
+                "finder", data, ra0, dec0, binconfig_finder, polyco, int_time, 
                 "finder"
             )
         }
@@ -206,7 +203,7 @@ workflow process_frb {
         else {
             if(!params.skiprfi) {
                 rfi_fits = corr_rfi(
-                    "${label}_rfi", data, fcm, ra0, dec0, binconfig_rfi, polyco, 
+                    "${label}_rfi", data, ra0, dec0, binconfig_rfi, polyco, 
                     int_time, "rfi"
                 )
             }
@@ -225,7 +222,7 @@ workflow process_frb {
         else {
             empty_file = create_empty_file("file")
             field_fits = corr_field(
-                "${label}_field", data, fcm, ra0, dec0, empty_file, polyco, 0, "field"
+                "${label}_field", data, ra0, dec0, empty_file, polyco, 0, "field"
             )
         }
 
@@ -273,7 +270,7 @@ workflow process_frb {
 
         if(params.beamform) {
             bform_frb(
-                label, data, fcm, askap_frb_pos, flux_cal_solns, pol_cal_solns,
+                label, data, askap_frb_pos, flux_cal_solns, pol_cal_solns,
                 dm, centre_freq, "-ds -t -XYIQUV"
             )
             plot(

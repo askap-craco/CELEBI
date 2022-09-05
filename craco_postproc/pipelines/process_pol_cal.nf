@@ -18,8 +18,6 @@ workflow process_pol_cal {
             polyco: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             ra0: val
                 FRB right ascension initial guess as "hh:mm:ss"
             dec0: val
@@ -45,7 +43,6 @@ workflow process_pol_cal {
         label
         data
         polyco
-        fcm
         ra0
         dec0
         polflagfile
@@ -63,7 +60,7 @@ workflow process_pol_cal {
         }
         else {
             fits = corr_pcal(
-                label, data, fcm, ra0, dec0, empty_file, polyco, 0, "polcal"
+                label, data, ra0, dec0, empty_file, polyco, 0, "polcal"
             )
         }
 
@@ -85,7 +82,7 @@ workflow process_pol_cal {
         // Beamforming
         if(params.beamform) {
             bform_pcal(
-                label, data, fcm, pos, flux_cal_solns, empty_file, dm, centre_freq, 
+                label, data, pos, flux_cal_solns, empty_file, dm, centre_freq, 
                 "-ds -IQUV"
             )
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns

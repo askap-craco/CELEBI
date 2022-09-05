@@ -32,7 +32,6 @@ workflow {
         "${params.label}_fluxcal",
         params.data_fluxcal,
         binconfig.polyco,
-        params.fcm,
         params.ra_fluxcal,
         params.dec_fluxcal,
         params.fluxflagfile
@@ -45,7 +44,6 @@ workflow {
             "${params.label}_polcal",
             params.data_polcal,
             binconfig.polyco,
-            params.fcm,
             params.ra_polcal,
             params.dec_polcal,
             params.polflagfile,
@@ -59,7 +57,6 @@ workflow {
             params.label,
             params.data_frb,
             binconfig,
-            params.fcm,
             params.ra_frb,
             params.dec_frb,
             params.fieldflagfile,

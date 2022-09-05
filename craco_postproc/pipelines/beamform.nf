@@ -35,8 +35,6 @@ process create_calcfiles {
                 Earliest data start time in Modified Julian Day (MJD)
             pos: path
                 File containing JMFIT statistics of position to beamform on
-            fcm: val
-                Absolute path to fcm (hardware delays) file
         
         Output
             Delay files: tuple(path, path)
@@ -48,7 +46,6 @@ process create_calcfiles {
         val data
         val startmjd
         path pos
-        val fcm
 
     output:
         tuple path("c1_f0/craftfrb*.im"), path("c1_f0/craftfrb*.calc")
@@ -71,7 +68,7 @@ process create_calcfiles {
         args="-t $data"
         args="\$args --ra \$ra"
         args="\$args -d\$dec"
-        args="\$args -f $fcm"
+        args="\$args -f $params.fcm"
         args="\$args -b 4"
         args="\$args --card 1"
         args="\$args -k"
@@ -116,8 +113,6 @@ process do_beamform {
             flux_cal_solns: path
                 Flux calibration solutions. These should be the same solutions 
                 used to image the data and produce a position
-            fcm: val
-                Absolute path to fcm (hardware delays) file
 
         Output
             pol, fine spectrum: tuple(val, path)
@@ -133,7 +128,6 @@ process do_beamform {
         each pol
         each ant_idx
         path flux_cal_solns
-        val fcm
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
@@ -149,7 +143,7 @@ process do_beamform {
         tar xvf $flux_cal_solns
 
         args="-d $data"
-        args="\$args --parset $fcm"
+        args="\$args --parset $params.fcm"
         args="\$args --calcfile $imfile"
         args="\$args --aips_c bandpass*txt"
         args="\$args --an $ant_idx"
@@ -519,8 +513,6 @@ workflow beamform {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             pos: path
                 File containing JMFIT statistics of position to beamform on
             flux_cal_solns: path
@@ -545,7 +537,6 @@ workflow beamform {
     take:
         label
         data
-        fcm
         pos
         flux_cal_solns
         pol_cal_solns
@@ -556,11 +547,11 @@ workflow beamform {
     main:
         // preliminaries
         startmjd = get_start_mjd(data)
-        calcfiles = create_calcfiles(label, data, startmjd, pos, fcm)
+        calcfiles = create_calcfiles(label, data, startmjd, pos)
 
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns
         )
         sum(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())

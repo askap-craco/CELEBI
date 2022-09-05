@@ -93,8 +93,6 @@ process do_correlate {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             ra: val
                 Right ascension to correlate around, as hh:mm:ss
             dec: val
@@ -126,7 +124,6 @@ process do_correlate {
     input:
         val label
         val data
-        val fcm
         val ra
         val dec
         path binconfig, stageAs: "craftfrb.binconfig"
@@ -147,7 +144,7 @@ process do_correlate {
             . $launchDir/../setup_proc
         fi
 
-        args="-f $fcm"
+        args="-f $params.fcm"
         args="\$args -b 4"
         args="\$args -k"
         args="\$args --name=$label"
@@ -420,8 +417,6 @@ workflow correlate {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            fcm: val
-                Absolute path to fcm (hardware delays) file
             ra: val
                 Right ascension to correlate around, as hh:mm:ss
             dec: val
@@ -442,7 +437,6 @@ workflow correlate {
     take:
         label
         data
-        fcm
         ra
         dec
         binconfig
@@ -457,7 +451,7 @@ workflow correlate {
         // cards.combine(fpgas) kicks off an instance of do_correlate for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = do_correlate(
-            label, data, fcm, ra, dec, binconfig, polyco, inttime, startmjd, 
+            label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
             cards.combine(fpgas), bat0
         )
         per_card_fits = difx_to_fits(
