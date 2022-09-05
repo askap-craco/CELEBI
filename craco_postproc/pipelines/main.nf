@@ -31,11 +31,11 @@ workflow {
     flux_cal_solns = fcal(
         "${params.label}_fluxcal",
         params.data_fluxcal,
-        binconfig,
+        binconfig.polyco,
         params.fcm,
         params.ra_fluxcal,
         params.dec_fluxcal,
-        params.fluxflagfile,
+        params.fluxflagfile
     )
     if ( params.nopolcal ) {
         pol_cal_solns = create_empty_file("polcal.dat")
@@ -44,7 +44,7 @@ workflow {
         pol_cal_solns = pcal(
             "${params.label}_polcal",
             params.data_polcal,
-            binconfig,
+            binconfig.polyco,
             params.fcm,
             params.ra_polcal,
             params.dec_polcal,
@@ -58,7 +58,7 @@ workflow {
         frb(
             params.label,
             params.data_frb,
-            binconfig
+            binconfig,
             params.fcm,
             params.ra_frb,
             params.dec_frb,

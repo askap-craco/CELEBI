@@ -85,6 +85,13 @@ process create_calcfiles {
         echo "python3 $localise_dir/processTimeStep.py \$args"
         python3 $localise_dir/processTimeStep.py \$args
         """    
+    
+    stub:
+        """
+        mkdir c1_f0
+        touch c1_f0/craftfrb0.im
+        touch c1_f0/craftfrb0.calc
+        """
 }
 
 process do_beamform {
@@ -160,6 +167,12 @@ process do_beamform {
 
         export FFTLEN=`cat fftlen`
         """
+
+    stub:
+        """
+        touch ${label}_frb_${ant_idx}_${pol}_f.npy
+        export FFTLEN=100
+        """
 }
 
 process sum {
@@ -201,6 +214,11 @@ process sum {
 
         python3 $beamform_dir/sum.py \$args
         """
+    
+    stub:
+        """
+        touch ${label}_frb_sum_${pol}_f.npy
+        """
 }
 
 process generate_deripple {
@@ -235,6 +253,11 @@ process generate_deripple {
 
         python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
         """
+    
+    stub:
+        """
+        touch deripple100.npy
+        """
 }
 
 process deripple {
@@ -246,8 +269,6 @@ process deripple {
             label: val
                 FRB name and context of process instance as a string (no
                 spaces)
-            int_len: val
-                Integration length (units unclear?)
             pol, spectrum: tuple(val, path)
                 Polarisation and fine spectrum file
             fftlen: env
@@ -265,7 +286,6 @@ process deripple {
     */
     input:
         val label
-        val int_len
         tuple val(pol), path(spectrum)
         env FFTLEN
         path coeffs
@@ -291,6 +311,11 @@ process deripple {
         args="\$args --cpus 1"
 
         python3 $beamform_dir/deripple.py \$args
+        """
+    
+    stub:
+        """
+        touch ${label}_frb_sum_${pol}_f_derippled.npy
         """
 }
 
@@ -342,6 +367,11 @@ process dedisperse {
         echo "python3 $beamform_dir/dedisperse.py \$args"
         python3 $beamform_dir/dedisperse.py \$args
         """
+    
+    stub:
+        """
+        touch ${label}_frb_sum_${pol}_f_dedispersed_${dm}.npy
+        """
 }
 
 process ifft {
@@ -392,6 +422,11 @@ process ifft {
         fi
 
         cp *_t_*.npy ${params.publish_dir}/${params.label}/htr/
+        """
+
+    stub:
+        """
+        touch ${label}_${pol}_t_${dm}.npy
         """
 }
 
@@ -463,6 +498,12 @@ process generate_dynspecs {
 
         rm TEMP*
         """
+    
+    stub:
+        """
+        touch stub.npy
+        touch stub.txt
+        """
 }
 
 
@@ -523,7 +564,7 @@ workflow beamform {
         )
         sum(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())
-        deripple(label, int_len, sum.out, do_beamform.out.fftlen.first(), coeffs)
+        deripple(label, sum.out, do_beamform.out.fftlen.first(), coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
         xy = ifft.out.collect()

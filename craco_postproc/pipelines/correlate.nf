@@ -41,6 +41,11 @@ process get_start_mjd {
         fi
         python3 $localise_dir/get_start_mjd.py $data
         """
+    
+    stub:
+        """
+        echo "0"
+        """
 }
 
 process create_bat0 {
@@ -69,6 +74,11 @@ process create_bat0 {
             . $launchDir/../setup_proc
         fi
         bat0.pl `find $data/*/*/*vcraft | head -1`
+        """
+    
+    stub:
+        """
+        touch .bat0
         """
 }
 
@@ -183,6 +193,12 @@ process do_correlate {
 
         python3 $localise_dir/processTimeStep.py \$args
         """
+    
+    stub:
+        """
+        mkdir c${card}_f${fpga}
+        touch c${card}_f${fpga}/stubD2D.input
+        """
 }
 
 process difx_to_fits {
@@ -245,6 +261,10 @@ process difx_to_fits {
         ./runalldifx2fits
         """
 
+    stub:
+        """
+        touch stub.FITS
+        """
 }
 
 process load_fits {
@@ -333,6 +353,11 @@ process load_fits {
             done
         fi
         """
+    
+    stub:
+        """
+        touch ${label}stub.fits
+        """
 }
 
 process subtract_rfi {
@@ -376,6 +401,11 @@ process subtract_rfi {
         fi
 
         uvsubScaled.py $finder_fits *_rfi.fits \$scale norfifbin\${bin}.fits
+        """
+    
+    stub:
+        """
+        touch stub.fits
         """
 }
 

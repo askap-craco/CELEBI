@@ -74,6 +74,12 @@ process plot {
 
         python3 $beamform_dir/plot.py \$args
         """
+    
+    stub:
+        """
+        touch stub.png
+        mkdir crops
+        """
 }
 
 process npy2fil {
@@ -115,38 +121,14 @@ process npy2fil {
             . $launchDir/../setup_proc
         fi
 
-        # parse final position file for RA and Dec
-        ra_line=\$(head -2 $final_position | tail -1)
-        dec_line=\$(tail -1 $final_position)
+        # invoke script to avoid clashes between Nextflow's parsing and bash's
+        $beamform_dir/do_npy2fil.sh $final_position $params.label $startmjd \
+                                    $centre_freq $beamform_dir
+        """
 
-        ra=\$(echo \$ra_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
-        dec=\$(echo \$dec_line | awk -F ' ' '{print \$2}' | sed 's/[a-z]//g')
-        
-        for npy in \$(ls crops/*[IQUV]*); do
-            # get tsamp from filename and convert to us
-            tsamp=\$(echo \$npy | awk -F "_" '{print \$(NF-1)}')
-            tsamp_val=\$(echo \$tsamp | sed 's/[a-z]//g')
-            tsamp_unit=\$(echo \$tsamp | sed 's/[0-9]//g')
-            if [ "\$unit" == "ms" ]; then
-                    tsamp_val=\$((tsamp_val*1000))
-            fi
-
-            # get Stokes parameter from filename
-            par=\$(echo \$npy | awk -F "_" '{print \$NF}')
-
-            outfile=\$(echo \$npy | sed 's/npy/fil/g' | sed 's/crops\///g')
-
-            args="-s FRB$params.label"
-            args="\$args --tsamp \$tsamp_val"
-            args="\$args --tstart $startmjd"
-            args="\$args --f0 $centre_freq"
-            args="\$args -r \$ra"
-            args="\$args -d=\$dec"
-            args="\$args -o \$outfile"
-            args="\$args \$npy"
-
-            python3 $beamform_dir/npy2fil.py \$args
-        done
+    stub:
+        """
+        touch stub.fil
         """
 }
 
@@ -184,7 +166,14 @@ workflow process_frb {
     take:
         label
         data
-        binconfig
+        // vvv binconfig channels vvv
+        binconfig_finder
+        binconfig_gate
+        binconfig_rfi
+        subtractions
+        polyco
+        int_time
+        // ^^^ binconfig channels ^^^
         fcm
         ra0
         dec0
@@ -195,12 +184,6 @@ workflow process_frb {
         centre_freq
 
     main:
-        binconfig_finder = binconfig.finder
-        binconfig_rfi = binconfig.rfi
-        subtractions = binconfig.subtractions
-        polyco = binconfig.polyco
-        int_time = binconfig.int_time
-
         // Correlate finder
         finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
         if(new File(finder_fits_path).exists()) {
@@ -285,7 +268,7 @@ workflow process_frb {
                 field_fits, flux_cal_solns, fieldflagfile, askap_frb_pos
             ).jmfit
 
-            final_position = apply_offset(field_sources, askap_frb_pos)
+            final_position = apply_offset(field_sources, askap_frb_pos).final_position
         }
 
         if(params.beamform) {

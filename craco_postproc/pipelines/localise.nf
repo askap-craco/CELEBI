@@ -50,6 +50,16 @@ process generate_binconfig {
         \$sl2f_cmd > sl2f.out
         int_time=`cat sl2f.out | tail -1`
         """
+    
+    stub:
+        """
+        touch craftfrb.finder.binconfig
+        touch craftfrb.gate.binconfig
+        touch craftfrb.rfi.binconfig
+        touch craftfrb.polyco
+        touch dosubtractions.sh
+        export int_time=0
+        """
 }
 
 process apply_offset {
@@ -112,5 +122,13 @@ process apply_offset {
 
         python3 $localise_dir/apply_offset.py --frb $askap_frb_pos \
             --offset offset0.dat > ${params.label}_final_position.txt
+        """
+    
+    stub:
+        """
+        touch ${params.label}_final_position.txt
+        touch stub.dat 
+        touch stub.reg
+        touch stub.png
         """
 }

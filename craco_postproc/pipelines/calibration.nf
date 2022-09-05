@@ -58,6 +58,13 @@ process determine_flux_cal_solns {
         fi
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
+    
+    stub:
+        """
+        touch calibration_noxpol_${params.target}.tar.gz
+        touch stub_calibrated_uv.ms
+        touch stub.ps
+        """
 }
 
 process apply_flux_cal_solns_finder {
@@ -135,6 +142,14 @@ process apply_flux_cal_solns_finder {
                 >> fbin\${bin}_sources.reg
         done
         """
+        
+    stub:
+        """
+        touch fbin0.jmfit
+        touch fbin0.fits
+        touch fbin0.reg
+        touch stub_calibrated_uv.ms
+        """
 }
 
 process get_peak {
@@ -208,6 +223,14 @@ process get_peak {
         cp \${peak}_sources.reg ${params.label}.reg
         cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
         """    
+
+    stub:
+        """
+        touch ${params.label}.jmfit
+        touch ${params.label}.fits
+        touch ${params.label}.reg
+        touch ${params.label}_calibrated_uv.ms
+        """
 }
 
 process apply_flux_cal_solns_field {
@@ -292,6 +315,14 @@ process apply_flux_cal_solns_field {
             i=\$((i+1))
         done
         """    
+    
+    stub:
+        """
+        touch f0.fits
+        touch stub_calibrated_uv.ms
+        touch stub.jmfit
+        touch stub.reg
+        """
 }
 
 process apply_flux_cal_solns_polcal {
@@ -325,7 +356,6 @@ process apply_flux_cal_solns_polcal {
         val flagfile
 
     output:
-        // path "*.image", emit: image
         path "p*.fits", emit: fitsimage
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
@@ -362,6 +392,14 @@ process apply_flux_cal_solns_polcal {
             python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
+        """
+
+    stub:
+        """
+        touch p0.fits
+        touch stub_calibrated_uv.ms
+        touch stub.jmfit
+        touch stub.reg
         """    
 }
 
@@ -416,5 +454,11 @@ process determine_pol_cal_solns {
         args="\$args --plotdir ."
 
         python3 $beamform_dir/polcal.py \$args
+        """
+    
+    stub:
+        """
+        touch ${params.label}_polcal.dat
+        touch stub.png
         """
 }

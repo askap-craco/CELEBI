@@ -4,7 +4,6 @@ include { create_empty_file } from './utils'
 include { correlate as corr_pcal } from './correlate'
 include { beamform as bform_pcal } from './beamform'
 include { apply_flux_cal_solns_polcal as apply_cal_pcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
-include { generate_binconfig } from './localise'
 
 workflow process_pol_cal {
     /*
@@ -16,7 +15,7 @@ workflow process_pol_cal {
             data: val
                 Absolute path to pol cal data base directory (the dir. with the 
                 ak* directories)
-            binconfig: paths
+            polyco: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
             fcm: val
@@ -45,7 +44,7 @@ workflow process_pol_cal {
     take:
         label
         data
-        binconfig
+        polyco
         fcm
         ra0
         dec0
@@ -64,7 +63,7 @@ workflow process_pol_cal {
         }
         else {
             fits = corr_pcal(
-                label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, "polcal"
+                label, data, fcm, ra0, dec0, empty_file, polyco, 0, "polcal"
             )
         }
 

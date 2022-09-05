@@ -14,7 +14,7 @@ workflow process_flux_cal {
             data: val
                 Absolute path to flux calibrator data base directory (the dir. 
                 with the ak* directories)
-            binconfig: paths
+            polyco: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
             fcm: val
@@ -36,7 +36,7 @@ workflow process_flux_cal {
     take:
         label
         data
-        binconfig
+        polyco
         fcm
         ra
         dec
@@ -51,7 +51,7 @@ workflow process_flux_cal {
         else {
             empty_binconfig = create_empty_file("binconfig")
             fits = corr_fcal(
-                label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 
+                label, data, fcm, ra, dec, empty_binconfig, polyco, 0, 
                 "fluxcal"
             )
         }
