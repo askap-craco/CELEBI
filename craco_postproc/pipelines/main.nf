@@ -4,6 +4,7 @@ include { process_flux_cal as fcal } from './process_flux_cal'
 include { process_pol_cal as pcal } from './process_pol_cal'
 include { process_frb as frb } from './process_frb'
 include { create_empty_file } from './utils'
+include { generate_binconfig } from './localise'
 
 // Defaults
 params.cpasspoly_fluxcal = 5
@@ -25,12 +26,15 @@ params.nopolcal = false     // some FRBs have no good pol cal
 params.outdir = "${params.publish_dir}/${params.label}"
 
 workflow {
+    binconfig = generate_binconfig(
+        params.data_frb,
+        params.snoopy
+    )
     flux_cal_solns = fcal(
         "${params.label}_fluxcal",
         params.label,
         params.data_fluxcal,
-        params.data_frb,
-        params.snoopy,
+        binconfig,
         params.fcm,
         params.ra_fluxcal,
         params.dec_fluxcal,
@@ -45,8 +49,7 @@ workflow {
             "${params.label}_polcal",
             params.label,
             params.data_polcal,
-            params.data_frb,
-            params.snoopy,
+            binconfig,
             params.fcm,
             params.ra_polcal,
             params.dec_polcal,
@@ -61,7 +64,7 @@ workflow {
         frb(
             params.label,
             params.data_frb,
-            params.snoopy,
+            binconfig
             params.fcm,
             params.ra_frb,
             params.dec_frb,

@@ -160,8 +160,9 @@ workflow process_frb {
             data: val
                 Absolute path to FRB data base directory (the dir. with the ak*
                 directories)
-            snoopy: val
-                Absolute path to snoopyv2.log file of FRB trigger
+            binconfig: paths
+                Output of generate_binconfig created from FRB data and snoopy
+                log
             fcm: val
                 Absolute path to fcm (hardware delays) file
             ra0: val
@@ -185,7 +186,7 @@ workflow process_frb {
     take:
         label
         data
-        snoopy
+        binconfig
         fcm
         ra0
         dec0
@@ -197,7 +198,6 @@ workflow process_frb {
         centre_freq
 
     main:
-        binconfig = generate_binconfig(data, snoopy)
         binconfig_finder = binconfig.finder
         binconfig_rfi = binconfig.rfi
         subtractions = binconfig.subtractions

@@ -3,7 +3,6 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_fcal } from './correlate'
 include { determine_flux_cal_solns as cal_fcal } from './calibration'
-include { generate_binconfig } from './localise'
  
 workflow process_flux_cal {
     /*
@@ -17,11 +16,9 @@ workflow process_flux_cal {
             data: val
                 Absolute path to flux calibrator data base directory (the dir. 
                 with the ak* directories)
-            data_frb: val
-                Absolute path to FRB data base directory (the dir. with the ak*
-                directories)
-            snoopy: val
-                Absolute path to snoopyv2.log file of FRB trigger
+            binconfig: paths
+                Output of generate_binconfig created from FRB data and snoopy
+                log
             fcm: val
                 Absolute path to fcm (hardware delays) file
             ra: val
@@ -44,8 +41,7 @@ workflow process_flux_cal {
         label
         target
         data
-        data_frb
-        snoopy
+        binconfig
         fcm
         ra
         dec
@@ -59,7 +55,6 @@ workflow process_flux_cal {
             fits = Channel.fromPath(fluxcal_fits_path)
         }
         else {
-            binconfig = generate_binconfig(data_frb, snoopy)
             empty_binconfig = create_empty_file("binconfig")
             fits = corr_fcal(
                 label, data, fcm, ra, dec, empty_binconfig, binconfig.polyco, 0, 

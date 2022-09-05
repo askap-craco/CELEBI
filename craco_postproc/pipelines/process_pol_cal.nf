@@ -18,11 +18,9 @@ workflow process_pol_cal {
             data: val
                 Absolute path to pol cal data base directory (the dir. with the 
                 ak* directories)
-            data_frb: val
-                Absolute path to FRB data base directory (the dir. with the ak*
-                directories)
-            snoopy: val
-                Absolute path to snoopyv2.log file of FRB trigger
+            binconfig: paths
+                Output of generate_binconfig created from FRB data and snoopy
+                log
             fcm: val
                 Absolute path to fcm (hardware delays) file
             ra0: val
@@ -52,8 +50,7 @@ workflow process_pol_cal {
         label
         target
         data
-        data_frb
-        snoopy
+        binconfig
         fcm
         ra0
         dec0
@@ -72,7 +69,6 @@ workflow process_pol_cal {
             fits = Channel.fromPath(polcal_fits_path)
         }
         else {
-            binconfig = generate_binconfig(data_frb, snoopy)
             fits = corr_pcal(
                 label, data, fcm, ra0, dec0, empty_file, binconfig.polyco, 0, "polcal"
             )
