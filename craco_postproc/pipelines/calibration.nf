@@ -11,6 +11,7 @@ params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
 params.nfieldsources = 50   // number of field sources to try and find
+params.cpasspoly = 5
 
 process determine_flux_cal_solns {
     /*
@@ -23,8 +24,6 @@ process determine_flux_cal_solns {
                 Absolute path to AIPS flag file for flux calibrator
             target: val
                 Global label (usually FRB name)
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
             
         Output
             solns: path
@@ -40,7 +39,6 @@ process determine_flux_cal_solns {
         path cal_fits
         val flagfile
         val target
-        val cpasspoly
 
     output:
         path "calibration_noxpol_${target}.tar.gz", emit: solns
@@ -54,7 +52,7 @@ process determine_flux_cal_solns {
         args="\$args --uvsrt"
         args="\$args -u 51"
         args="\$args --src=$target"
-        args="\$args --cpasspoly=$cpasspoly"
+        args="\$args --cpasspoly=$params.cpasspoly"
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
 
@@ -79,8 +77,6 @@ process apply_flux_cal_solns_finder {
                 Tarball containing calibration solutions
             target: val
                 Global label (usually FRB name)
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
         
         Output
             jmfit: path
@@ -99,7 +95,6 @@ process apply_flux_cal_solns_finder {
         each path(target_fits)
         path cal_solns
         val target
-        val cpasspoly
 
     output:
         path "fbin*.jmfit", emit: jmfit
@@ -120,7 +115,6 @@ process apply_flux_cal_solns_finder {
         args="--targetonly"
         args="\$args -t $target_fits"
         args="\$args -r 3"
-        args="\$args --cpasspoly=$cpasspoly"
         args="\$args -i"
         args="\$args -j"
         args="\$args --cleanmfs"
@@ -237,8 +231,6 @@ process apply_flux_cal_solns_field {
                 Absolute path to AIPS flag file for field data
             target: val
                 Global label (usually FRB name)
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
             dummy: val
                 A dummy variable used to force field calibration to wait for
                 finder calibration (otherwise calibrateFRB.py steps on itself)
@@ -262,7 +254,6 @@ process apply_flux_cal_solns_field {
         path cal_solns
         val flagfile
         val target
-        val cpasspoly
         val dummy
 
     output:
@@ -289,7 +280,6 @@ process apply_flux_cal_solns_field {
             args="\$args --targetonly"
             args="\$args -t $target_fits"
             args="\$args -r 3"
-            args="\$args --cpasspoly=$cpasspoly"
             args="\$args --cleanmfs"
             args="\$args -a 16"
             args="\$args --skipplot"
@@ -327,8 +317,6 @@ process apply_flux_cal_solns_polcal {
                 Absolute path to AIPS flag file for polarisation calibrator
             target: val
                 Global label (usually FRB name)
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
         
         Output
             fitsimage: path
@@ -347,7 +335,6 @@ process apply_flux_cal_solns_polcal {
         path cal_solns
         val flagfile
         val target
-        val cpasspoly
 
     output:
         // path "*.image", emit: image
@@ -363,7 +350,6 @@ process apply_flux_cal_solns_polcal {
         args="--targetonly"
         args="\$args -t $target_fits"
         args="\$args -r 3"
-        args="\$args --cpasspoly=$cpasspoly"
         args="\$args -i"
         args="\$args -j"
         args="\$args --cleanmfs"

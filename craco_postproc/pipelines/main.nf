@@ -7,10 +7,6 @@ include { create_empty_file } from './utils'
 include { generate_binconfig } from './localise'
 
 // Defaults
-params.cpasspoly_fluxcal = 5
-params.cpasspoly_polcal = 5
-params.cpasspoly_frb = 5
-
 params.fluxflagfile = ""
 params.polflagfile = ""
 params.fieldflagfile = ""
@@ -39,7 +35,6 @@ workflow {
         params.ra_fluxcal,
         params.dec_fluxcal,
         params.fluxflagfile,
-        params.cpasspoly_fluxcal
     )
     if ( params.nopolcal ) {
         pol_cal_solns = create_empty_file("polcal.dat")
@@ -54,7 +49,6 @@ workflow {
             params.ra_polcal,
             params.dec_polcal,
             params.polflagfile,
-            params.cpasspoly_polcal,
             flux_cal_solns,
             params.dm_polcal,
             params.centre_freq_polcal
@@ -71,7 +65,6 @@ workflow {
             params.fieldflagfile,
             flux_cal_solns,
             pol_cal_solns,
-            params.cpasspoly_frb,
             params.dm_frb,
             params.centre_freq_frb
         )

@@ -176,8 +176,6 @@ workflow process_frb {
                 Flux calibrator solutions tarball
             pol_cal_solns: path
                 Polarisation calibration solutions in a text file
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
             dm: val
                 DM to dedisperse to in pc/cm3
             centre_freq: val
@@ -193,7 +191,6 @@ workflow process_frb {
         fieldflagfile
         flux_cal_solns
         pol_cal_solns
-        cpasspoly
         dm
         centre_freq
 
@@ -272,7 +269,7 @@ workflow process_frb {
             }
 
             bins_out = cal_finder(
-                no_rfi_finder_fits, flux_cal_solns, label, cpasspoly
+                no_rfi_finder_fits, flux_cal_solns, label
             )
             bin_jmfits = bins_out.jmfit
             bin_fits_images = bins_out.fits_image
@@ -285,8 +282,7 @@ workflow process_frb {
             ).peak_jmfit
 
             field_sources = cal_field(
-                field_fits, flux_cal_solns, fieldflagfile, label, cpasspoly, 
-                askap_frb_pos
+                field_fits, flux_cal_solns, fieldflagfile, label, askap_frb_pos
             ).jmfit
 
             final_position = apply_offset(field_sources, askap_frb_pos)

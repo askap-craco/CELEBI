@@ -32,8 +32,6 @@ workflow process_pol_cal {
                 set to a blank string, the workflow will end before calibrating
             flux_cal_solns: path
                 Flux calibrator solutions tarball
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
             dm: val
                 DM to dedisperse to in pc/cm3
             centre_freq: val
@@ -55,7 +53,6 @@ workflow process_pol_cal {
         ra0
         dec0
         polflagfile
-        cpasspoly
         flux_cal_solns
         dm
         centre_freq
@@ -85,7 +82,7 @@ workflow process_pol_cal {
                     System.exit(1)
                 }
                 pos = apply_cal_pcal(
-                    fits, flux_cal_solns, polflagfile, target, cpasspoly
+                    fits, flux_cal_solns, polflagfile, target
                 ).jmfit
         }
 

@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_fcal } from './correlate'
 include { determine_flux_cal_solns as cal_fcal } from './calibration'
- 
+
 workflow process_flux_cal {
     /*
         Process voltages to obtain flux+phase calibration solutions
@@ -28,8 +28,6 @@ workflow process_flux_cal {
             fluxflagfile: val
                 Absolute path to AIPS flag file for flux calibrator. If set to
                 a blank string, the workflow will end before calibrating.
-            cpasspoly: val
-                Order of polynomial to fit bandpass with
         
         Emit
             flux_cal_solns: val/path
@@ -46,7 +44,6 @@ workflow process_flux_cal {
         ra
         dec
         fluxflagfile
-        cpasspoly
 
     main:
         // Correlation
@@ -72,7 +69,7 @@ workflow process_flux_cal {
                 println "No fluxcal flag file!"
                 System.exit(1)
             }
-            flux_cal_solns = cal_fcal(fits, fluxflagfile, target, cpasspoly).solns
+            flux_cal_solns = cal_fcal(fits, fluxflagfile, target).solns
         }
         else {
             flux_cal_solns = ""
