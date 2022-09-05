@@ -10,27 +10,11 @@ workflow process_pol_cal {
         Process voltages to obtain polarisation calibration solutions
 
         Take
-            label: val
-                FRB name and context as a string (no spaces)
-            data: val
-                Absolute path to pol cal data base directory (the dir. with the 
-                ak* directories)
-            polyco: paths
+            polyco: path
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            ra0: val
-                FRB right ascension initial guess as "hh:mm:ss"
-            dec0: val
-                FRB declination initial guess as "dd:mm:ss"
-            polflagfile: val
-                Absolute path to AIPS flag file for polarisation calibrator. If
-                set to a blank string, the workflow will end before calibrating
             flux_cal_solns: path
                 Flux calibrator solutions tarball
-            dm: val
-                DM to dedisperse to in pc/cm3
-            centre_freq: val
-                Central frequency of data in MHz
         
         Emit
             pol_cal_solns: val/path
@@ -40,17 +24,11 @@ workflow process_pol_cal {
     */    
 
     take:
-        label
-        data
         polyco
-        ra0
-        dec0
-        polflagfile
         flux_cal_solns
-        dm
-        centre_freq
 
     main:
+        label = "${params.label}_polcal"
         empty_file = create_empty_file("file")
 
         // Correlation
@@ -60,7 +38,8 @@ workflow process_pol_cal {
         }
         else {
             fits = corr_pcal(
-                label, data, ra0, dec0, empty_file, polyco, 0, "polcal"
+                label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
+                empty_file, polyco, 0, "polcal"
             )
         }
 
@@ -75,15 +54,15 @@ workflow process_pol_cal {
                     System.exit(1)
                 }
                 pos = apply_cal_pcal(
-                    fits, flux_cal_solns, polflagfile
+                    fits, flux_cal_solns, params.polflagfile
                 ).jmfit
         }
 
         // Beamforming
         if(params.beamform) {
             bform_pcal(
-                label, data, pos, flux_cal_solns, empty_file, dm, centre_freq, 
-                "-ds -IQUV"
+                label, params.data_polcal, pos, flux_cal_solns, empty_file, 
+                params.dm_polcal, params.centre_freq_polcal, "-ds -IQUV"
             )
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   

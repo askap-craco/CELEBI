@@ -4,11 +4,6 @@ process generate_binconfig {
     /*
         Create binconfig files for each correlation mode
 
-        Input
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
-        
         Output
             TODO: describe the modes here
             finder: path
@@ -25,10 +20,6 @@ process generate_binconfig {
             int_time: env
                 Integration time in seconds
     */
-    input:
-        val data
-        path snoopy
-
     output:
         path "craftfrb.finder.binconfig", emit: finder
         path "craftfrb.gate.binconfig", emit: gate
@@ -43,7 +34,7 @@ process generate_binconfig {
             . $launchDir/../setup_proc
         fi
         tmp_file=".TMP_\$BASHPID"
-        python3 $localise_dir/getGeocentricDelay.py $data $snoopy > \$tmp_file
+        python3 $localise_dir/getGeocentricDelay.py $params.data_frb $params.snoopy > \$tmp_file
 
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"

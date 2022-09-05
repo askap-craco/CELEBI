@@ -24,46 +24,27 @@ params.target = "FRB${params.label}"
 params.outdir = "${params.publish_dir}/${params.label}"
 
 workflow {
-    binconfig = generate_binconfig(
-        params.data_frb,
-        params.snoopy
-    )
+    binconfig = generate_binconfig()
+
     flux_cal_solns = fcal(
-        "${params.label}_fluxcal",
-        params.data_fluxcal,
         binconfig.polyco,
-        params.ra_fluxcal,
-        params.dec_fluxcal,
-        params.fluxflagfile
     )
-    if ( params.nopolcal ) {
+
+    if(params.nopolcal) {
         pol_cal_solns = create_empty_file("polcal.dat")
     }
     else {
         pol_cal_solns = pcal(
-            "${params.label}_polcal",
-            params.data_polcal,
             binconfig.polyco,
-            params.ra_polcal,
-            params.dec_polcal,
-            params.polflagfile,
             flux_cal_solns,
-            params.dm_polcal,
-            params.centre_freq_polcal
         )
     }
-    if(!params.nofrb){
+
+    if(!params.nofrb) {
         frb(
-            params.label,
-            params.data_frb,
-            binconfig,
-            params.ra_frb,
-            params.dec_frb,
-            params.fieldflagfile,
+            binconfig,              // expands into 6 Channels
             flux_cal_solns,
             pol_cal_solns,
-            params.dm_frb,
-            params.centre_freq_frb
         )
     }
 }

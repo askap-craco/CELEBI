@@ -137,33 +137,15 @@ workflow process_frb {
         Process voltages to obtain an FRB position
 
         Take
-            label: val
-                FRB name and context as a string (no spaces)
-            data: val
-                Absolute path to FRB data base directory (the dir. with the ak*
-                directories)
             binconfig: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            ra0: val
-                FRB right ascension initial guess as "hh:mm:ss"
-            dec0: val
-                FRB declination initial guess as "dd:mm:ss"
-            fieldflagfile: val
-                Absolute path to AIPS flag file for field visibilities. If set 
-                to a blank string, the workflow will end before calibrating.
             flux_cal_solns: path
                 Flux calibrator solutions tarball
             pol_cal_solns: path
                 Polarisation calibration solutions in a text file
-            dm: val
-                DM to dedisperse to in pc/cm3
-            centre_freq: val
-                Central frequency of data in MHz
     */
     take:
-        label
-        data
         // vvv binconfig channels vvv
         binconfig_finder
         binconfig_gate
@@ -172,13 +154,8 @@ workflow process_frb {
         polyco
         int_time
         // ^^^ binconfig channels ^^^
-        ra0
-        dec0
-        fieldflagfile
         flux_cal_solns
         pol_cal_solns
-        dm
-        centre_freq
 
     main:
         // Correlate finder
@@ -190,8 +167,8 @@ workflow process_frb {
         }
         else {
             finder_fits = corr_finder(
-                "finder", data, ra0, dec0, binconfig_finder, polyco, int_time, 
-                "finder"
+                "finder", params.data_frb, params.ra_frb, params.dec_frb, 
+                binconfig_finder, polyco, int_time, "finder"
             )
         }
 
@@ -203,8 +180,8 @@ workflow process_frb {
         else {
             if(!params.skiprfi) {
                 rfi_fits = corr_rfi(
-                    "${label}_rfi", data, ra0, dec0, binconfig_rfi, polyco, 
-                    int_time, "rfi"
+                    "${params.label}_rfi", params.data_frb, params.ra_frb, 
+                    params.dec_frb, binconfig_rfi, polyco, int_time, "rfi"
                 )
             }
         }
@@ -222,7 +199,8 @@ workflow process_frb {
         else {
             empty_file = create_empty_file("file")
             field_fits = corr_field(
-                "${label}_field", data, ra0, dec0, empty_file, polyco, 0, "field"
+                "${params.label}_field", params.data_frb, params.ra_frb, 
+                params.dec_frb, empty_file, polyco, 0, "field"
             )
         }
 
@@ -262,7 +240,7 @@ workflow process_frb {
             ).peak_jmfit
 
             field_sources = cal_field(
-                field_fits, flux_cal_solns, fieldflagfile, askap_frb_pos
+                field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
             ).jmfit
 
             final_position = apply_offset(field_sources, askap_frb_pos).final_position
@@ -270,13 +248,13 @@ workflow process_frb {
 
         if(params.beamform) {
             bform_frb(
-                label, data, askap_frb_pos, flux_cal_solns, pol_cal_solns,
-                dm, centre_freq, "-ds -t -XYIQUV"
+                params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
+                pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV"
             )
             plot(
-                label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                centre_freq, dm, bform_frb.out.xy
+                params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
+                params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
             )
-            npy2fil(label, plot.out.crops, 0, centre_freq, final_position)
+            npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
         }
 }

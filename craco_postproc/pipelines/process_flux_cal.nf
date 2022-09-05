@@ -9,21 +9,9 @@ workflow process_flux_cal {
         Process voltages to obtain flux+phase calibration solutions
 
         Take
-            label: val
-                FRB name and context as a string (no spaces)
-            data: val
-                Absolute path to flux calibrator data base directory (the dir. 
-                with the ak* directories)
             polyco: paths
                 Output of generate_binconfig created from FRB data and snoopy
                 log
-            ra: val
-                Flux calibrator right ascension as "hh:mm:ss"
-            dec: val
-                Flux calibrator declination as "dd:mm:ss"
-            fluxflagfile: val
-                Absolute path to AIPS flag file for flux calibrator. If set to
-                a blank string, the workflow will end before calibrating.
         
         Emit
             flux_cal_solns: val/path
@@ -32,14 +20,11 @@ workflow process_flux_cal {
                 or a tarball containing the solutions.
     */
     take:
-        label
-        data
         polyco
-        ra
-        dec
-        fluxflagfile
 
     main:
+        label = "${params.label}_fluxcal"
+
         // Correlation
         fluxcal_fits_path = "${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits"
         if(new File(fluxcal_fits_path).exists()) {
@@ -48,7 +33,8 @@ workflow process_flux_cal {
         else {
             empty_binconfig = create_empty_file("binconfig")
             fits = corr_fcal(
-                label, data, ra, dec, empty_binconfig, polyco, 0, "fluxcal"
+                label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
+                empty_binconfig, polyco, 0, "fluxcal"
             )
         }
 
@@ -62,7 +48,7 @@ workflow process_flux_cal {
                 println "No fluxcal flag file!"
                 System.exit(1)
             }
-            flux_cal_solns = cal_fcal(fits, fluxflagfile).solns
+            flux_cal_solns = cal_fcal(fits, params.fluxflagfile).solns
         }
         else {
             flux_cal_solns = ""
