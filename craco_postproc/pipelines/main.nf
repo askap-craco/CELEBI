@@ -19,6 +19,8 @@ params.beamform = false
 params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
 
+params.target = "FRB${params.label}"
+
 params.outdir = "${params.publish_dir}/${params.label}"
 
 workflow {
@@ -28,7 +30,6 @@ workflow {
     )
     flux_cal_solns = fcal(
         "${params.label}_fluxcal",
-        params.label,
         params.data_fluxcal,
         binconfig,
         params.fcm,
@@ -42,7 +43,6 @@ workflow {
     else {
         pol_cal_solns = pcal(
             "${params.label}_polcal",
-            params.label,
             params.data_polcal,
             binconfig,
             params.fcm,

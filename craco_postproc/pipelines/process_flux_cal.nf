@@ -11,8 +11,6 @@ workflow process_flux_cal {
         Take
             label: val
                 FRB name and context as a string (no spaces)
-            target: val
-                FRB name as string (e.g. 181112)
             data: val
                 Absolute path to flux calibrator data base directory (the dir. 
                 with the ak* directories)
@@ -37,7 +35,6 @@ workflow process_flux_cal {
     */
     take:
         label
-        target
         data
         binconfig
         fcm
@@ -60,7 +57,7 @@ workflow process_flux_cal {
         }
 
         // Calibration
-        fluxcal_solns_path = "${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${target}.tar.gz"
+        fluxcal_solns_path = "${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
         if(new File(fluxcal_solns_path).exists()) {
             flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
         }
@@ -69,7 +66,7 @@ workflow process_flux_cal {
                 println "No fluxcal flag file!"
                 System.exit(1)
             }
-            flux_cal_solns = cal_fcal(fits, fluxflagfile, target).solns
+            flux_cal_solns = cal_fcal(fits, fluxflagfile).solns
         }
         else {
             flux_cal_solns = ""

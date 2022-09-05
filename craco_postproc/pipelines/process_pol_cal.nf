@@ -13,8 +13,6 @@ workflow process_pol_cal {
         Take
             label: val
                 FRB name and context as a string (no spaces)
-            target: val
-                FRB name as string (e.g. 181112)
             data: val
                 Absolute path to pol cal data base directory (the dir. with the 
                 ak* directories)
@@ -46,7 +44,6 @@ workflow process_pol_cal {
 
     take:
         label
-        target
         data
         binconfig
         fcm
@@ -82,7 +79,7 @@ workflow process_pol_cal {
                     System.exit(1)
                 }
                 pos = apply_cal_pcal(
-                    fits, flux_cal_solns, polflagfile, target
+                    fits, flux_cal_solns, polflagfile
                 ).jmfit
         }
 

@@ -22,8 +22,6 @@ process determine_flux_cal_solns {
                 Flux calibrator visibilities in a FITS file
             flagfile: val
                 Absolute path to AIPS flag file for flux calibrator
-            target: val
-                Global label (usually FRB name)
             
         Output
             solns: path
@@ -38,10 +36,9 @@ process determine_flux_cal_solns {
     input:
         path cal_fits
         val flagfile
-        val target
 
     output:
-        path "calibration_noxpol_${target}.tar.gz", emit: solns
+        path "calibration_noxpol_${params.target}.tar.gz", emit: solns
         path "*_calibrated_uv.ms", emit: ms
         path "*ps", emit: plots
 
@@ -51,7 +48,7 @@ process determine_flux_cal_solns {
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
         args="\$args -u 51"
-        args="\$args --src=$target"
+        args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
         args="\$args -f 15"
         args="\$args --flagfile=$flagfile"
@@ -75,8 +72,6 @@ process apply_flux_cal_solns_finder {
                 Finder bin visibilities in a FITS file
             cal_solns: path
                 Tarball containing calibration solutions
-            target: val
-                Global label (usually FRB name)
         
         Output
             jmfit: path
@@ -94,7 +89,6 @@ process apply_flux_cal_solns_finder {
     input:
         each path(target_fits)
         path cal_solns
-        val target
 
     output:
         path "fbin*.jmfit", emit: jmfit
@@ -125,7 +119,7 @@ process apply_flux_cal_solns_finder {
         args="\$args -a 16"
         args="\$args -u 500"
         args="\$args --skipplot"
-        args="\$args --src=$target"
+        args="\$args --src=$params.target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
@@ -229,8 +223,6 @@ process apply_flux_cal_solns_field {
                 Tarball containing calibration solutions
             flagfile: val
                 Absolute path to AIPS flag file for field data
-            target: val
-                Global label (usually FRB name)
             dummy: val
                 A dummy variable used to force field calibration to wait for
                 finder calibration (otherwise calibrateFRB.py steps on itself)
@@ -253,7 +245,6 @@ process apply_flux_cal_solns_field {
         path target_fits
         path cal_solns
         val flagfile
-        val target
         val dummy
 
     output:
@@ -284,7 +275,7 @@ process apply_flux_cal_solns_field {
             args="\$args -a 16"
             args="\$args --skipplot"
             args="\$args --pixelsize=4"
-            args="\$args --src=$target"
+            args="\$args --src=$params.target"
             args="\$args --tarflagfile=$flagfile"
         else
             args="\$args --image=$params.fieldimage"
@@ -315,8 +306,6 @@ process apply_flux_cal_solns_polcal {
                 Tarball containing calibration solutions
             flagfile: val
                 Absolute path to AIPS flag file for polarisation calibrator
-            target: val
-                Global label (usually FRB name)
         
         Output
             fitsimage: path
@@ -334,7 +323,6 @@ process apply_flux_cal_solns_polcal {
         path target_fits
         path cal_solns
         val flagfile
-        val target
 
     output:
         // path "*.image", emit: image
@@ -359,7 +347,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args -a 16"
         args="\$args -u 502"
         args="\$args --skipplot"
-        args="\$args --src=$target"
+        args="\$args --src=$params.target"
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
