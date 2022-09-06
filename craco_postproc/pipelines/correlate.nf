@@ -82,7 +82,7 @@ process create_bat0 {
         """
 }
 
-process do_correlate {
+process do_correlation {
     /*
         Correlate the data using DiFX
 
@@ -204,7 +204,7 @@ process difx_to_fits {
 
         Input
             correlated_data: path
-                All the c*_f* directories produced by do_correlate
+                All the c*_f* directories produced by do_correlation
             polyco: path
                 TODO: describe polyco 
             mode: val
@@ -448,9 +448,9 @@ workflow correlate {
         startmjd = get_start_mjd(data)
         bat0 = create_bat0(data)
 
-        // cards.combine(fpgas) kicks off an instance of do_correlate for
+        // cards.combine(fpgas) kicks off an instance of do_correlation for
         // every unique card-fpga pair, which are then collated with .collect()
-        correlated_data = do_correlate(
+        correlated_data = do_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
             cards.combine(fpgas), bat0
         )
