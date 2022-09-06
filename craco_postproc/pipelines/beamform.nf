@@ -169,7 +169,7 @@ process do_beamform {
         """
 }
 
-process sum {
+process sum_antennas {
     /*
         Sum fine spectra across antennas for a particular polarisation
 
@@ -553,9 +553,9 @@ workflow beamform {
         do_beamform(
             label, data, calcfiles, polarisations, antennas, flux_cal_solns
         )
-        sum(label, do_beamform.out.data.groupTuple())
+        sum_antennas(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())
-        deripple(label, sum.out, do_beamform.out.fftlen.first(), coeffs)
+        deripple(label, sum_antennas.out, do_beamform.out.fftlen.first(), coeffs)
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
         xy = ifft.out.collect()
