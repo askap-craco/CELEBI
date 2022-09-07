@@ -7,11 +7,6 @@ include { determine_flux_cal_solns as cal_fcal } from './calibration'
 workflow process_flux_cal {
     /*
         Process voltages to obtain flux+phase calibration solutions
-
-        Take
-            polyco: paths
-                Output of generate_binconfig created from FRB data and snoopy
-                log
         
         Emit
             flux_cal_solns: val/path
@@ -19,9 +14,6 @@ workflow process_flux_cal {
                 were not found (e.g. because the data has not been flagged yet)   
                 or a tarball containing the solutions.
     */
-    take:
-        polyco
-
     main:
         label = "${params.label}_fluxcal"
 
@@ -31,10 +23,10 @@ workflow process_flux_cal {
             fits = Channel.fromPath(fluxcal_fits_path)
         }
         else {
-            empty_binconfig = create_empty_file("binconfig")
+            empty_file = create_empty_file("binconfig")
             fits = corr_fcal(
                 label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
-                empty_binconfig, polyco, 0, "fluxcal"
+                empty_file, empty_file, 0, "fluxcal"
             )
         }
 

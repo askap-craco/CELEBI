@@ -137,27 +137,17 @@ workflow process_frb {
         Process voltages to obtain an FRB position
 
         Take
-            binconfig: paths
-                Output of generate_binconfig created from FRB data and snoopy
-                log
             flux_cal_solns: path
                 Flux calibrator solutions tarball
             pol_cal_solns: path
                 Polarisation calibration solutions in a text file
     */
     take:
-        // vvv binconfig channels vvv
-        binconfig_finder
-        binconfig_gate
-        binconfig_rfi
-        subtractions
-        polyco
-        int_time
-        // ^^^ binconfig channels ^^^
         flux_cal_solns
         pol_cal_solns
 
     main:
+        binconfig = generate_binconfig()
         // Correlate finder
         finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
         if(new File(finder_fits_path).exists()) {
@@ -168,7 +158,7 @@ workflow process_frb {
         else {
             finder_fits = corr_finder(
                 "finder", params.data_frb, params.ra_frb, params.dec_frb, 
-                binconfig_finder, polyco, int_time, "finder"
+                binconfig.finder, binconfig.polyco, binconfig.int_time, "finder"
             )
         }
 
@@ -181,7 +171,7 @@ workflow process_frb {
             if(!params.skiprfi) {
                 rfi_fits = corr_rfi(
                     "${params.label}_rfi", params.data_frb, params.ra_frb, 
-                    params.dec_frb, binconfig_rfi, polyco, int_time, "rfi"
+                    params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi"
                 )
             }
         }
@@ -200,7 +190,7 @@ workflow process_frb {
             empty_file = create_empty_file("file")
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, params.ra_frb, 
-                params.dec_frb, empty_file, polyco, 0, "field"
+                params.dec_frb, empty_file, empty_file, 0, "field"
             )
         }
 
@@ -222,7 +212,7 @@ workflow process_frb {
             }
             else {
                 no_rfi_finder_fits = subtract_rfi(
-                    finder_fits, rfi_fits, subtractions
+                    finder_fits, rfi_fits, binconfig.subtractions
                 )                
             }
 

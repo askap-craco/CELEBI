@@ -10,9 +10,6 @@ workflow process_pol_cal {
         Process voltages to obtain polarisation calibration solutions
 
         Take
-            polyco: path
-                Output of generate_binconfig created from FRB data and snoopy
-                log
             flux_cal_solns: path
                 Flux calibrator solutions tarball
         
@@ -24,7 +21,6 @@ workflow process_pol_cal {
     */    
 
     take:
-        polyco
         flux_cal_solns
 
     main:
@@ -39,7 +35,7 @@ workflow process_pol_cal {
         else {
             fits = corr_pcal(
                 label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
-                empty_file, polyco, 0, "polcal"
+                empty_file, empty_file, 0, "polcal"
             )
         }
 
