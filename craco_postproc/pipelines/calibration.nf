@@ -67,7 +67,7 @@ process determine_flux_cal_solns {
         """
 }
 
-process apply_flux_cal_solns_finder {
+process image_finder {
     /*
         For a single finder bin:
             - Flux calibrate
@@ -233,7 +233,7 @@ process get_peak {
         """
 }
 
-process apply_flux_cal_solns_field {
+process image_field {
     /*
         Apply flux calibration to field visibilties and create field image,
         unless we have an already-made deep field image, then find and fit
@@ -325,7 +325,7 @@ process apply_flux_cal_solns_field {
         """
 }
 
-process apply_flux_cal_solns_polcal {
+process image_polcal {
     /*
         Apply flux calibration to and image polarisation calibrator
         visbilities, then fit a single source

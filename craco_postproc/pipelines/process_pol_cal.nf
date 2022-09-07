@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_pcal } from './correlate'
 include { beamform as bform_pcal } from './beamform'
-include { apply_flux_cal_solns_polcal as apply_cal_pcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
+include { image_polcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
 
 workflow process_pol_cal {
     /*
@@ -49,7 +49,7 @@ workflow process_pol_cal {
                     println "No polcal flag file!"
                     System.exit(1)
                 }
-                pos = apply_cal_pcal(
+                pos = image_polcal(
                     fits, flux_cal_solns, params.polflagfile
                 ).jmfit
         }

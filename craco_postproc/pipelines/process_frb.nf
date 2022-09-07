@@ -3,8 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_field; subtract_rfi } from './correlate'
-include { apply_flux_cal_solns_finder as cal_finder;
-    apply_flux_cal_solns_field as cal_field; get_peak } from './calibration'
+include { image_finder; image_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
 include { beamform as bform_frb } from './beamform'
 
@@ -216,7 +215,7 @@ workflow process_frb {
                 )                
             }
 
-            bins_out = cal_finder(
+            bins_out = image_finder(
                 no_rfi_finder_fits, flux_cal_solns
             )
             bin_jmfits = bins_out.jmfit
@@ -229,7 +228,7 @@ workflow process_frb {
                 bin_regs.collect(), bin_mss.collect()
             ).peak_jmfit
 
-            field_sources = cal_field(
+            field_sources = image_field(
                 field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
             ).jmfit
 
