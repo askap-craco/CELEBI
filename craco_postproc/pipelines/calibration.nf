@@ -135,7 +135,7 @@ process apply_flux_cal_solns_finder {
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
 
-        if ["$params.flagfinder" != ""] && ["$params.flagfinder" != "null"]; then
+        if [ "$params.flagfinder" != "" ] && [ "$params.flagfinder" != "null" ]; then
             args="\$args --tarflagfile=$params.flagfinder"
         fi
 
