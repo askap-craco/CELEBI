@@ -67,16 +67,15 @@ def _main():
                 assert yfreqs == thisvals["FREQS"],  (
                     "Frequencies not matching between different chunks of Y pol"
                 )
+            assert xfreqs == yfreqs, (
+                "Frequencies not matching between pols!\n"
+                f"X: {xfreqs}\n"
+                f"Y: {yfreqs}"
+            )
 
     # This code should be removed, as we should not sort, and there shouldn't ever be any removing of duplicates
     #yfreqs = list(set(xfreqs))
     #yfreqs.sort()
-
-    assert xfreqs == yfreqs, (
-        "Frequencies not matching between pols!\n"
-        f"X: {xfreqs}\n"
-        f"Y: {yfreqs}"
-    )
 
     # These should be constant between header files, so can just grab at end
     beamra = float(thisvals["BEAM_RA"])
