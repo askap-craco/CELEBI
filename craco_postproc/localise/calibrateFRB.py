@@ -414,8 +414,8 @@ def _main():
                     )
                 elif source_pixs.shape == (2,):
                     x, y = source_pixs
-                    # fit source within a 20" by 20" box
-                    boxsize = 10 // pxsize
+                    # fit source within a 20px by 20px box
+                    boxsize = 10
 
                     # make sure the box doesn't go outside the image
                     left = max(0, x - boxsize)
@@ -440,8 +440,8 @@ def _main():
                 else:
                     for i, source in enumerate(source_pixs):
                         x, y = source
-                        # fit source within a 20" by 20" box
-                        boxsize = 10 // pxsize
+                        # fit source within a 20px by 20px box
+                        boxsize = 10
 
                         # make sure the box doesn't go outside the image
                         left = max(0, x - boxsize)
