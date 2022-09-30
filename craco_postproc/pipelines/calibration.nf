@@ -134,8 +134,9 @@ process apply_flux_cal_solns_finder {
         args="\$args --src=$target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
 
-        if [ "$params.flagfinder" != "" and "$params.flagfinder" != "null" ]; then
+        if [ "$params.flagfinder" != "" ] && [ "$params.flagfinder" != "null" ]; then
             args="\$args --tarflagfile=$params.flagfinder"
         fi
 
@@ -282,6 +283,7 @@ process apply_flux_cal_solns_field {
         args="\$args -u 501"
         args="\$args --imagesize=$params.fieldimagesize"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
         args="\$args --nmaxsources=$params.nfieldsources"
 
         # if we have an already-made field image, skip imaging
@@ -377,6 +379,7 @@ process apply_flux_cal_solns_polcal {
         args="\$args --tarflagfile=$flagfile"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
 
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_parseltongue3
