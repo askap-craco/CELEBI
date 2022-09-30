@@ -51,7 +51,7 @@ offset = sc(offset_ra, offset_dec, unit="arcsecond")
 offset_err = sc(offset_ra_err, offset_dec_err, unit="arcsecond")
 
 # sum positions
-final_pos = sc(frb_pos.ra + offset.ra, frb_pos.dec, offset.dec)
+final_pos = sc(frb_pos.ra + offset.ra, frb_pos.dec + offset.dec)
 final_err = sc(
     (frb_err.ra ** 2 + offset_err.ra ** 2) ** 0.5,
     (frb_err.dec ** 2 + offset_err.dec ** 2) ** 0.5,
