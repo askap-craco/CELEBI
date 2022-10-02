@@ -103,8 +103,10 @@ def dedisperse(
 
     freqs = get_freqs(f0, bw, nchan)
 
+    f_ref = np.min(freqs)
+
     dedisp_phases = np.exp(
-        2j * np.pi * DM / k_DM * ((freqs - f0) ** 2 / f0 ** 2 / freqs * 1e6)
+        2j * np.pi * DM / k_DM * ((freqs - f_ref) ** 2 / f_ref ** 2 / freqs * 1e6)
     )
 
     spec *= dedisp_phases

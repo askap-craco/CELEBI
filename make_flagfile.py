@@ -4,7 +4,7 @@ from glob import glob
 
 workdir = raw_input("Enter work directory containing .fits visibility file to be flagged: ")
 fitsfile = glob(workdir+"/*fits")[0]
-vis = fitsfile[:-4] + "ms"
+vis = fitsfile[:-4] + "ms"#
 
 print("fitsfile = "+fitsfile)
 print("vis      = "+vis)

@@ -249,12 +249,18 @@ def _main():
             "cell": f"{pxsize}arcsec",
             "phasecenter": phasecenter,
             "gridder": "widefield",
-            "wprojplanes": 1024,
+            "wprojplanes": -1,
             "pblimit": -1,
             "deconvolver": "multiscale",
             "weighting": "natural",
             # "mask": maskstr,
             "usemask": "auto-multithresh",
+            "sidelobethreshold": 1.2,
+            "noisethreshold": 6.0,
+            "lownoisethreshold": 4.0,
+            "smoothfactor": 0.25,
+            "minbeamfrac": 0.05,
+            "growiterations": 10,
         }
 
         # Do the cube
@@ -395,7 +401,10 @@ def _main():
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources.txt\" | casa --nologger -c {args.findsourcescript}"
+                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | casa --nologger -c {args.findsourcescript}"
+                )
+                os.system(
+                    f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
                 )
                 source_pixs = np.loadtxt(
                     f"{args.imagename}_sources.txt", delimiter=","
@@ -408,8 +417,8 @@ def _main():
                     )
                 elif source_pixs.shape == (2,):
                     x, y = source_pixs
-                    # fit source within a 20" by 20" box
-                    boxsize = 10 // pxsize
+                    # fit source within a 20px by 20px box
+                    boxsize = 10
 
                     # make sure the box doesn't go outside the image
                     left = max(0, x - boxsize)
@@ -434,8 +443,8 @@ def _main():
                 else:
                     for i, source in enumerate(source_pixs):
                         x, y = source
-                        # fit source within a 20" by 20" box
-                        boxsize = 10 // pxsize
+                        # fit source within a 20px by 20px box
+                        boxsize = 10
 
                         # make sure the box doesn't go outside the image
                         left = max(0, x - boxsize)
@@ -710,6 +719,11 @@ def get_args() -> argparse.Namespace:
         "--findsourcescript",
         type=str,
         help="Script to run with casa to identify sources in image",
+    )
+    parser.add_argument(
+        "--findsourcescript2",
+        type=str,
+        help="Second script to run with casa to identify sources in image",
     )
     parser.add_argument(
         "--image",
@@ -993,7 +1007,7 @@ def run_bandpass(
     """
     scannumber = 1
     if bpass:
-        vlbatasks.bpass(caldata, sourcename, clversion, scannumber)
+        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True)
     else:
         vlbatasks.cpass(
             caldata,
@@ -1002,6 +1016,7 @@ def run_bandpass(
             scannumber,
             None,
             cpasspoly,
+            True, # Use the whole scan
         )
 
     # Write BP table to disk

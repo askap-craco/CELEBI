@@ -46,7 +46,7 @@ def _main():
         ra_hms, dec_dms = brightest_sc.to_string("hmsdms").split()
 
         # Avoid repeating sources and sources with low S/N
-        if brightest["component_name"] not in names and coord.sn >= 10:
+        if brightest["component_name"] not in names and coord.sn >= 7:
             names.append(brightest["component_name"])
 
             askap_file.write(

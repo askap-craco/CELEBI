@@ -101,7 +101,7 @@ process npy_to_archive {
         Output:
             fils: path
                 Directory containing converted filterbank files
-    */
+    
     publishDir "${params.publish_dir}/${params.label}/htr/fils", mode: "copy"
 
     input:
@@ -134,7 +134,7 @@ process npy_to_archive {
         touch stub.fil
         """
 }
-
+*/
 workflow process_frb {
     /*
         Process voltages to obtain an FRB position

@@ -25,21 +25,20 @@ def get_pixels_from_field(target, nsources, cutoff, posfile):
     # open file, use casa task "findsources" to identify bright continuum sources
     ia.open(target)
     clrec = ia.findsources(nmax=nsources, point=False, cutoff=cutoff)
-    pos_pix = "#ra,dec\n"
+    pos_hmsdms = ""##ra,dec\n"
     # loop through each source, extract relevant position, convert it
     for i in range(len(clrec.keys()) - 1):
         cl1 = clrec["component" + str(i)]
         m0 = cl1["shape"]["direction"]["m0"]["value"]  # in rad
         m1 = cl1["shape"]["direction"]["m1"]["value"]  # in rad
         pos = str(au.rad2radec(m0, m1, hmsdms=True))
-        radec = au.findRADec(target, pos, round=True)
-        if radec != None:
-            ra, dec = radec
-            new_pos_pix = str(ra) + "," + str(dec) + "\n"
-            pos_pix += new_pos_pix
+        pos = pos.split(',')
+        if pos != None:
+            new_pos_info = pos[0] + "," + pos[1] + "\n"
+            pos_hmsdms += new_pos_info
 
     # write to file
     with open(posfile, "w") as f:
-        f.write(pos_pix)
+        f.write(pos_hmsdms)
 
 get_pixels_from_field(target, nsources, cutoff, posfile)
