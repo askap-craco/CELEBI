@@ -81,9 +81,9 @@ process plot {
         """
 }
 
-process npy2fil {
+process npy_to_archive {
     /*
-        Convert cropped numpy files to filterbank
+        Convert X and Y numpy time series to a PSRCHIVE archive
 
         Input
             label: val
@@ -117,12 +117,16 @@ process npy2fil {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
+            module load anaconda3/5.1.0
+            source activate $launchDir/envs/psrchive
         fi
 
-        # invoke script to avoid clashes between Nextflow's parsing and bash's
-        $beamform_dir/do_npy2fil.sh $final_position $params.label $startmjd \
-                                    $centre_freq $beamform_dir
+        #convert_addpol
+        #fill_header
+        #cat outputs of ^ into outfile
+
+        #dspsr
+        #pam
         """
 
     stub:

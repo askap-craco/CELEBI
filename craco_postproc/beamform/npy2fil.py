@@ -9,9 +9,25 @@ from your.formats.filwriter import make_sigproc_object
 def _main():
     args = get_args()
 
-    data = np.load(args.infile[0]).T
+    data = [np.load(f).T for f in args.infiles]
 
-    nsamps, nchans = data.shape
+    file0 = args.infiles[0]
+    nsamps, nchans = data[0].shape
+    for i in range(1, len(data)):
+        file = args.infiles[i]
+        assert data[0].shape == data[i].shape, \
+            f"MISMATCH IN FILE SHAPES:\n" \
+            f"\t{file0}\t{data[0].shape}\n" \
+            f"\t{file}\t{data[i].shape}"
+
+    data = np.array(data)           # (pol, t, f)
+    data = np.swapaxes(data, 0, 1)  # (t, pol, f)
+
+    nifs = data.shape[1]
+
+    assert (nsamps, nifs, nchans) == data.shape
+    print(data.shape)
+
     tsamp = args.tsamp / 1e6    # us -> s
 
     fmax = args.f0 + args.bw/2
@@ -26,11 +42,38 @@ def _main():
         tstart = args.tstart,
         src_raj = args.ra,
         src_dej = args.dec,
-        nbits = 32
+        nbits = 32,
+        nifs = nifs,
     )
 
     sigproc_object.write_header(args.outfile)
     sigproc_object.append_spectra(data, args.outfile)
+
+    # read in to verify
+    your_object = Your(args.outfile)
+    print(your_object.your_header)
+    read_data = np.array([
+        your_object.get_data(nstart=0, nsamp=nsamps, pol=i) for i in range(nifs)
+    ])
+    print(read_data.shape)  # (pol, t, f)
+
+    fig, axs = plt.subplots(nrows=4, ncols=2, figsize=(10, 10))
+    for i in range(nifs):
+        axs[i][0].imshow(
+            data[:,i].T,
+            aspect='auto',
+            interpolation='none'
+        )
+        axs[i][0].set_xlim(975, 1050)
+        axs[i][1].imshow(
+            read_data[i].T,
+            aspect='auto',
+            interpolation='none'
+        )
+        axs[i][1].set_xlim(975, 1050)
+    plt.tight_layout()
+    plt.savefig('test.png')
+
 
 
 def get_args() -> Namespace:
@@ -41,12 +84,7 @@ def get_args() -> Namespace:
             "highest in frequency, and the data type being float32.",
         formatter_class=ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument(
-        "infile",
-        type=str,
-        nargs=1,
-        help="Input .npy file to convert"
-    )
+
     parser.add_argument(
         "-s", "--source",
         type=str,
@@ -101,7 +139,14 @@ def get_args() -> Namespace:
         type=str,
         required=True,
         help="Output .fil file"
+    )    
+    parser.add_argument(
+        "infiles",
+        type=str,
+        nargs='+',
+        help="Input .npy files to convert"
     )
+
     return parser.parse_args()
 
 
