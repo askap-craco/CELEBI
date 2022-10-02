@@ -586,6 +586,9 @@ def fit_pol_ang(freqs, U, Q):
     print("Calculating Polarisation Angle")
     pol_ang = np.arctan2(U, Q) / 2
 
+    #TEMP: fix wrapping
+    pol_ang[(pol_ang < 0)] = pol_ang[(pol_ang < 0)] + np.pi
+
     # fit rm and offset
     popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
     rm, offset = popt
@@ -646,6 +649,9 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
         tan_phi[i, 1] = y[1]
 
     phi = np.arctan2(tan_phi[:, 1], tan_phi[:, 0])
+
+    #TEMP: fix wrapping
+    phi[(phi>2)] = phi[(phi>2)] - 2*np.pi
 
     # fit phi in several overlapping sub-bands, take best fit
     n_bands = 3

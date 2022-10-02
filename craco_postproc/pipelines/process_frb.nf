@@ -75,7 +75,7 @@ process plot {
         python3 $beamform_dir/plot.py \$args
         """
 }
-
+/*
 process npy2fil {
     /*
         Convert cropped numpy files to filterbank
@@ -96,7 +96,7 @@ process npy2fil {
         Output:
             fils: path
                 Directory containing converted filterbank files
-    */
+    
     publishDir "${params.publish_dir}/${params.label}/htr/fils", mode: "copy"
 
     input:
@@ -149,7 +149,7 @@ process npy2fil {
         done
         """
 }
-
+*/
 workflow process_frb {
     /*
         Process voltages to obtain an FRB position
@@ -310,6 +310,6 @@ workflow process_frb {
                 label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                 centre_freq, dm, bform_frb.out.xy
             )
-            npy2fil(label, plot.out.crops, 0, centre_freq, final_position)
+            // npy2fil(label, plot.out.crops, 0, centre_freq, final_position)
         }
 }

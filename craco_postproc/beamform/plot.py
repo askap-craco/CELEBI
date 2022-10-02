@@ -271,12 +271,12 @@ def plot(args, stokes_fnames):
         f"crops/{args.label}_{args.DM}_1us_"
     )
 
-    # Crop 1D XY time series
+    # Crop 1D XY time series into +- 5 ms at 3 ns
     X = np.load(args.x, mmap_mode="r")
     Y = np.load(args.y, mmap_mode="r")
     c_1D = slice(
-        c_20ms_1us.start,
-        c_20ms_1us.stop,
+        (c_20ms_1us.start+5000)*336,
+        (c_20ms_1us.stop-5000)*336,
         1
     )
     crop(

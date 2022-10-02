@@ -154,7 +154,8 @@ def calculate_stokes(args, x, y, outfile, type, delta_phi=None):
     stk_args = [args.I, args.Q, args.U, args.V]
     fnames = []
 
-    stks = ["I"] if type == "t" else ["I", "Q", "U", "V"]
+    #stks = ["I"] if type == "t" else ["I", "Q", "U", "V"]
+    stks = ["I", "Q", "U", "V"]
     pars = []
 
     for idx, stk in enumerate(stks):
@@ -170,7 +171,8 @@ def calculate_stokes(args, x, y, outfile, type, delta_phi=None):
                 del par
                 par = par_norm.transpose()
                 del par_norm
-                pars.append(save_load(f"TEMP_{stk}_{type}.npy", par))
+            
+            pars.append(save_load(f"TEMP_{stk}_{type}.npy", par))
 
     if delta_phi is not None:
         print("Applying polarisation calibration solutions")

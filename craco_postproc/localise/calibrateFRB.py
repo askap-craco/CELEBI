@@ -401,7 +401,10 @@ def _main():
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources.txt\" | casa --nologger -c {args.findsourcescript}"
+                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | casa --nologger -c {args.findsourcescript}"
+                )
+                os.system(
+                    f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
                 )
                 source_pixs = np.loadtxt(
                     f"{args.imagename}_sources.txt", delimiter=","
@@ -718,6 +721,11 @@ def get_args() -> argparse.Namespace:
         help="Script to run with casa to identify sources in image",
     )
     parser.add_argument(
+        "--findsourcescript2",
+        type=str,
+        help="Second script to run with casa to identify sources in image",
+    )
+    parser.add_argument(
         "--image",
         type=str,
         default=None,
@@ -999,7 +1007,7 @@ def run_bandpass(
     """
     scannumber = 1
     if bpass:
-        vlbatasks.bpass(caldata, sourcename, clversion, scannumber)
+        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True)
     else:
         vlbatasks.cpass(
             caldata,
@@ -1008,6 +1016,7 @@ def run_bandpass(
             scannumber,
             None,
             cpasspoly,
+            True, # Use the whole scan
         )
 
     # Write BP table to disk
