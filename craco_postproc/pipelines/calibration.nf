@@ -54,7 +54,7 @@ process determine_flux_cal_solns {
         args="\$args --flagfile=$flagfile"
 
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+            . $launchDir/../setup_proc
         fi
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
@@ -106,7 +106,7 @@ process image_finder {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+            . $launchDir/../setup_proc
         fi
 
         tar -xzvf $cal_solns
@@ -307,7 +307,7 @@ process image_field {
         fi
 
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+            . $launchDir/../setup_proc
         fi
         ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
@@ -386,7 +386,7 @@ process image_polcal {
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
 
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+            . $launchDir/../setup_proc
         fi
         ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
