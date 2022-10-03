@@ -260,6 +260,8 @@ def plot(args, stokes_fnames):
         100*1000,
         f"crops/{args.label}_{args.DM}_50us_"
     )
+    with open("50us_crop_start_s.txt", "w") as f:
+        f.write(f"{c_100ms_50us.start*50e-6}")
 
     # +- 10 ms at 1 us
     c_20ms_1us = crop(

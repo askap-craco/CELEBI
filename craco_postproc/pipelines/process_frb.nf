@@ -17,6 +17,8 @@ params.maxDM = 10
 params.DMstep = 0.01
 params.opt_DM_dt = 100
 
+params.opt_gate = false
+
 beamform_dir = "$baseDir/../beamform/"
 
 process plot {
@@ -85,6 +87,7 @@ process plot {
         """
         touch stub.png
         mkdir crops
+        touch 50us_crop_start_s.txt
         """
 }
 
@@ -226,6 +229,146 @@ workflow optimise_DM {
             generate_dynspecs.out.data, params.centre_freq_frb, dm_opt,
             xy
         )
+    
+    emit:
+        dm_opt
+        crops = plot.out.crops
+        crop_start = plot.out.crop_start
+}
+
+process mjd_prof {
+    /*
+        Create profile as function of MJD
+
+        Input
+            crops: path
+                Crops directory from plot
+            crop_start: path
+                File containing start time of 50us crop relative to full data 
+                in seconds
+            
+        Output
+            prof: path
+                Two-column space separated file containing MJD and 50us profile
+                respectively
+    */
+    input:
+        path crops
+        path crop_start
+    
+    output:
+        path "prof.txt", emit: prof
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            module load gcc/9.2.0
+            module load openmpi/4.0.2
+            module load python/3.7.4
+            module load numpy/1.18.2-python-3.7.4
+        fi
+
+        python3 $beamform_dir/mjd_prof.py $params.data_frb $crops/*_50us_I.npy $crop_start
+        """
+    script:
+        """
+        touch prof.txt
+        """
+}
+
+process update_polyco {
+    /*
+        Edit a polyco file to replace the DM with a new value
+
+        Input
+            polyco: path
+                Polyco file to edit
+            dm: val
+                DM value to insert into polyco
+        
+        Output
+            craftfrb.polyco: path
+                Edited polyco file
+    */
+    input:
+        path polyco, stageAs: "old.polyco"
+        val dm
+    
+    output:
+        path "craftfrb.polyco"
+    
+    script:
+        """
+        head -1 $polyco | awk '\$5="$dm"' > craftfrb.polyco
+        tail -2 $polyco >> craftfrb.polyco
+        """
+    
+    stub:
+        """
+        cp old.polyco craftfrb.polyco
+        """
+}
+
+process htr_to_binconfig {
+    /*
+        Write a binconfig file with a matched filter for a provided profile
+        as a function of MJD
+
+        Input
+            prof: path
+                High time resolution profile as function of MJD
+            polyco: path
+                Polyco file
+        
+        Output:
+            htr gate binconfig: path
+                Binconfig containing matched filter for high time res gate
+    */
+    input:
+        path prof
+        path polyco
+    
+    output:
+        path "craftfrb.htrgate.binconfig"
+    
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            module load gcc/9.2.0
+            module load openmpi/4.0.2
+            module load python/3.7.4
+            module load numpy/1.18.2-python-3.7.4
+            module load matplotlib/3.2.1-python-3.7.4
+        fi
+
+        python3 $beamform_dir/htr2binconfig.py $prof $polyco
+        """
+    
+    stub:
+        """
+        touch craftfrb.htrgate.binconfig
+        """
+}
+
+workflow optimise_gate {
+    /*
+        Create an optimised matched filter binconfig based on beamformed high
+        time resolution data and optimised DM
+    */
+    take:
+        crops
+        crop_start
+        polyco
+        dm
+    
+    main:
+        new_polyco = update_polyco(polyco, dm)
+        prof = mjd_prof(crops, crop_start)
+        gate_binconfig = htr_to_binconfig(prof, polyco)
+    
+    emit:
+        gate_binconfig
+        new_polyco
 }
 
 workflow process_frb {
@@ -341,12 +484,26 @@ workflow process_frb {
                 params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                 params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
             )
+
             if(params.opt_DM) {
                 optimise_DM(
                     bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
                     "-ds -t -XYIQUV"
                 )
+                dm = optimise_DM.out.dm_opt
+                crops = optimise_DM.out.crops
+                crop_start = optimise_DM.out.crop_start
             }
+            else {
+                dm = params.dm_frb
+                crops = plot.out.crops
+                crop_start = plot.out.crop_start
+            }
+
+            if(params.opt_gate) {
+                optimise_gate(crops, crop_start, binconfig.polyco, dm)
+            }
+
             //npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
         }
 }
