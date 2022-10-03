@@ -11,6 +11,7 @@ params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
 
+params.opt_DM = false
 params.minDM = 0
 params.maxDM = 10
 params.DMstep = 0.01
@@ -57,6 +58,7 @@ process plot {
     output:
         path "*.png"
         path "crops", emit: crops
+        path "50us_crop_start_s.txt", emit: crop_start
     
     script:
         """
@@ -339,10 +341,12 @@ workflow process_frb {
                 params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                 params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
             )
-            optimise_DM(
-                bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
-                "-ds -t -XYIQUV"
-            )
+            if(params.opt_DM) {
+                optimise_DM(
+                    bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
+                    "-ds -t -XYIQUV"
+                )
+            }
             //npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
         }
 }
