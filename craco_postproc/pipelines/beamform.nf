@@ -565,4 +565,5 @@ workflow beamform {
         dynspec_fnames = generate_dynspecs.out.dynspec_fnames
         htr_data = generate_dynspecs.out.data
         xy
+        pre_dedisp = deripple.out
 }

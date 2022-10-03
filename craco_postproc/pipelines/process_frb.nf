@@ -5,11 +5,16 @@ include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_field; subtract_rfi } from './correlate'
 include { image_finder; image_field; get_peak } from './calibration'
 include { apply_offset; generate_binconfig } from './localise'
-include { beamform as bform_frb } from './beamform'
+include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 
 params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
+
+params.minDM = 0
+params.maxDM = 10
+params.DMstep = 0.01
+params.opt_DM_dt = 100
 
 beamform_dir = "$baseDir/../beamform/"
 
@@ -81,6 +86,7 @@ process plot {
         """
 }
 
+/*
 process npy_to_archive {
     /*
         Convert X and Y numpy time series to a PSRCHIVE archive
@@ -135,6 +141,91 @@ process npy_to_archive {
         """
 }
 */
+
+process find_DM_opt {
+    /*
+        Optimise DM for S/N. Works under the assumption that the current DM
+        is an underestimate
+
+        Input
+            crops: path
+                Cropped FRB data
+            dm: val
+                Current DM
+
+        Output
+            stdout
+                S/N maximising DM
+            opt_DM_plot
+                max(I) vs DM plot
+    */
+    publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
+
+    input:
+        path crops
+        val dm
+
+    output:
+        env dmopt, emit: dm_opt
+        path "*png"
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            module load gcc/9.2.0
+            module load openmpi/4.0.2
+            module load python/3.7.4
+            module load numpy/1.18.2-python-3.7.4
+            module load matplotlib/3.2.1-python-3.7.4
+        fi
+
+        args="-x $crops/${params.label}_${dm}_X.npy"
+        args="\$args -y $crops/${params.label}_${dm}_Y.npy"
+        args="\$args -d $params.minDM"
+        args="\$args -D $params.maxDM"
+        args="\$args -s $params.DMstep"
+        args="\$args --DM0 $dm"
+        args="\$args --f0 $params.centre_freq_frb"
+        args="\$args --dt $params.opt_DM_dt"
+
+        dmopt=`python3 $beamform_dir/opt_DM.py \$args`
+        """
+    
+    stub:
+        """
+        dmopt=$dm
+        touch stub.png
+        """
+}
+
+workflow optimise_DM {
+    /*
+        After initial beamforming, optimise the DM and re-generate plots
+    */
+    take:
+        pre_dedisp
+        crops
+        pol_cal_solns
+        ds_args
+    
+    main:
+        find_DM_opt(crops, params.dm_frb)
+        dm_opt = find_DM_opt.out.dm_opt
+        dedisperse(
+            params.label, dm_opt, params.centre_freq_frb, pre_dedisp
+        )
+        ifft(params.label, dedisperse.out, dm_opt)
+        xy = ifft.out.collect()
+        generate_dynspecs(
+            params.label, xy, ds_args, params.centre_freq_frb, dm_opt, pol_cal_solns
+        )
+        plot(
+            params.label, generate_dynspecs.out.dynspec_fnames, 
+            generate_dynspecs.out.data, params.centre_freq_frb, dm_opt,
+            xy
+        )
+}
+
 workflow process_frb {
     /*
         Process voltages to obtain an FRB position
@@ -248,6 +339,10 @@ workflow process_frb {
                 params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                 params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
             )
-            npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
+            optimise_DM(
+                bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
+                "-ds -t -XYIQUV"
+            )
+            //npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
         }
 }
