@@ -445,8 +445,9 @@ workflow process_frb {
         frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
         offset_path = "${params.publish_dir}/${params.label}/position/offset0.dat"
         frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
-        if(new File(frb_jmfit_path).exists() && new File(frb_pos_path).exists()) {
+        if(new File(frb_jmfit_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
+        else if(new File(frb_pos_path).exists()) {
             final_position = Channel.fromPath(frb_pos_path)
         }
         else if(params.calibrate) {
