@@ -394,31 +394,33 @@ workflow process_frb {
         binconfig = generate_binconfig()
         empty_file = create_empty_file("file")
 
-        // Correlate finder
-        finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
-        if(new File(finder_fits_path).exists()) {
-            finder_fits = Channel.fromPath(
-                "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
-            )
-        }
-        else {
-            finder_fits = corr_finder(
-                "finder", params.data_frb, params.ra_frb, params.dec_frb, 
-                binconfig.finder, binconfig.polyco, binconfig.int_time, "finder"
-            )
-        }
-
-        // Correlate RFI (if not directly flagging finder)
-        rfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits"
-        if ( new File(rfi_fits_path).exists() ) {
-            rfi_fits = Channel.fromPath(rfi_fits_path)
-        }
-        else {
-            if(!params.skiprfi) {
-                rfi_fits = corr_rfi(
-                    "${params.label}_rfi", params.data_frb, params.ra_frb, 
-                    params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi"
+        if(!params.opt_gate){    
+            // Correlate finder
+            finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
+            if(new File(finder_fits_path).exists()) {
+                finder_fits = Channel.fromPath(
+                    "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
                 )
+            }
+            else {
+                finder_fits = corr_finder(
+                    "finder", params.data_frb, params.ra_frb, params.dec_frb, 
+                    binconfig.finder, binconfig.polyco, binconfig.int_time, "finder"
+                )
+            }
+
+            // Correlate RFI (if not directly flagging finder)
+            rfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits"
+            if ( new File(rfi_fits_path).exists() ) {
+                rfi_fits = Channel.fromPath(rfi_fits_path)
+            }
+            else {
+                if(!params.skiprfi) {
+                    rfi_fits = corr_rfi(
+                        "${params.label}_rfi", params.data_frb, params.ra_frb, 
+                        params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi"
+                    )
+                }
             }
         }
 
@@ -453,34 +455,47 @@ workflow process_frb {
                 System.exit(1)
             }
             
-            if(params.skiprfi){
-                no_rfi_finder_fits = finder_fits
+            if(!params.opt_gate){
+                if(params.skiprfi){
+                    no_rfi_finder_fits = finder_fits
+                }
+                else {
+                    no_rfi_finder_fits = sub_rfi(
+                        finder_fits, rfi_fits, binconfig.subtractions
+                    )                
+                }
+
+                bins_out = image_finder(
+                    no_rfi_finder_fits, flux_cal_solns
+                )
+                bin_jmfits = bins_out.jmfit
+                bin_fits_images = bins_out.fits_image
+                bin_regs = bins_out.reg
+                bin_mss = bins_out.ms
+
+                askap_frb_pos = get_peak(
+                    bin_jmfits.collect(), bin_fits_images.collect(), 
+                    bin_regs.collect(), bin_mss.collect()
+                ).peak_jmfit
             }
             else {
-                no_rfi_finder_fits = sub_rfi(
-                    finder_fits, rfi_fits, binconfig.subtractions
-                )                
+                askap_frb_pos = empty_file
             }
 
-            bins_out = image_finder(
-                no_rfi_finder_fits, flux_cal_solns
-            )
-            bin_jmfits = bins_out.jmfit
-            bin_fits_images = bins_out.fits_image
-            bin_regs = bins_out.reg
-            bin_mss = bins_out.ms
+            if(new File(offset_path).exists()) {
+                offset = Channel.fromPath(offset_path)
+            }
+            else {
+                field_sources = image_field(
+                    field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
+                ).jmfit
 
-            askap_frb_pos = get_peak(
-                bin_jmfits.collect(), bin_fits_images.collect(), 
-                bin_regs.collect(), bin_mss.collect()
-            ).peak_jmfit
+                offset = find_offset(field_sources).offset
+            }
 
-            field_sources = image_field(
-                field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
-            ).jmfit
-
-            offset = find_offset(field_sources).offset
-            final_position = apply_offset(offset, askap_frb_pos).final_position
+            if(!params.opt_gate){
+                final_position = apply_offset(offset, askap_frb_pos).final_position
+            }
         }
         else if(new File(offset_path).exists()) {
             offset = Channel.fromPath(offset_path)
