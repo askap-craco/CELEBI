@@ -77,7 +77,7 @@ process find_offset {
         path field_sources
     
     output:
-        path "*.dat", emit: offset
+        path "offset0.dat", emit: offset
         path "*.reg"
         path "*.png"
     
@@ -107,7 +107,7 @@ process find_offset {
     
     stub:
         """
-        touch stub.dat 
+        touch offset0.dat 
         touch stub.reg
         touch stub.png
         """
