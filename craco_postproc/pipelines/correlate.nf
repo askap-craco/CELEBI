@@ -359,27 +359,27 @@ process load_fits {
 
 process subtract_rfi {
     /*
-        Subtract RFI visibilities from finder visibilities to remove RFI from
+        Subtract RFI visibilities from target visibilities to remove RFI from
         the data without zapping channels that may contain very important
         signal!
 
         Input
-            finder_fits: path
-                A single finder bin's visibility FITS file
+            target_fits: path
+                A single target bin's visibility FITS file
             rfi_fits: path
                 RFI-only visibility FITS file
             subtractions: path
                 file containing subtractions commands with correctly calculated
-                scale argument
+                scale argument. If an empty file, assume a scale of 1
                 
         Output
             fits: path
-                Visbility FITS file for a finder bin with RFI subtracted
+                Visbility FITS file for a target bin with RFI subtracted
     */
     maxForks 1
 
     input:
-        each path(finder_fits)
+        each path(target_fits)
         path rfi_fits
         path subtractions
     
@@ -388,16 +388,21 @@ process subtract_rfi {
     
     script:
         """
-        fits="$finder_fits"
-        bin=\${fits:9:2}
-        sleep \$bin     # stagger starts of parallel processes
-        scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
-
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_parseltongue3
         fi
 
-        uvsubScaled.py $finder_fits *_rfi.fits \$scale norfifbin\${bin}.fits
+        # subtractions not empty: finder mode
+        if [ `wc -c $subtractions | awk '{print \$1}'` != 0 ]; then
+            fits="$target_fits"
+            bin=\${fits:9:2}
+            sleep \$bin     # stagger starts of parallel processes
+            scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
+
+            uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits
+        else
+            uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits
+        fi
         """
     
     stub:

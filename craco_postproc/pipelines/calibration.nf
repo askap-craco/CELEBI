@@ -406,6 +406,87 @@ process image_polcal {
         """    
 }
 
+process image_htrgate {
+    /*
+        For a htrgate fits:
+            - Flux calibrate
+            - Image
+            - Find and fit a single source
+
+        Input
+            target_fits: path
+                htrgate bin visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+        
+        Output
+            jmfit: path
+                JMFIT output
+            fits_image: path
+                FITS-format image
+            reg: path
+                DS9 region file
+            ms: path
+                Calibrated measurement set
+    */
+    publishDir "${params.publish_dir}/${params.label}/htrgate", mode: "copy"
+    maxForks 1
+
+    input:
+        each path(target_fits)
+        path cal_solns
+
+    output:
+        path "*.jmfit", emit: jmfit
+        path "*.fits", emit: fits_image
+        path "*.reg", emit: reg
+        path "*_calibrated_uv.ms", emit: ms
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_parseltongue3
+        fi
+
+        tar -xzvf $cal_solns
+        target_fits=$target_fits
+
+        args="--targetonly"
+        args="\$args -t $target_fits"
+        args="\$args -r 3"
+        args="\$args -i"
+        args="\$args -j"
+        args="\$args --cleanmfs"
+        args="\$args --pols=I"
+        args="\$args --imagename=fbin\${bin}"
+        args="\$args --imagesize=$params.finderimagesize"
+        args="\$args --pixelsize=$params.finderpixelsize"
+        args="\$args -a 16"
+        args="\$args -u 500"
+        args="\$args --skipplot"
+        args="\$args --src=$params.target"
+        args="\$args --nmaxsources=1"
+        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
+        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+
+        ParselTongue $localise_dir/calibrateFRB.py \$args
+
+        for f in `ls *jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f FRB \
+                >> fbin\${bin}_sources.reg
+        done
+        """
+        
+    stub:
+        """
+        touch htrgate.jmfit
+        touch htrgate.fits
+        touch htrgate.reg
+        touch stub_calibrated_uv.ms
+        """
+}
+
 process determine_pol_cal_solns {
     /*
         Determine polarisation calibration solutions.

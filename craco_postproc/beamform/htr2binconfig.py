@@ -128,19 +128,46 @@ if __name__ == "__main__":
     for i in range(numbins):
         binvalues[i] = binvalues[i]/weightsum
 
-    #Write the binconfig file
+    #Write the gate binconfig file
+    normfactor = 0.0
     binconffile = "craftfrb.htrgate.binconfig"
     binconfout  = open(binconffile, 'w')
     binconfout.write("NUM POLYCO FILES:   1\n")
-    binconfout.write("POLYCO FILE 0:     {0}\n".format(polycofile))
+    binconfout.write("POLYCO FILE 0:      {0}\n".format(polycofile))
     binconfout.write("NUM PULSAR BINS:    {0}\n".format(numbins))
     binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
     for i in range(numbins):
         phase = binphases[i]
+        if binvalues[i] > 0:
+            normfactor += (binphases[i] - binphases[i-1])*binvalues[i]
         binconfout.write(("BIN PHASE END %i:" % (i)).ljust(20))
         binconfout.write("%f\n" % (phase))
         binconfout.write(("BIN WEIGHT %i:"%(i)).ljust(20))
         binconfout.write("%f\n" % (binvalues[i]))
+    binconfout.close()
+
+    # Write the RFI binconfig file
+    gatewidth = binphases[-1] - binphases[0]
+    midphase = (binphases[-1] + binphases[0])/2.0
+    rfiwidth = 4*gatewidth
+    if rfiwidth > 0.002: # 20 ms
+        rfiwidth = 0.002
+    rfival = normfactor / (2*rfiwidth)
+    binconffile = "craftfrb.htrrfi.binconfig"
+    binconfout  = open(binconffile, 'w')
+    binconfout.write("NUM POLYCO FILES:   1\n")
+    binconfout.write("POLYCO FILE 0:      {0}\n".format(polycofile))
+    binconfout.write("NUM PULSAR BINS:    4\n")
+    binconfout.write("SCRUNCH OUTPUT:     TRUE\n")
+    binconfout.write("BIN PHASE END 0:    {0}\n".format(midphase - gatewidth - rfiwidth))
+    binconfout.write("BIN WEIGHT 0:       0.0\n")
+    binconfout.write("BIN PHASE END 1:    {0}\n".format(midphase - gatewidth))
+    binconfout.write("BIN WEIGHT 1:       {0}\n".format(rfival))
+    binconfout.write("BIN PHASE END 2:    {0}\n".format(midphase + gatewidth))
+    binconfout.write("BIN WEIGHT 2:       0.0\n")
+    binconfout.write("BIN PHASE END 3:    {0}\n".format(midphase + gatewidth + rfiwidth))
+    binconfout.write("BIN WEIGHT 3:       {0}\n".format(rfival))
+    binconfout.close()
 
     # Plot both the original profile and the matched filter
     plt.plot(timeseries[0], timeseries[1], 'b-')

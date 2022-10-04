@@ -2,9 +2,11 @@ nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
-    correlate as corr_field; subtract_rfi } from './correlate'
-include { image_finder; image_field; get_peak } from './calibration'
-include { apply_offset; generate_binconfig } from './localise'
+    correlate as corr_field; correlate as corr_htrgate; correlate as corr_htrrfi; 
+    subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi } from './correlate'
+include { image_finder; image_field; get_peak; image_htrgate } from './calibration'
+include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
+    generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 
 params.fieldimage = ""
@@ -329,7 +331,8 @@ process htr_to_binconfig {
         path polyco
     
     output:
-        path "craftfrb.htrgate.binconfig"
+        path "craftfrb.htrgate.binconfig", emit: htrgate
+        path "craftfrb.htrrfi.binconfig", emit: htrrfi
     
     script:
         """
@@ -347,6 +350,7 @@ process htr_to_binconfig {
     stub:
         """
         touch craftfrb.htrgate.binconfig
+        touch craftfrb.htrrfi.binconfig
         """
 }
 
@@ -364,11 +368,12 @@ workflow optimise_gate {
     main:
         new_polyco = update_polyco(polyco, dm)
         prof = mjd_prof(crops, crop_start)
-        gate_binconfig = htr_to_binconfig(prof, polyco)
+        htr_to_binconfig(prof, polyco)
     
     emit:
-        gate_binconfig
-        new_polyco
+        htrgate = htr_to_binconfig.out.htrgate
+        htrrfi = htr_to_binconfig.out.htrrfi
+        polyco = new_polyco
 }
 
 workflow process_frb {
@@ -387,6 +392,8 @@ workflow process_frb {
 
     main:
         binconfig = generate_binconfig()
+        empty_file = create_empty_file("file")
+
         // Correlate finder
         finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin20.fits"
         if(new File(finder_fits_path).exists()) {
@@ -426,7 +433,6 @@ workflow process_frb {
             }
         }
         else {
-            empty_file = create_empty_file("file")
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, params.ra_frb, 
                 params.dec_frb, empty_file, empty_file, 0, "field"
@@ -435,6 +441,7 @@ workflow process_frb {
 
         // Calibrate (i.e. image finder and field)
         frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
+        offset_path = "${params.publish_dir}/${params.label}/position/offset0.dat"
         frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
         if(new File(frb_jmfit_path).exists() && new File(frb_pos_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
@@ -450,7 +457,7 @@ workflow process_frb {
                 no_rfi_finder_fits = finder_fits
             }
             else {
-                no_rfi_finder_fits = subtract_rfi(
+                no_rfi_finder_fits = sub_rfi(
                     finder_fits, rfi_fits, binconfig.subtractions
                 )                
             }
@@ -472,7 +479,11 @@ workflow process_frb {
                 field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
             ).jmfit
 
-            final_position = apply_offset(field_sources, askap_frb_pos).final_position
+            offset = find_offset(field_sources).offset
+            final_position = apply_offset(offset, askap_frb_pos).final_position
+        }
+        else if(new File(offset_path).exists()) {
+            offset = Channel.fromPath(offset_path)
         }
 
         if(params.beamform) {
@@ -501,7 +512,35 @@ workflow process_frb {
             }
 
             if(params.opt_gate) {
-                optimise_gate(crops, crop_start, binconfig.polyco, dm)
+                opt_gate = optimise_gate(crops, crop_start, binconfig.polyco, dm)
+                htrgate_fits = corr_htrgate(
+                    "${params.label}_htrgate", params.data_frb, params.ra_frb, 
+                    params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
+                    binconfig.int_time, "htrgate"
+                )
+                if(!params.skiprfi) {
+                    htrrfi_fits = corr_htrrfi(
+                        "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
+                        params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
+                        binconfig.int_time, "htrrfi"
+                    )
+                }
+                if(params.skiprfi){
+                    no_rfi_htrgate_fits = htrgate_fits
+                }
+                else {
+                    no_rfi_htrgate_fits = sub_htrrfi(    
+                        htrgate_fits, htrrfi_fits, empty_file
+                    )                
+                }
+
+                image_htrgate(
+                    no_rfi_htrgate_fits, flux_cal_solns
+                )
+
+                final_position = apply_offset_htr(
+                    offset, image_htrgate.out.jmfit
+                )
             }
 
             //npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)

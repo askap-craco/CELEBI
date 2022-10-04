@@ -53,21 +53,16 @@ process generate_binconfig {
         """
 }
 
-process apply_offset {
+process find_offset {
     /*
         Compare fitted field sources to RACS sources to calculate systematic
-        offset in images created from voltages, then apply that offset to the
-        fitted FRB position to obtain the final localisation
+        offset in images created from voltages
 
         Input
             field sources: path
                 File containing positions of sources identified in field image
-            askap_frb_pos: path
-                JMFIT output file of FRB position fit
         
         Output
-            final_position: path
-                Text file containing final FRB position with errors
             dat: path
                 Files containing RACS source information
             reg: path
@@ -80,11 +75,9 @@ process apply_offset {
 
     input:
         path field_sources
-        path askap_frb_pos
     
     output:
-        path "${params.label}_final_position.txt", emit: final_position
-        path "*.dat" 
+        path "*.dat", emit: offset
         path "*.reg"
         path "*.png"
     
@@ -110,16 +103,51 @@ process apply_offset {
 
         python3 $localise_dir/weighted_multi_image_fit_updated.py \
             askap2racs_offsets_unc.dat
-
-        python3 $localise_dir/apply_offset.py --frb $askap_frb_pos \
-            --offset offset0.dat > ${params.label}_final_position.txt
         """
     
     stub:
         """
-        touch ${params.label}_final_position.txt
         touch stub.dat 
         touch stub.reg
         touch stub.png
+        """
+}
+
+process apply_offset {
+    /*
+        Apply offset to fitted FRB position
+
+        Input
+            offset: path
+                Offset as output by weighted_multi_image_fit_updated.py
+            askap_frb_pos: path
+                JMFIT output file of FRB position fit
+
+        Output
+            final_position: path
+                FRB final position with error as a txt file
+    */
+    publishDir "${params.publish_dir}/${params.label}/position", mode: "copy"
+    
+    input:
+        path offset
+        path askap_frb_pos
+
+    output:
+        path "${params.label}_final_position.txt", emit: final_position
+    
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi   
+
+        python3 $localise_dir/apply_offset.py --frb $askap_frb_pos \
+            --offset $offset > ${params.label}_final_position.txt 
+        """
+    
+    stub:
+        """
+        touch test_final_position.txt
         """
 }
