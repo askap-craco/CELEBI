@@ -35,6 +35,8 @@ def _main():
         if len(table) == 0:
             continue
 
+        print(table)
+
         # sort table by peak flux and use the brightest entry
         table.sort("flux_peak")
         brightest = table[-1]
@@ -89,6 +91,7 @@ class Coord:
 def RACS_lookup(ra_hms, dec_dms, casdatap):
     c = sc(ra_hms, dec_dms, unit="hour,deg")
     # search radius of ~10 arcseconds
+    print(f"Looking up {c}")
     job = casdatap.launch_job_async(
         f"SELECT * FROM casda.continuum_component where 1=CONTAINS(POINT('ICRS', ra_deg_cont, dec_deg_cont),CIRCLE('ICRS',{c.ra.value},{c.dec.value},0.005)) and project_id = 23"
     )
