@@ -451,7 +451,7 @@ workflow process_frb {
         else if(new File(frb_pos_path).exists()) {
             final_position = Channel.fromPath(frb_pos_path)
         }
-        else if(params.calibrate) {
+        if(params.calibrate) {
             if((params.fieldimage == "") && (params.fieldflagfile == "")){
                 println "No field flag file!"
                 System.exit(1)
