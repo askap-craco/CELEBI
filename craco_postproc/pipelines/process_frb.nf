@@ -448,7 +448,7 @@ workflow process_frb {
         if(new File(frb_jmfit_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
         }
-        else if(new File(frb_pos_path).exists()) {
+        if(new File(frb_pos_path).exists()) {
             final_position = Channel.fromPath(frb_pos_path)
         }
         if(params.calibrate) {
@@ -479,6 +479,9 @@ workflow process_frb {
                     bin_jmfits.collect(), bin_fits_images.collect(), 
                     bin_regs.collect(), bin_mss.collect()
                 ).peak_jmfit
+            }
+            if(new File(frb_jmfit_path).exists()) {
+                askap_frb_pos = Channel.fromPath(frb_jmfit_path)
             }
             else {
                 askap_frb_pos = empty_file
