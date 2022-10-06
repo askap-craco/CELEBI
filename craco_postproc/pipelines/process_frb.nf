@@ -272,7 +272,8 @@ process mjd_prof {
 
         python3 $beamform_dir/mjd_prof.py $params.data_frb $crops/*_50us_I.npy $crop_start
         """
-    script:
+
+    stub:
         """
         touch prof.txt
         """
