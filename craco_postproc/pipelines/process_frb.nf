@@ -487,11 +487,16 @@ workflow process_frb {
                 askap_frb_pos = empty_file
             }
 
-            field_sources = image_field(
-                field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
-            ).jmfit
+            if(new File(offset_path).exists()) {
+                offset = Channel.fromPath(offset_path)
+            }
+            else {
+                field_sources = image_field(
+                    field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
+                ).jmfit
 
-            offset = find_offset(field_sources).offset
+                offset = find_offset(field_sources).offset
+            }
 
             if(!params.opt_gate){
                 final_position = apply_offset(offset, askap_frb_pos).final_position
