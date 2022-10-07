@@ -542,17 +542,29 @@ workflow process_frb {
 
             if(params.opt_gate) {
                 opt_gate = optimise_gate(crops, crop_start, binconfig.polyco, dm)
-                htrgate_fits = corr_htrgate(
-                    "${params.label}_htrgate", params.data_frb, params.ra_frb, 
-                    params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
-                    binconfig.int_time, "htrgate"
-                )
-                if(!params.skiprfi) {
-                    htrrfi_fits = corr_htrrfi(
-                        "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
-                        params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
-                        binconfig.int_time, "htrrfi"
+                htrgate_fits_path = "${params.publish_dir}/${params.label}/loadfits/${params.label}_htrgate.fits"
+                if(new File(htrgate_fits_path).exists()) {
+                    htrgate_fits = Channel.fromPath(htrgate_fits_path)
+                }
+                else {
+                    htrgate_fits = corr_htrgate(
+                        "${params.label}_htrgate", params.data_frb, params.ra_frb, 
+                        params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
+                        binconfig.int_time, "htrgate"
                     )
+                }
+                if(!params.skiprfi) {
+                    htrrfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/${params.label}_htrrfi.fits"
+                    if(new File(htrrfi_fits_path).exists()) {
+                        htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
+                    }
+                    else {
+                        htrrfi_fits = corr_htrrfi(
+                            "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
+                            params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
+                            binconfig.int_time, "htrrfi"
+                        )
+                    }
                 }
                 if(params.skiprfi){
                     no_rfi_htrgate_fits = htrgate_fits
