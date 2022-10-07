@@ -508,14 +508,24 @@ workflow process_frb {
         }
 
         if(params.beamform) {
-            bform_frb(
-                params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV"
-            )
-            plot(
-                params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
-            )
+            crops_path = "${params.publish_dir}/${params.label}/htr/crops/${params.label}_${params.dm_frb}_1ms_I.npy"
+            crop_start_path = "${params.publish_dir}/${params.label}/htr/50us_crop_start_s.txt"
+            if(new File(crops_path).exists() && new File(crop_start_path).exists()) {
+                crops = Channel.fromPath("${params.publish_dir}/${params.label}/htr/crops/")
+                crop_start = Channel.fromPath(crop_start_path)
+            }
+            else {
+                bform_frb(
+                    params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
+                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV"
+                )
+                plot(
+                    params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
+                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
+                )
+                crops = plot.out.crops
+                crop_start = plot.out.crop_start
+            }
 
             if(params.opt_DM) {
                 optimise_DM(
@@ -528,8 +538,6 @@ workflow process_frb {
             }
             else {
                 dm = params.dm_frb
-                crops = plot.out.crops
-                crop_start = plot.out.crop_start
             }
 
             if(params.opt_gate) {
