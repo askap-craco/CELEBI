@@ -542,7 +542,7 @@ workflow process_frb {
 
             if(params.opt_gate) {
                 opt_gate = optimise_gate(crops, crop_start, binconfig.polyco, dm)
-                htrgate_fits_path = "${params.publish_dir}/${params.label}/loadfits/${params.label}_htrgate.fits"
+                htrgate_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrgate/${params.label}_htrgate.fits"
                 if(new File(htrgate_fits_path).exists()) {
                     htrgate_fits = Channel.fromPath(htrgate_fits_path)
                 }
@@ -554,7 +554,7 @@ workflow process_frb {
                     )
                 }
                 if(!params.skiprfi) {
-                    htrrfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/${params.label}_htrrfi.fits"
+                    htrrfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrrfi/${params.label}_htrrfi.fits"
                     if(new File(htrrfi_fits_path).exists()) {
                         htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
                     }
