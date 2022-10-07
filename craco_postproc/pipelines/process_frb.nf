@@ -369,7 +369,7 @@ workflow optimise_gate {
     main:
         new_polyco = update_polyco(polyco, dm)
         prof = mjd_prof(crops, crop_start)
-        htr_to_binconfig(prof, polyco)
+        htr_to_binconfig(prof, new_polyco)
     
     emit:
         htrgate = htr_to_binconfig.out.htrgate
