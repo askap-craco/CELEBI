@@ -63,6 +63,7 @@ process plot {
         path "*.png"
         path "crops", emit: crops
         path "50us_crop_start_s.txt", emit: crop_start
+        path "crops/*50us_I.npy", emit: crop_50us
     
     script:
         """
@@ -89,6 +90,7 @@ process plot {
         """
         touch stub.png
         mkdir crops
+        touch crops/stub_50us_I.npy
         touch 50us_crop_start_s.txt
         """
 }
@@ -235,7 +237,9 @@ workflow optimise_DM {
     emit:
         dm_opt
         crops = plot.out.crops
+        crop_50us = plot.out.crop_50us
         crop_start = plot.out.crop_start
+
 }
 
 process mjd_prof {
@@ -255,7 +259,7 @@ process mjd_prof {
                 respectively
     */
     input:
-        path crops
+        path crop_50us
         path crop_start
     
     output:
@@ -270,7 +274,7 @@ process mjd_prof {
             module load numpy/1.18.2-python-3.7.4
         fi
 
-        python3 $beamform_dir/mjd_prof.py $params.data_frb $crops/*_50us_I.npy $crop_start
+        python3 $beamform_dir/mjd_prof.py $params.data_frb $crop_50us $crop_start
         """
 
     stub:
@@ -362,14 +366,14 @@ workflow optimise_gate {
         time resolution data and optimised DM
     */
     take:
-        crops
+        crop_50us
         crop_start
         polyco
         dm
     
     main:
         new_polyco = update_polyco(polyco, dm)
-        prof = mjd_prof(crops, crop_start)
+        prof = mjd_prof(crop_50us, crop_start)
         htr_to_binconfig(prof, new_polyco)
     
     emit:
@@ -509,10 +513,10 @@ workflow process_frb {
         }
 
         if(params.beamform) {
-            crops_path = "${params.publish_dir}/${params.label}/htr/crops/${params.label}_${params.dm_frb}_1ms_I.npy"
+            crop_50us_path = "${params.publish_dir}/${params.label}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
             crop_start_path = "${params.publish_dir}/${params.label}/htr/50us_crop_start_s.txt"
-            if(new File(crops_path).exists() && new File(crop_start_path).exists()) {
-                crops = Channel.fromPath("${params.publish_dir}/${params.label}/htr/crops/")
+            if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
+                crop_50us = Channel.fromPath(crop_50us_path)
                 crop_start = Channel.fromPath(crop_start_path)
             }
             else {
@@ -526,6 +530,7 @@ workflow process_frb {
                 )
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start
+                crop_50us = plot.out.crop_50us
             }
 
             if(params.opt_DM) {
@@ -542,7 +547,7 @@ workflow process_frb {
             }
 
             if(params.opt_gate) {
-                opt_gate = optimise_gate(crops, crop_start, binconfig.polyco, dm)
+                opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
                 htrgate_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrgate/${params.label}_htrgate.fits"
                 if(new File(htrgate_fits_path).exists()) {
                     htrgate_fits = Channel.fromPath(htrgate_fits_path)
