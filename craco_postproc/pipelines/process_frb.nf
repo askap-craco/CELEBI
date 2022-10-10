@@ -303,7 +303,8 @@ process update_polyco {
     script:
         """
         head -1 $polyco | awk '\$5="$dm"' > craftfrb.polyco
-        tail -2 $polyco >> craftfrb.polyco
+        head -2 $polyco | tail -1 | awk '\$6="1104.000"' >> craftfrb.polyco
+        tail -1 $polyco >> craftfrb.polyco
         """
     
     stub:
