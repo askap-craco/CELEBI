@@ -302,7 +302,11 @@ process load_fits {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_proc
         fi
-        antlist=`ls -d $data/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
+        antlist=""
+        for i in `seq -w 0 36`; do
+            antlist="${antlist}ak$i,"
+        done
+        echo $antlist
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
