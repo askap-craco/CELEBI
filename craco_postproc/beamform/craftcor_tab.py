@@ -20,6 +20,11 @@ from joblib import Parallel, delayed, parallel_backend
 from scipy.interpolate import interp1d
 from parse_aips import aipscor
 
+# antenna name to index mapping
+antmap = {}
+for i in range(36):
+    antmap[f"ak{i+1:02d}"] = i
+
 __author__ = "Keith Bannister <keith.bannister@csiro.au>"
 
 def _main():
@@ -438,7 +443,7 @@ class Correlator:
 
         print("## Operate on only antenna #: " + str(an))
         ant = self.ants[an]
-        iant = an
+        iant = ant_map[ant.antname]
         start = timer()
         temp = ant.do_f_tab(self, iant)
         print(f"do_f_tab (total): {timer()-start} s")
@@ -483,13 +488,13 @@ class MiriadGainSolutions:
             - float(bw) / nfreq / 2
         ) / 1e3  # reassign freqs in GHz
         self.bp_real = np.full(
-            (nfreq, nant), np.nan, dtype=np.complex64
+            (nfreq, 36), np.nan, dtype=np.complex64
         )
         self.bp_imag = np.full(
-            (nfreq, nant), np.nan, dtype=np.complex64
+            (nfreq, 36), np.nan, dtype=np.complex64
         )
-        g_real = np.full((1, nant), np.nan, dtype=np.complex64)
-        g_imag = np.full((1, nant), np.nan, dtype=np.complex64)
+        g_real = np.full((1, 36), np.nan, dtype=np.complex64)
+        g_imag = np.full((1, 36), np.nan, dtype=np.complex64)
 
         # look for a README and get fring, selfcal filenames
         drcal = os.path.dirname(bp_c_root)
@@ -508,7 +513,7 @@ class MiriadGainSolutions:
             sys.exit(1)
 
         aips_cor = aipscor(fring_f, sc_f, bp_c_root)
-        for iant in range(nant):
+        for iant in range(36):
             bp = aips_cor.get_phase_bandpass(iant, pol)
             bp = np.fliplr([bp])[0]  # decreasing order
 
@@ -537,7 +542,6 @@ class MiriadGainSolutions:
             g_real[0, iant] = np.real(g)
             g_imag[0, iant] = np.imag(g)
 
-        print(f"nant = {nant}")
         self.bp_real_interp = [
             interp1d(
                 self.freqs,
@@ -548,7 +552,7 @@ class MiriadGainSolutions:
                 ),
                 bounds_error=False,
             )
-            for iant in range(nant)
+            for iant in range(36)
         ]
         self.bp_imag_interp = [
             interp1d(
@@ -560,7 +564,7 @@ class MiriadGainSolutions:
                 ),
                 bounds_error=False,
             )
-            for iant in range(nant)
+            for iant in range(36)
         ]
         self.bp_coeff = None
 
