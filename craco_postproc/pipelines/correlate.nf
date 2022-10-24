@@ -269,9 +269,6 @@ process load_fits {
         Combine the per-card FITS files into a single FITS file
 
         Input            
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
             label: val
                 FRB name and context of process instance as a string (no 
                 spaces)
@@ -289,7 +286,6 @@ process load_fits {
     publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
 
     input:
-        val data
         val label
         path per_card_fits
         val mode
@@ -467,7 +463,7 @@ workflow correlate {
             correlated_data.cx_fy.collect(), polyco, mode
         )
 
-        load_fits(data, label, per_card_fits, mode)
+        load_fits(label, per_card_fits, mode)
     
     emit:
         fits = load_fits.out
