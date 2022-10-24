@@ -205,8 +205,6 @@ process difx_to_fits {
         Input
             correlated_data: path
                 All the c*_f* directories produced by do_correlation
-            polyco: path
-                TODO: describe polyco 
             mode: val
                 If mode == "finder", loop over finder bins to do conversion,
                 otherwise do it without looping
@@ -217,7 +215,6 @@ process difx_to_fits {
     */
     input:
         path correlated_data
-        path polyco, stageAs: "craftfrb.polyco"
         val mode
 
     output:
@@ -460,7 +457,7 @@ workflow correlate {
             cards.combine(fpgas), bat0
         )
         per_card_fits = difx_to_fits(
-            correlated_data.cx_fy.collect(), polyco, mode
+            correlated_data.cx_fy.collect(), mode
         )
 
         load_fits(label, per_card_fits, mode)
