@@ -31,8 +31,6 @@ process create_calcfiles {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            startmjd: val
-                Earliest data start time in Modified Julian Day (MJD)
             pos: path
                 File containing JMFIT statistics of position to beamform on
         
@@ -44,7 +42,6 @@ process create_calcfiles {
     input:
         val label
         val data
-        val startmjd
         path pos
 
     output:
@@ -55,6 +52,8 @@ process create_calcfiles {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_proc
         fi
+
+        startmjd=`python3 $localise_dir/get_start_mjd.py $data`
 
         export CRAFTCATDIR="."
 
@@ -77,7 +76,7 @@ process create_calcfiles {
         args="\$args --freqlabel c1_f0"
         args="\$args --dir=$baseDir/../difx"
         args="\$args --calconly"
-        args="\$args --startmjd $startmjd"
+        args="\$args --startmjd \$startmjd"
 
         echo "python3 $localise_dir/processTimeStep.py \$args"
         python3 $localise_dir/processTimeStep.py \$args
@@ -548,7 +547,6 @@ workflow beamform {
     
     main:
         // preliminaries
-        startmjd = get_start_mjd(data)
         calcfiles = create_calcfiles(label, data, startmjd, pos)
 
         // processing
