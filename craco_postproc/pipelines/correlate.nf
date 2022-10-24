@@ -48,40 +48,6 @@ process get_start_mjd {
         """
 }
 
-process create_bat0 {
-    /*
-        Create .bat0 file from vcraft data.
-        TODO: describe what the .bat0 file contains
-
-        Input
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
-        
-        Output
-            bat0: path
-                .bat0 file
-    */
-    input:
-        val data
-
-    output:
-        path ".bat0", emit: bat0
-
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-        bat0.pl `find $data/*/*/*vcraft | head -1`
-        """
-    
-    stub:
-        """
-        touch .bat0
-        """
-}
-
 process do_correlation {
     /*
         Correlate the data using DiFX
@@ -107,8 +73,6 @@ process do_correlation {
                 The earliest start time found in the data headers
             card, fpga: tuple(val, val)
                 Specific card-fpga pair to be correlated by this instance
-            bat0: path
-                TODO: describe bat0
         
         Output
             correlated_data: path
@@ -131,7 +95,6 @@ process do_correlation {
         val inttime
         val startmjd
         tuple val(card), val(fpga)
-        path bat0
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -143,6 +106,9 @@ process do_correlation {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_proc
         fi
+
+        # create .bat0
+        bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $params.fcm"
         args="\$args -b 4"
@@ -412,13 +378,12 @@ workflow correlate {
 
     main:
         startmjd = get_start_mjd(data)
-        bat0 = create_bat0(data)
 
         // cards.combine(fpgas) kicks off an instance of do_correlation for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = do_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
-            cards.combine(fpgas), bat0
+            cards.combine(fpgas)
         )
         difx_to_fits(
             label, correlated_data.cx_fy.collect(), mode
