@@ -547,7 +547,7 @@ workflow beamform {
     
     main:
         // preliminaries
-        calcfiles = create_calcfiles(label, data, startmjd, pos)
+        calcfiles = create_calcfiles(label, data, pos)
 
         // processing
         do_beamform(

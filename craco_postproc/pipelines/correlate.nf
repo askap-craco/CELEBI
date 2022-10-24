@@ -203,22 +203,27 @@ process difx_to_fits {
         Convert correlated data from the DiFX format into FITS.
 
         Input
+            label: val
+                FRB name and context of process instance as a string (no 
+                spaces)
             correlated_data: path
                 All the c*_f* directories produced by do_correlation
             mode: val
                 If mode == "finder", loop over finder bins to do conversion,
                 otherwise do it without looping
-        
-        Output
-            per_card_fits: path
-                A .FITS visibilities file for each card processed
+        Output:
+            fits: path
+                A single FITS file containing data across all cards processed
     */
+    publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
+
     input:
+        val label
         path correlated_data
         val mode
 
     output:
-        path "*.FITS"
+        path "${label}*.fits"
 
     script:
         """
@@ -253,48 +258,7 @@ process difx_to_fits {
         done
         chmod 775 runalldifx2fits
         ./runalldifx2fits
-        """
 
-    stub:
-        """
-        touch stub.FITS
-        """
-}
-
-process load_fits {
-    /*
-        Combine the per-card FITS files into a single FITS file
-
-        Input            
-            label: val
-                FRB name and context of process instance as a string (no 
-                spaces)
-                TODO: data and label are in the reverse order to elsewhere
-            per_card_fits: path
-                A FITS file for each card processed
-            mode: val
-                If mode == "finder", loop over finder bins, otherwise do it 
-                without looping
-        
-        Output:
-            fits: path
-                A single FITS file containing data across all cards processed
-    */
-    publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
-
-    input:
-        val label
-        path per_card_fits
-        val mode
-
-    output:
-        path "${label}*.fits"
-
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
         antlist=""
         for i in `seq -w 0 36`; do
             antlist="${antlist}ak$i,"
@@ -456,12 +420,10 @@ workflow correlate {
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
             cards.combine(fpgas), bat0
         )
-        per_card_fits = difx_to_fits(
-            correlated_data.cx_fy.collect(), mode
+        difx_to_fits(
+            label, correlated_data.cx_fy.collect(), mode
         )
-
-        load_fits(label, per_card_fits, mode)
     
     emit:
-        fits = load_fits.out
+        fits = difx_to_fits.out
 }
