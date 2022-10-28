@@ -194,6 +194,10 @@ process get_peak {
 
     script:
         """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
         # Remove empty .jmfit and .reg files
         find *jmfit -type f -empty -print -delete
         find *reg -type f -empty -print -delete
