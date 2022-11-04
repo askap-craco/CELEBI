@@ -6,6 +6,7 @@ Copyright (C) CSIRO 2017
 import glob
 import logging
 import os
+from re import X
 import signal
 import sys
 
@@ -20,7 +21,13 @@ from joblib import Parallel, delayed, parallel_backend
 from scipy.interpolate import interp1d
 from parse_aips import aipscor
 
-__author__ = "Keith Bannister <keith.bannister@csiro.au>"
+# antenna name to index mapping
+ant_map = {}
+for i in range(36):
+    antmap[f"ak{i+1:02d}"] = i
+
+__author__ = ["Keith Bannister <keith.bannister@csiro.au>",
+              "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
 
 def _main():
     values = parse_args()
@@ -66,11 +73,19 @@ def _main():
     # TODO: why is this a try/finally?
     try:
         start = timer()
-        print("PERFORMING TIED-ARRAY BEAMFORMING")
-        temp = corr.do_tab(values.an)
-        fn = values.outfile
-        print(f"saving output to {fn}")
-        np.save(fn, temp)
+        if values.ics:
+            print("PERFORMING INCOHERENT SUM")
+            ant_ics = corr.do_ics()
+            for i, ics in enumerate(ant_ics):
+                fn = f"{values.outfile}_{i:02d}"
+                print(f"saving {fn}")
+                np.save(fn, ics)
+        else:
+            print("PERFORMING TIED-ARRAY BEAMFORMING")
+            temp = corr.do_tab(values.an)
+            fn = values.outfile
+            print(f"saving output to {fn}")
+            np.save(fn, temp)
 
     finally:
         print(f"beamforming: {timer() - start}")
@@ -214,6 +229,39 @@ class AntennaSource:
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
+    
+    def do_ics(self, corr):
+        start = timer()
+
+        nfine = corr.nfft - 2 * corr.nguard_chan
+
+        # number of 1 ms-time resolution samples
+        nsamp = nfine//1000
+        nchan = corr.ncoarse_chan
+
+        ics_data = np.zeros(nchan, nsamp)
+
+        total_delay_samp = corr.refant.trigger_frame - self.trigger_frame
+        whole_delay = int(np.round(total_delay_samp))
+        rawd = self.vfile.read(whole_delay + corr.abs_delay, corr.nfft)
+
+        for c in range(nchan):
+            cfreq = corr.freqs[c]
+            x1 = rawd[:, c].reshape(-1, corr.nfft)
+            xf1 = np.fft.fft(x1, axis=1)
+            xf1 = np.fft.fftshift(xf1, axes=1)
+            xfguard_f = xf1[
+                0, corr.nguard_chan : corr.nguard_chan + nfine :
+            ]
+
+            XX_1us = np.abs(np.fft.ifft(xfguard_f))**2
+
+            # tscrunch
+            for t in range(nsamp):
+                ics_data[c, t] = np.sum(XX_1us[t*1000:(t+1)*1000])
+
+        return ics_data        
+
 
 
 class FringeRotParams:
@@ -436,13 +484,23 @@ class Correlator:
             (nsamp, nchan, self.npol_in), dtype=np.complex64
         )
 
+        start = timer()
         print("## Operate on only antenna #: " + str(an))
         ant = self.ants[an]
-        iant = an
-        start = timer()
+        iant = ant_map[ant.antname]
         temp = ant.do_f_tab(self, iant)
         print(f"do_f_tab (total): {timer()-start} s")
         return temp
+    
+    def do_ics(self):
+        # Incoherent sum
+        ant_ics = []
+
+        print("Performing incoherent sum")
+        for ant in self.ants:
+            ant_ics.append(ant.do_ics(self))
+        
+        return ant_ics
 
 
 class MiriadGainSolutions:
@@ -483,13 +541,13 @@ class MiriadGainSolutions:
             - float(bw) / nfreq / 2
         ) / 1e3  # reassign freqs in GHz
         self.bp_real = np.full(
-            (nfreq, nant), np.nan, dtype=np.complex64
+            (nfreq, 36), np.nan, dtype=np.complex64
         )
         self.bp_imag = np.full(
-            (nfreq, nant), np.nan, dtype=np.complex64
+            (nfreq, 36), np.nan, dtype=np.complex64
         )
-        g_real = np.full((1, nant), np.nan, dtype=np.complex64)
-        g_imag = np.full((1, nant), np.nan, dtype=np.complex64)
+        g_real = np.full((1, 36), np.nan, dtype=np.complex64)
+        g_imag = np.full((1, 36), np.nan, dtype=np.complex64)
 
         # look for a README and get fring, selfcal filenames
         drcal = os.path.dirname(bp_c_root)
@@ -508,7 +566,7 @@ class MiriadGainSolutions:
             sys.exit(1)
 
         aips_cor = aipscor(fring_f, sc_f, bp_c_root)
-        for iant in range(nant):
+        for iant in range(36):
             bp = aips_cor.get_phase_bandpass(iant, pol)
             bp = np.fliplr([bp])[0]  # decreasing order
 
@@ -537,7 +595,6 @@ class MiriadGainSolutions:
             g_real[0, iant] = np.real(g)
             g_imag[0, iant] = np.imag(g)
 
-        print(f"nant = {nant}")
         self.bp_real_interp = [
             interp1d(
                 self.freqs,
@@ -548,7 +605,7 @@ class MiriadGainSolutions:
                 ),
                 bounds_error=False,
             )
-            for iant in range(nant)
+            for iant in range(36)
         ]
         self.bp_imag_interp = [
             interp1d(
@@ -560,7 +617,7 @@ class MiriadGainSolutions:
                 ),
                 bounds_error=False,
             )
-            for iant in range(nant)
+            for iant in range(36)
         ]
         self.bp_coeff = None
 
@@ -662,6 +719,13 @@ def parse_args():
         type=int,
         default=1,
         help="Number of CPUs to parallelise across (Default = 1)"
+    )
+    parser.add_argument(
+        "--ics",
+        action="store_true",
+        default=False,
+        help="Incoherent sum mode. Produces intensity dynamic spectrum at "\
+             " 1 ms time resolution."
     )
 
     return parser.parse_args()

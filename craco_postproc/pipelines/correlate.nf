@@ -48,40 +48,6 @@ process get_start_mjd {
         """
 }
 
-process create_bat0 {
-    /*
-        Create .bat0 file from vcraft data.
-        TODO: describe what the .bat0 file contains
-
-        Input
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
-        
-        Output
-            bat0: path
-                .bat0 file
-    */
-    input:
-        val data
-
-    output:
-        path ".bat0", emit: bat0
-
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-        bat0.pl `find $data/*/*/*vcraft | head -1`
-        """
-    
-    stub:
-        """
-        touch .bat0
-        """
-}
-
 process do_correlation {
     /*
         Correlate the data using DiFX
@@ -107,8 +73,6 @@ process do_correlation {
                 The earliest start time found in the data headers
             card, fpga: tuple(val, val)
                 Specific card-fpga pair to be correlated by this instance
-            bat0: path
-                TODO: describe bat0
         
         Output
             correlated_data: path
@@ -131,7 +95,6 @@ process do_correlation {
         val inttime
         val startmjd
         tuple val(card), val(fpga)
-        path bat0
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -143,6 +106,9 @@ process do_correlation {
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_proc
         fi
+
+        # create .bat0
+        bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $params.fcm"
         args="\$args -b 4"
@@ -203,25 +169,27 @@ process difx_to_fits {
         Convert correlated data from the DiFX format into FITS.
 
         Input
+            label: val
+                FRB name and context of process instance as a string (no 
+                spaces)
             correlated_data: path
                 All the c*_f* directories produced by do_correlation
-            polyco: path
-                TODO: describe polyco 
             mode: val
                 If mode == "finder", loop over finder bins to do conversion,
                 otherwise do it without looping
-        
-        Output
-            per_card_fits: path
-                A .FITS visibilities file for each card processed
+        Output:
+            fits: path
+                A single FITS file containing data across all cards processed
     */
+    publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
+
     input:
+        val label
         path correlated_data
-        path polyco, stageAs: "craftfrb.polyco"
         val mode
 
     output:
-        path "*.FITS"
+        path "${label}*.fits"
 
     script:
         """
@@ -256,53 +224,12 @@ process difx_to_fits {
         done
         chmod 775 runalldifx2fits
         ./runalldifx2fits
-        """
 
-    stub:
-        """
-        touch stub.FITS
-        """
-}
-
-process load_fits {
-    /*
-        Combine the per-card FITS files into a single FITS file
-
-        Input            
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
-            label: val
-                FRB name and context of process instance as a string (no 
-                spaces)
-                TODO: data and label are in the reverse order to elsewhere
-            per_card_fits: path
-                A FITS file for each card processed
-            mode: val
-                If mode == "finder", loop over finder bins, otherwise do it 
-                without looping
-        
-        Output:
-            fits: path
-                A single FITS file containing data across all cards processed
-    */
-    publishDir "${params.publish_dir}/${params.label}/loadfits/${mode}", mode: "copy"
-
-    input:
-        val data
-        val label
-        path per_card_fits
-        val mode
-
-    output:
-        path "${label}*.fits"
-
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-        antlist=`ls -d $data/ak* | tr '\\n' '\\0' | xargs -0 -n 1 basename | tr '\\n' ','`
+        antlist=""
+        for i in `seq -w 0 36`; do
+            antlist="${antlist}ak$i,"
+        done
+        echo $antlist
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
@@ -451,20 +378,17 @@ workflow correlate {
 
     main:
         startmjd = get_start_mjd(data)
-        bat0 = create_bat0(data)
 
         // cards.combine(fpgas) kicks off an instance of do_correlation for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = do_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
-            cards.combine(fpgas), bat0
+            cards.combine(fpgas)
         )
-        per_card_fits = difx_to_fits(
-            correlated_data.cx_fy.collect(), polyco, mode
+        difx_to_fits(
+            label, correlated_data.cx_fy.collect(), mode
         )
-
-        load_fits(data, label, per_card_fits, mode)
     
     emit:
-        fits = load_fits.out
+        fits = difx_to_fits.out
 }
