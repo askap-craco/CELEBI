@@ -23,6 +23,116 @@ params.opt_gate = false
 
 beamform_dir = "$baseDir/../beamform/"
 
+process do_ics {
+    /*
+        Incoherently create a 1 ms dynamic spectrum from voltages
+
+        Input
+            label: val
+                FRB name and context of process instance as a string (no
+                spaces)
+            data: val
+                Absolute path to data base directory (the dir. with the ak* 
+                directories)
+            imfile: path, calcfile: path
+                The .im and .calc files that are used by craftcor_tab.py to 
+                calculate geometric delays for beamforming
+            pol: val
+                One of "X" or "Y" for the current polarisation being beamformed
+            ant_idx: val
+                Zero-based index of the antenna being beamformed
+
+        Output
+            data: path
+                1 ms time resolution dynamic spectrum
+            time: path
+                Time axis in MJD
+    */
+    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+    executor "slurm"
+    cpus 8
+    memory 26.GB
+    time 8.m
+
+    input:
+        val label
+        val data
+        tuple path(imfile), path(calcfile)
+        each pol
+        each ant_idx
+
+    output:
+        path "${label}_ICS_${pol}*${ant_idx}.npy", emit: data
+        path "t_mjd.npy", emit: time
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
+        mkdir delays
+        args="-d $data"
+        args="\$args --parset $params.fcm"
+        args="\$args --calcfile $imfile"
+        args="\$args -o ${label}_ICS"
+        args="\$args --ics"
+        args="\$args --cpus=8"
+        args="\$args --pol=$pol"
+        args="\$args --an=$ant_idx"
+
+        echo "python3 $beamform_dir/craftcor_tab.py \$args"
+        python3 $beamform_dir/craftcor_tab.py \$args
+        """
+}
+
+process refine_candidate {
+    /*
+        Sum incoherent dynamic spectra, search for FRB, and refine snoopy
+        candidate
+    
+        Input
+            label: val
+                FRB name and context of process instance as a string (no
+                spaces)
+            ics_dynspecs: path
+                All the incoherent dynamic spectra
+            t_mjd: path
+                ICS dynamic spectra time axis in MJD
+            snoopy: path
+                Initial detection snoopy candidate
+    */
+    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+
+    input:
+        val label
+        path ics_dynspecs
+        path t_mjd
+        path snoopy
+
+    output:
+        path "${label}_ICS.npy", emit: sum_ics
+        path "${label}.cand", emit: cand
+
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
+        python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
+
+        args="--ds $${label}_ICS.npy"
+        args="\$args -s $snoopy"
+        args="\$args -t $t_mjd"
+        args="\$args -f $params.centre_freq_frb"
+        args="\$args -o ${label}.cand"
+
+        python3 $localise_dir/search_ics.py
+        """
+
+}
+
 process plot {
     /*
         Plot dynamic spectra across different time resolutions to produce
