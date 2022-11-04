@@ -34,8 +34,8 @@ process do_ics {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            imfile: path, calcfile: path
-                The .im and .calc files that are used by craftcor_tab.py to 
+            imfile: path
+                The .im and file used by craftcor_tab.py to 
                 calculate geometric delays for beamforming
             pol: val
                 One of "X" or "Y" for the current polarisation being beamformed
@@ -57,7 +57,7 @@ process do_ics {
     input:
         val label
         val data
-        tuple path(imfile), path(calcfile)
+        path imfile
         each pol
         each ant_idx
 
