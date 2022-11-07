@@ -2,11 +2,14 @@
 nextflow.enable.dsl=2   // Enable DSL2
 
 // Cards and FPGAs to be processed. Override these in a config file to cut out
-// data
+// data. The lowest card-fpga pair is used as a reference correlation.
 params.cards = ["1", "2", "3", "4", "5", "6", "7"]
 cards = Channel.fromList(params.cards)
 params.fpgas = ["0", "1", "2", "3", "4", "5"]
 fpgas = Channel.fromList(params.fpgas)
+card_fpgas = cards.combine(fpgas)
+    .filter{ !(it[0] == params.cards.min() & it[1] == params.fpgas.min()) }
+ref_card_fpga = cards.min().combine(fpgas.min())
 
 localise_dir = "$baseDir/../localise/"
 
@@ -48,7 +51,7 @@ process get_start_mjd {
         """
 }
 
-process do_correlation {
+process do_ref_correlation {
     /*
         Correlate the data using DiFX
 
@@ -153,6 +156,127 @@ process do_correlation {
         if [ "$inttime" != "0" ]; then
             args="\$args -i $inttime"
         fi
+
+        python3 $localise_dir/processTimeStep.py \$args
+        """
+    
+    stub:
+        """
+        mkdir c${card}_f${fpga}
+        touch c${card}_f${fpga}/stubD2D.input
+        """
+}
+process do_correlation {
+    /*
+        Correlate the data using DiFX
+
+        Input            
+            label: val
+                FRB name and context of process instance as a string (no 
+                spaces)
+            data: val
+                Absolute path to data base directory (the dir. with the ak* 
+                directories)
+            ra: val
+                Right ascension to correlate around, as hh:mm:ss
+            dec: val
+                Declination to correlate around, as dd:mm:ss
+            binconfig: path
+                File specifying how to bin the correlated data
+            polyco: path
+                TODO: describe polyco
+            inttime: val
+                Integration time in seconds
+            startmjd: environment variable
+                The earliest start time found in the data headers
+            card, fpga: tuple(val, val)
+                Specific card-fpga pair to be correlated by this instance
+            refcorr: path
+                Optional reference correlation for fillDiFX. If not needed,
+                pass an empty file
+        
+        Output
+            correlated_data: path
+                A directory "c{card}_f{fpga}" containing the correlated data
+            D2D: path
+                A file within the correlated_data directory that only exists if 
+                the correlation has completed. This is used as an output to 
+                ensure that Nextflow correctly determines if this process has 
+                completed or not, since the correlated_data directory will 
+                exist even if the process has ended (e.g. by being killed) 
+                without completing.
+    */
+    input:
+        val label
+        val data
+        val ra
+        val dec
+        path binconfig, stageAs: "craftfrb.binconfig"
+        path polyco, stageAs: "craftfrb.polyco"
+        val inttime
+        val startmjd
+        tuple path(ref_corr), val(card), val(fpga)
+
+    output:
+        path "c${card}_f${fpga}", emit: cx_fy
+        path "c${card}_f${fpga}/*D2D.input"
+
+    script:
+        """
+        export CRAFTCATDIR="."  # necessary?
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
+        # create .bat0
+        bat0.pl `find $data/*/*/*vcraft | head -1`
+
+        args="-f $params.fcm"
+        args="\$args -b 4"
+        args="\$args -k"
+        args="\$args --name=$label"
+        args="\$args -o ."
+        args="\$args -t $data"
+        args="\$args --ra $ra"
+        args="\$args -d$dec"
+        args="\$args --card $card"
+        freqlabel="c${card}_f${fpga}"
+        args="\$args --freqlabel \$freqlabel"
+        args="\$args --dir=$baseDir/../difx"
+        args="\$args --startmjd=$startmjd"
+
+        # High-band FRBs need --upersideband
+        if [ "$params.uppersideband" == "true" ]; then
+            args="\$args --uppersideband"
+        fi
+
+        # if running on ozstar, use the slurm queue, otherwise run locally 
+        # across 16 cpus
+        if [ "$params.ozstar" == "true" ]; then
+            args="\$args --slurm"
+        else
+            args="\$args --ts 16"
+        fi
+
+        if [ -d \$freqlabel ]; then
+            rm -r \$freqlabel
+        fi
+        mkdir \$freqlabel
+        cp craftfrb.polyco \$freqlabel
+        cp .bat0 \$freqlabel
+
+        # Only use binconfig if it's not empty
+        if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
+            args="\$args -p craftfrb.binconfig"
+        fi
+
+        # Only include inttime if non-zero
+        if [ "$inttime" != "0" ]; then
+            args="\$args -i $inttime"
+        fi
+
+        # Provide reference correlation
+        args="\$args --ref=$ref_corr"
 
         python3 $localise_dir/processTimeStep.py \$args
         """
@@ -379,14 +503,23 @@ workflow correlate {
     main:
         startmjd = get_start_mjd(data)
 
-        // cards.combine(fpgas) kicks off an instance of do_correlation for
+        // reference correlation
+        ref_correlation = do_ref_correlation(
+            label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
+            ref_card_fpga
+        ).cx_fy
+
+        // card_fpgas kicks off an instance of do_correlation for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = do_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
-            cards.combine(fpgas)
-        )
+            ref_correlation.combine(card_fpgas)
+        ).cx_fy
+
+        all_correlations = ref_correlation.concat(correlated_data).collect()
+
         difx_to_fits(
-            label, correlated_data.cx_fy.collect(), mode
+            label, all_correlations, mode
         )
     
     emit:

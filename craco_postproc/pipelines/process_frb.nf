@@ -21,13 +21,21 @@ params.opt_DM_dt = 100
 
 params.opt_gate = false
 
+params.pols = ['X', 'Y']
+polarisations = Channel
+    .fromList(params.pols)
+params.nants = 2
+antennas = Channel
+    .of(0..params.nants-1)
+
 //beamform_dir = "$baseDir/../beamform/"
 beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/beamform"
 localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise"
 
-process do_ics {
+process load_coarse_dynspec {
     /*
-        Incoherently create a 1 ms dynamic spectrum from voltages
+        Incoherently create a 1 ms dynamic spectrum from voltages for a given
+        polarisation and antenna
 
         Input
             label: val
@@ -36,9 +44,6 @@ process do_ics {
             data: val
                 Absolute path to data base directory (the dir. with the ak* 
                 directories)
-            imfile: path
-                The .im and file used by craftcor_tab.py to 
-                calculate geometric delays for beamforming
             pol: val
                 One of "X" or "Y" for the current polarisation being beamformed
             ant_idx: val
@@ -51,15 +56,10 @@ process do_ics {
                 Time axis in MJD
     */
     publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
-    executor "slurm"
-    cpus 8
-    memory 26.GB
-    time 8.m
 
     input:
         val label
         val data
-        tuple path(imfile), path(calcfile)
         each pol
         each ant_idx
 
@@ -70,13 +70,38 @@ process do_ics {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . /fred/oz002/askap/craft/craco/processing/setup_proc
+            . $launchDir/setup_proc
         fi
+
+        # create calcfiles for antenna delay
+        startmjd=`python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/get_start_mjd.py ./frb-220610/`
+
+        export CRAFTCATDIR="."
+
+        # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
+        # written
+        args="-t ./frb-220610/"
+        args="\$args --ra $params.ra_frb"
+        args="\$args -d$params.dec_frb"
+        args="\$args -f fcm.41523.txt"
+        args="\$args -b 4"
+        args="\$args --card 1"
+        args="\$args -k"
+        args="\$args --name=210117_ICS"
+        args="\$args -o ."
+        args="\$args --freqlabel c1_f0"
+        args="\$args --dir=/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/difx"
+        args="\$args --calconly"
+        args="\$args --startmjd \$startmjd"
+
+        echo "python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py $args"
+        python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py $args
+
 
         mkdir delays
         args="-d $data"
         args="\$args --parset $params.fcm"
-        args="\$args --calcfile $imfile"
+        args="\$args --calcfile c1_f0/craftfrb.im"
         args="\$args -o ${label}_ICS"
         args="\$args --ics"
         args="\$args --cpus=8"
@@ -85,6 +110,12 @@ process do_ics {
 
         echo "python3 $beamform_dir/craftcor_tab.py \$args"
         python3 $beamform_dir/craftcor_tab.py \$args
+        """
+    
+    stub:
+        """
+        touch ${label}_ICS_${pol}_${ant_idx}.npy
+        touch t_mjd.npy
         """
 }
 
@@ -134,6 +165,12 @@ process refine_candidate {
         python3 $localise_dir/search_ics.py \$args
         """
 
+    stub:
+        """
+        touch ${label}_ICS.npy
+        touch ${label}.cand
+        touch stub.png
+        """
 }
 
 process plot {
@@ -510,7 +547,11 @@ workflow process_frb {
         pol_cal_solns
 
     main:
-        binconfig = generate_binconfig()
+        coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
+                                        antennas)
+        refine_candidate(params.label, coarse_ds.data.collect(), 
+                         coarse_ds.time.first(), params.snoopy)
+        binconfig = generate_binconfig(refine_candidate.out.cand)
         empty_file = create_empty_file("file")
 
         if(!params.opt_gate){    
