@@ -276,7 +276,7 @@ process do_correlation {
         fi
 
         # Provide reference correlation
-        args="\$args --ref=$ref_corr"
+        # args="\$args --ref=$ref_corr"
 
         python3 $localise_dir/processTimeStep.py \$args
         """
