@@ -21,7 +21,9 @@ params.opt_DM_dt = 100
 
 params.opt_gate = false
 
-beamform_dir = "$baseDir/../beamform/"
+//beamform_dir = "$baseDir/../beamform/"
+beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/beamform"
+localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise"
 
 process do_ics {
     /*
@@ -57,7 +59,7 @@ process do_ics {
     input:
         val label
         val data
-        path imfile
+        tuple path(imfile), path(calcfile)
         each pol
         each ant_idx
 
@@ -68,7 +70,7 @@ process do_ics {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
+            . /fred/oz002/askap/craft/craco/processing/setup_proc
         fi
 
         mkdir delays
@@ -113,22 +115,23 @@ process refine_candidate {
     output:
         path "${label}_ICS.npy", emit: sum_ics
         path "${label}.cand", emit: cand
+        path "*png", emit: plots
 
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
+            . /fred/oz002/askap/craft/craco/processing/setup_proc
         fi
 
         python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
 
-        args="--ds $${label}_ICS.npy"
+        args="--ds ${label}_ICS.npy"
         args="\$args -s $snoopy"
         args="\$args -t $t_mjd"
         args="\$args -f $params.centre_freq_frb"
         args="\$args -o ${label}.cand"
 
-        python3 $localise_dir/search_ics.py
+        python3 $localise_dir/search_ics.py \$args
         """
 
 }

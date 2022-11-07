@@ -1,5 +1,6 @@
 import numpy as np
 from argparse import ArgumentParser
+import matplotlib.pyplot as plt
 
 from requests import head
 
@@ -7,6 +8,8 @@ def _main():
     args = parse_args()
 
     ds = normalise(np.load(args.ds))
+    #ds = np.pad(ds, ((0, 0), (ds.shape[1], ds.shape[1])))   # pad with zeros in case FRB goes off edge
+
     t = np.load(args.t)
     freqs = get_freqs(args.f0, args.bw, ds.shape[0])
 
@@ -20,7 +23,10 @@ def _main():
 
     widths = np.arange(1, 11)
     
-    SN_peak, t_peak, DM_peak, width_peak = incoh_search(ds, freqs, DMs, widths)
+    SN_peak, t_peak, DM_peak, width_peak = incoh_search(ds, freqs, DMs, widths, t)
+
+    # account for padding
+    #t_peak -= ds.shape[1]//3
 
     print("Original -> refined:")
     print(f"DM:\t{DM_cand} -> {DM_peak}")
@@ -32,9 +38,17 @@ def _main():
     new_cand[5] = DM_peak
     new_cand[7] = t[t_peak]
 
-    np.savetxt(args.o, new_cand, delimiter=" ", 
-        header="# S/N, sampno, secs from file start, boxcar, idt, dm, beamno, mjd, latency_ms"
-    )
+    with open(args.o, "w") as f:
+        f.write("# S/N, sampno, secs from file start, boxcar, idt, dm, beamno, mjd, latency_ms\n")
+        f.write(f"{new_cand[0]:.2f} "\
+                f"{new_cand[1]} "\
+                f"{new_cand[2]:.4f} "\
+                f"{int(new_cand[3])} "\
+                f"{int(new_cand[4])} "\
+                f"{new_cand[5]:.2f} "\
+                f"{int(new_cand[6])} "\
+                f"{new_cand[7]} "\
+                f"{new_cand[8]}\n")
 
 
 def parse_args():
@@ -88,8 +102,8 @@ def parse_args():
         default=336.0,
         help="Dynamic spectrum bandwidth"
     )
-    parser.add_argument()
 
+    return parser.parse_args()
 
 def get_freqs(f0: float, bw: float, nchan: int) -> np.ndarray:
     """Create array of frequencies.
@@ -112,7 +126,7 @@ def get_freqs(f0: float, bw: float, nchan: int) -> np.ndarray:
 
     chan_width = bw / nchan
 
-    freqs = np.linspace(fmax, fmin, nchan, endpoint=False) + chan_width / 2
+    freqs = np.linspace(fmax, fmin, nchan, endpoint=False) - chan_width / 2
 
     return freqs
 
@@ -126,6 +140,15 @@ def normalise(ds):
     norm = lambda x: (x - np.mean(x)) / np.std(x)
     for f in range(F):
         out_ds[f] = norm(ds[f])
+
+    # to mitigate single bright pixels drawing too much attention: cap values at 5sig
+    out_ds[(out_ds > 5)] = 5
+
+    plt.figure(figsize=(16, 9))
+    plt.imshow(out_ds, aspect="auto", interpolation="none")
+    plt.tight_layout()
+    plt.savefig("ds.png")
+
     return out_ds
 
 
@@ -142,12 +165,12 @@ def incoh_dedisp(ds, freqs, DM):
     k_dm = 1 / 2.41e-4
     idt = lambda DM, f: -int(k_dm * (f ** (-2) - f_ref ** (-2)) * DM * 1000)
 
-    for i, f in enumerate(freqs[::-1]):
+    for i, f in enumerate(freqs):
         ds_dd[i] = np.roll(ds[i], idt(DM, f))
     return ds_dd
 
 
-def incoh_search(ds, freqs, DMs, widths):
+def incoh_search(ds, freqs, DMs, widths, t):
     SNs = np.zeros((ds.shape[1], DMs.shape[0], widths.shape[0]))
     for d, DM in enumerate(DMs):
         ds_dd = incoh_dedisp(ds, freqs, DM)
@@ -157,6 +180,53 @@ def incoh_search(ds, freqs, DMs, widths):
             SNs[:, d, w] = smth_prof / np.std(smth_prof)
 
     t_peak, d_peak, w_peak = np.unravel_index(np.argmax(SNs), SNs.shape)
+
+    plt.figure(figsize=(15, 5))
+    plt.imshow(SNs[:, :, w_peak].T, extent=(t[0], t[-1], DMs[0], DMs[-1]), aspect="auto", origin="lower", interpolation="none")
+    plt.scatter(t[t_peak], DMs[d_peak], c="r", marker="X")
+    plt.colorbar(label="S/N")
+    plt.xlabel("Time (MJD)")
+    plt.ylabel("DM (pc/cm3)")
+    plt.tight_layout()
+    plt.savefig("t_vs_DM.png")
+    
+    plt.figure(figsize=(15, 5))
+    plt.imshow(SNs[:, d_peak, :].T, extent=(t[0], t[-1], widths[0], widths[-1]), aspect="auto", origin="lower", interpolation="none")
+    plt.scatter(t[t_peak], widths[w_peak], c="r", marker="X")
+    plt.colorbar(label="S/N")
+    plt.xlabel("Time (MJD)")
+    plt.ylabel("width (samp)")
+    plt.tight_layout()
+    plt.savefig("t_vs_w.png")
+
+    plt.figure(figsize=(7, 5))
+    plt.imshow(SNs[t_peak, :, :].T, extent=(DMs[0], DMs[-1], widths[0], widths[-1]), aspect="auto", origin="lower", interpolation="none")
+    plt.scatter(DMs[d_peak], widths[w_peak], c="r", marker="X")
+    plt.colorbar(label="S/N")
+    plt.xlabel("DM (pc/cm3)")
+    plt.ylabel("width (samp)")
+    plt.tight_layout()
+    plt.savefig("DM_vs_w.png")
+
+    ds_dd = incoh_dedisp(ds, freqs, DMs[d_peak])
+    plt.figure(figsize=(16, 9))
+    plt.imshow(ds_dd, extent=(t[0], t[-1], freqs[0], freqs[-1]), aspect="auto", interpolation="none")
+    plt.xlabel("Time (MJD)")
+    plt.ylabel("Freq (MHz)")
+    plt.tight_layout()
+    plt.savefig("ds_dd.png")
+
+    prof = np.sum(ds_dd, axis=0)
+    smth_prof = np.convolve(prof, np.ones(widths[w_peak]), mode="same")
+    plt.figure(figsize=(16, 9))
+    plt.plot(t, prof)
+    plt.plot(t, smth_prof)
+    plt.xlim(t[0], t[-1])
+    plt.xlabel("Time (MJD)")
+    plt.ylabel("S/N")
+    plt.tight_layout()
+    plt.savefig("prof.png")
+
     SN_peak = SNs[t_peak, d_peak, w_peak]
     return SN_peak, t_peak, DMs[d_peak], widths[w_peak]
 

@@ -24,7 +24,7 @@ from parse_aips import aipscor
 # antenna name to index mapping
 ant_map = {}
 for i in range(36):
-    antmap[f"ak{i+1:02d}"] = i
+    ant_map[f"ak{i+1:02d}"] = i
 
 __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
@@ -75,11 +75,10 @@ def _main():
         start = timer()
         if values.ics:
             print("PERFORMING INCOHERENT SUM")
-            ant_ics = corr.do_ics()
-            for i, ics in enumerate(ant_ics):
-                fn = f"{values.outfile}_{i:02d}"
-                print(f"saving {fn}")
-                np.save(fn, ics)
+            ant_ics = corr.do_ics(values.an)
+            fn = f"{values.outfile}_{values.pol}_{values.an:02d}"
+            print(f"saving {fn}")
+            np.save(fn, ant_ics)
         else:
             print("PERFORMING TIED-ARRAY BEAMFORMING")
             temp = corr.do_tab(values.an)
@@ -230,7 +229,7 @@ class AntennaSource:
         print(f"do_f_tab (stage 2): {timer()-start} s")
         return data_out
     
-    def do_ics(self, corr):
+    def do_ics(self, corr, an):
         start = timer()
 
         nfine = corr.nfft - 2 * corr.nguard_chan
@@ -239,13 +238,24 @@ class AntennaSource:
         nsamp = nfine//1000
         nchan = corr.ncoarse_chan
 
-        ics_data = np.zeros(nchan, nsamp)
+        start_mjd = corr.curr_mjd_start
+        dt_mjd = 1/(24*60*60*1000)
+        end_mjd = start_mjd + nsamp*dt_mjd
+
+        t_mjd = np.linspace(start_mjd, end_mjd, nsamp)
+        np.save(f"t_mjd.npy", t_mjd)
+
+        ics_data = np.zeros((nchan, nsamp))
 
         total_delay_samp = corr.refant.trigger_frame - self.trigger_frame
         whole_delay = int(np.round(total_delay_samp))
         rawd = self.vfile.read(whole_delay + corr.abs_delay, corr.nfft)
+        np.save("TEMP_rawd.npy", rawd)
+        del rawd
+        rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
 
-        for c in range(nchan):
+        def process_chan(c):
+            print(f"{self.antname}\t{c:03d}/{nchan}")
             cfreq = corr.freqs[c]
             x1 = rawd[:, c].reshape(-1, corr.nfft)
             xf1 = np.fft.fft(x1, axis=1)
@@ -259,6 +269,11 @@ class AntennaSource:
             # tscrunch
             for t in range(nsamp):
                 ics_data[c, t] = np.sum(XX_1us[t*1000:(t+1)*1000])
+
+        Parallel(n_jobs=corr.values.cpus, require="sharedmem")(
+            delayed(process_chan)(c)
+            for c in range(nchan)
+        )
 
         return ics_data        
 
@@ -376,7 +391,8 @@ class Correlator:
         self.calcmjd()
         self.get_fr_data()
         self.pol = self.ants[0].pol
-        self.parse_mir()
+        if not values.ics:
+            self.parse_mir()
 
         logging.debug(
             "F0 %f FINE CHANNEL %f kHz num=%d freqs=%s",
@@ -492,13 +508,10 @@ class Correlator:
         print(f"do_f_tab (total): {timer()-start} s")
         return temp
     
-    def do_ics(self):
+    def do_ics(self, an):
         # Incoherent sum
-        ant_ics = []
-
-        print("Performing incoherent sum")
-        for ant in self.ants:
-            ant_ics.append(ant.do_ics(self))
+        ant = self.ants[an]
+        ant_ics = ant.do_ics(self, an)
         
         return ant_ics
 
