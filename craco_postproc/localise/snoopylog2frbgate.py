@@ -59,7 +59,7 @@ def _main():
 
     # Finder binconfig
     finderbinedges, finderweights, numfinderbins = calc_finder_bins(
-        rfibinedges
+        rfibinedges, numfinderbins=11
     )
     write_binconfig(
         "craftfrb.finder.binconfig",
