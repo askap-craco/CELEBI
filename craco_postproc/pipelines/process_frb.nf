@@ -80,7 +80,7 @@ process load_coarse_dynspec {
 
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
         # written
-        args="-t ./frb-220610/"
+        args="-t $data"
         args="\$args --ra $params.ra_frb"
         args="\$args -d$params.dec_frb"
         args="\$args -f fcm.41523.txt"
