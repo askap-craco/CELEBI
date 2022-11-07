@@ -310,6 +310,7 @@ process difx_to_fits {
     input:
         val label
         path correlated_data
+        path polyco
         val mode
 
     output:
@@ -519,7 +520,7 @@ workflow correlate {
         all_correlations = ref_correlation.concat(correlated_data).collect()
 
         difx_to_fits(
-            label, all_correlations, mode
+            label, all_correlations, polyco, mode
         )
     
     emit:
