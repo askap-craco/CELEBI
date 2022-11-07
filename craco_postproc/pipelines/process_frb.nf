@@ -94,8 +94,8 @@ process load_coarse_dynspec {
         args="\$args --calconly"
         args="\$args --startmjd \$startmjd"
 
-        echo "python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py $args"
-        python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py $args
+        echo "python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py \$args"
+        python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py \$args
 
 
         mkdir delays
