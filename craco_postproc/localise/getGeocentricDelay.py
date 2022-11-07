@@ -136,6 +136,8 @@ def parse_hdrs(
 
     frbpos = SkyCoord(beamra, beamdec, unit="deg")
 
+    minfreq -= 1    # headers are off by 1 MHz
+
     return minfreq, frbpos, triggermjd, samprate, nsamps
 
 

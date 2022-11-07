@@ -158,8 +158,8 @@ def incoh_dedisp(ds, freqs, DM):
     """
     ds_dd = ds.copy()
 
-    # reference frequency 1 MHz higher than lowest channel for consistency with polyco
-    f_ref = np.min(freqs) + 1
+    # reference frequency is lowest channel for consistency with polyco
+    f_ref = np.min(freqs)
 
     # index to roll for dedispersion
     k_dm = 1 / 2.41e-4
