@@ -70,7 +70,7 @@ process load_coarse_dynspec {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/setup_proc
+            . $launchDir/../setup_proc
         fi
 
         # create calcfiles for antenna delay
@@ -151,7 +151,7 @@ process refine_candidate {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . /fred/oz002/askap/craft/craco/processing/setup_proc
+            . $launchDir/../setup_proc
         fi
 
         python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
