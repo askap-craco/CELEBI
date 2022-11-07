@@ -227,9 +227,9 @@ process difx_to_fits {
 
         antlist=""
         for i in `seq -w 0 36`; do
-            antlist="${antlist}ak$i,"
+            antlist="\${antlist}ak\$i,"
         done
-        echo $antlist
+        echo \$antlist
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
