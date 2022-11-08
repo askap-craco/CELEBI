@@ -643,9 +643,9 @@ workflow process_frb {
             if(new File(frb_jmfit_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)
             }
-            else {
-                askap_frb_pos = empty_file
-            }
+            // else {
+            //     askap_frb_pos = empty_file
+            // }
 
             if(new File(offset_path).exists()) {
                 offset = Channel.fromPath(offset_path)
