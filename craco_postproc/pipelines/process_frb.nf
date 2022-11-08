@@ -74,7 +74,7 @@ process load_coarse_dynspec {
         fi
 
         # create calcfiles for antenna delay
-        startmjd=`python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/get_start_mjd.py ./frb-220610/`
+        startmjd=`python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/get_start_mjd.py $data`
 
         export CRAFTCATDIR="."
 
@@ -83,7 +83,7 @@ process load_coarse_dynspec {
         args="-t $data"
         args="\$args --ra $params.ra_frb"
         args="\$args -d$params.dec_frb"
-        args="\$args -f fcm.41523.txt"
+        args="\$args -f $params.fcm"
         args="\$args -b 4"
         args="\$args --card 1"
         args="\$args -k"
