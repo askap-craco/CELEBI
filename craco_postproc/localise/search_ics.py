@@ -8,7 +8,6 @@ def _main():
     args = parse_args()
 
     ds = normalise(np.load(args.ds))
-    #ds = np.pad(ds, ((0, 0), (ds.shape[1], ds.shape[1])))   # pad with zeros in case FRB goes off edge
 
     t = np.load(args.t)
     freqs = get_freqs(args.f0, args.bw, ds.shape[0])
@@ -17,16 +16,14 @@ def _main():
     cand = np.loadtxt(args.snoopy, delimiter=" ", comments="#")
     DM_cand = cand[5]
 
+    # DM_cand is always a lower bound
     DMs = np.arange(
-        DM_cand - args.DMrange, DM_cand + args.DMrange, args.DMstep
+        DM_cand, DM_cand + args.DMrange + args.DMstep, args.DMstep
     )
 
-    widths = np.arange(1, 11)
+    widths = np.arange(1, 21)
     
     SN_peak, t_peak, DM_peak, width_peak = incoh_search(ds, freqs, DMs, widths, t)
-
-    # account for padding
-    #t_peak -= ds.shape[1]//3
 
     print("Original -> refined:")
     print(f"DM:\t{DM_cand} -> {DM_peak}")
@@ -68,7 +65,7 @@ def parse_args():
         "--DMrange",
         type=float,
         default=10.0,
-        help="How far above and below the snoopy candidate's DM to search"
+        help="How far above the snoopy candidate's DM to search"
     )
     parser.add_argument(
         "--DMstep",

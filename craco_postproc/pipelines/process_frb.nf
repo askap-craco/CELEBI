@@ -13,6 +13,9 @@ params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
 
+params.ICS_DMrange = 100
+params.ICS_DMstep = 0.1
+
 params.opt_DM = false
 params.minDM = 0
 params.maxDM = 10
@@ -160,6 +163,8 @@ process refine_candidate {
         args="\$args -s $snoopy"
         args="\$args -t $t_mjd"
         args="\$args -f $params.centre_freq_frb"
+        args="\$args --DMrange=$params.ICS_DMrange"
+        args="\$args --DMstep=$params.ICS_DMstep"
         args="\$args -o ${label}.cand"
 
         python3 $localise_dir/search_ics.py \$args
