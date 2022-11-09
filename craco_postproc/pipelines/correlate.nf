@@ -351,7 +351,7 @@ process difx_to_fits {
         ./runalldifx2fits
 
         antlist=""
-        for i in `seq -w 0 36`; do
+        for i in `seq -w 1 36`; do
             antlist="\${antlist}ak\$i,"
         done
         echo \$antlist
