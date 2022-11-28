@@ -306,7 +306,8 @@ def _main():
                 c="r",
                 label="Fit"
             )
-            ax.set_ylim(-np.pi / 2, np.pi / 2)
+            ax.set_ylim(min(-np.pi / 2, np.min(pa)), 
+                        max(np.pi / 2, np.max(pa)))
             plt.yticks(
                 np.linspace(-1 / 2, 1 / 2, 5) * np.pi,
                 [
@@ -584,7 +585,7 @@ def fit_pol_frac(freqs, S_ratio):
 
 def fit_pol_ang(freqs, U, Q):
     print("Calculating Polarisation Angle")
-    pol_ang = np.arctan2(U, Q) / 2
+    pol_ang = np.unwrap(np.arctan2(U, Q) / 2, period=np.pi)
 
     # fit rm and offset
     popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
