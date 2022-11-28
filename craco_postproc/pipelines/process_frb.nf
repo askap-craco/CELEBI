@@ -178,6 +178,51 @@ process refine_candidate {
         """
 }
 
+process get_beam_centre {
+    /*
+        Parse VCRAFT headers to get the beam centre
+
+        Output
+            ra: env
+                Beam centre right ascension (hms)
+            dec: env
+                Beam centre declination (dms)
+    */
+    output:
+        env ra, emit: ra
+        env dec, emit: dec
+    
+    script:
+        """
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
+
+        # find a header file
+        ant_pattern="${params.data_frb}/ak*"
+        ants=( \$ant_pattern )
+        first_ant=`echo \$ants`
+        beam_pattern="\$first_ant/beam*"
+        beams=( \$beam_pattern )
+        first_beam=`echo \$beams`
+        header=`ls \$first_beam/*c1_f0*hdr`
+
+        # beam centre in degrees
+        ra_beam_deg=`grep BEAM_RA \$header | cut -d " " -f 2`
+        dec_beam_deg=`grep BEAM_DEC \$header | cut -d " " -f 2`
+
+        radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
+        ra=`echo \$radec_beam | cut -d " " -f 1 | tr h : | tr m : | tr s 0`
+        dec=`echo \$radec_beam | cut -d " " -f 2 | tr d : | tr m : | tr s 0`
+        """
+    
+    stub:
+        """
+        ra="00:00:00"
+        dec="00:00:00"
+        """
+}
+
 process plot {
     /*
         Plot dynamic spectra across different time resolutions to produce
@@ -600,9 +645,10 @@ workflow process_frb {
             }
         }
         else {
+            beam_centre = get_beam_centre()
             field_fits = corr_field(
-                "${params.label}_field", params.data_frb, params.ra_frb, 
-                params.dec_frb, empty_file, empty_file, 0, "field"
+                "${params.label}_field", params.data_frb, beam_centre.ra, 
+                beam_centre.ra, empty_file, empty_file, 0, "field"
             )
         }
 
