@@ -37,12 +37,20 @@ def _main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+    # Start by getting the antenna list from the calc file
+    calcresults = ResultsFile(values.calcfile)
+
     # get vcraft files from data directory
     antennadirs = sorted(glob.glob(values.data + "/ak*"))
     vcraftfiles = []
-    for a in antennadirs:
-        beamdirs = sorted(glob.glob(a + "/*"))
+    for anname in calcresults.telnames:
+        antennadir = values.data + '/' + anname
+        if not os.path.exists(antennadir):
+            print("antenna directory " + antennadir + " doesn't exist, aborting")
+            sys.exit()
 
+        beamdirs = sorted(glob.glob(antennadir + "/*"))
+        # FIXME: this doesn't take into account busted downloads when only one polarisation is present. More info should be provided upstream
         if values.pol == "X":
             vcraftfiles += sorted(glob.glob(beamdirs[0] + "/*[ac]*vcraft"))
         elif values.pol == "Y":
@@ -52,21 +60,23 @@ def _main():
             sys.exit(1)
 
     start = timer()
+    # FIXME: This should be replaced by robustifying the ResultsFile and getting the data from it, rather than using this separate parsing on the calc file
     sources = load_sources(values.calcfile)
     print(f"load_sources: {timer()-start} s")
 
     # hacking delays
     start = timer()
-    delaymap = parse_delays(values)
+    delaymap = parse_delays(values) # FIXME: I'm sure this is not robust against changing the antenna subset, but is only relevant for very old FRBs with hardware delays
     antennas = [
         AntennaSource(mux)
         for mux in vcraft.mux_by_antenna(vcraftfiles, delaymap)
     ]
     print(f"Parse antennas: {timer()-start} s")
-    print(("NUMBER OF ANTENNAS", len(antennas)))
+    print(("NUMBER OF ANTENNAS TO BE BEAMFORMED", len(antennas)))
 
     given_offset = values.offset
     start = timer()
+    # FIXME: Could replace the antenna list here by the calcresults object, or even better, by the values.an antenna that we actually want to load
     corr = Correlator(antennas, sources, values, abs_delay=given_offset)
     print(f"setup Correlator: {timer()-start} s")
 
@@ -106,6 +116,7 @@ class AntennaSource:
         print(f"antenna {self.antname} {self.vfile.freqconfig}")
 
     def do_f_tab(self, corr, iant):
+        # iant is the number of the antenna in the AIPS AN table, minus 1 (i.e., a zero based index from the 36 antennas)
         start = timer()
         self.frparams = FringeRotParams(corr, self)
         # calculate sample start
@@ -138,7 +149,7 @@ class AntennaSource:
         geom_delays_us = np.load("TEMP_geom_delays_us.npy", mmap_mode="r")
 
         sampoff = whole_delay + corr.abs_delay
-        print(("antenna #: ", iant, self.antname))
+        print(("Zero-based, full-array antenna #: ", iant, self.antname))
         frameid = self.vfile.start_frameid + sampoff
         print(
             "FRAMEID: "
@@ -209,8 +220,7 @@ class AntennaSource:
             freq_ghz = (cfreq + freqs) / 1e3
 
             # apply calibration solutions to phasor
-            mir_cor = corr.mir.get_solution(iant, 0, freq_ghz)
-            phasor /= mir_cor
+            phasor /= corr.aips.get_solution(iant, 0, freq_ghz)
 
             xfguard_f = xfguard_f * phasor
 
@@ -392,7 +402,7 @@ class Correlator:
         self.get_fr_data()
         self.pol = self.ants[0].pol
         if not values.ics:
-            self.parse_mir()
+            self.parse_aips_calibration()
 
         logging.debug(
             "F0 %f FINE CHANNEL %f kHz num=%d freqs=%s",
@@ -419,8 +429,9 @@ class Correlator:
                 value = value.strip()
                 self.parset[name] = value
 
-    def parse_mir(self):
-        self.mir = MiriadGainSolutions(
+    def parse_aips_calibration(self):
+        self.aips = AipsGainSolutions(
+            self.ants,
             self.values,
             self.values.aips_c,
             self.pol,
@@ -516,19 +527,13 @@ class Correlator:
         return ant_ics
 
 
-class MiriadGainSolutions:
+class AipsGainSolutions:
+    # FIXME: Should provide the three file names separately, and selfcal should be optional
     def __init__(
-        self, values, bp_c_root=None, pol=None, freqs=None
+        self, ants, values, bp_c_root=None, pol=None, freqs=None
     ):
-        """Loads gpplt exported bandpass and gain calibration solutions.
-        Expects 4 files at the following names, produced by miriad gpplt
-        with the given options
-
-        Limitations: Currently does no time interpolation - just uses first time
-        $file_root.gains.real - yaxis=real
-        $file_root.gains.imag - yaxis=imag
-        $file_root.bandpass.real - options=bandpass, yaxis=real
-        $file_root.bandpass.imag - options=bandpass, yaxis=imag
+        """Loads AIPS exported bandpass, delay, and gain selfcal solutions.
+        Expects 3 files whose root matches that of the bp file given
 
         """
         print("Using AIPS bandpass solutions")
@@ -579,14 +584,23 @@ class MiriadGainSolutions:
             sys.exit(1)
 
         aips_cor = aipscor(fring_f, sc_f, bp_c_root)
-        for iant in range(36):
+        if values.an == None:
+            loadantennas = range(36)
+        else:
+            antname = ants[values.an].antname
+            iant = ant_map[antname]
+            loadantennas = [iant]
+        for iant in loadantennas:
+            print("Loading antenna {0} from {1}".format(iant, str(loadantennas)))
             bp = aips_cor.get_phase_bandpass(iant, pol)
+            print("Phase bandpass loaded")
             bp = np.fliplr([bp])[0]  # decreasing order
 
             # fring delay
             delta_t_fring_ns = (
                 aips_cor.get_delay_fring(iant, pol) * 1e9
             )
+            print("Delay FRING loaded")
             phases = delta_t_fring_ns * self.freqs
             phases -= phases[
                 int(len(phases) / 2)
@@ -599,6 +613,7 @@ class MiriadGainSolutions:
                     iant, pol
                 ) * aips_cor.get_phase_selfcal(iant, pol)
                 g = 1 / g  # inverse of gain
+                print("Phases loaded")
             except Exception as e:
                 print(e)
                 g = 0
@@ -607,6 +622,7 @@ class MiriadGainSolutions:
             self.bp_imag[:, iant] = np.imag(bp)
             g_real[0, iant] = np.real(g)
             g_imag[0, iant] = np.imag(g)
+        print("Finished loading bandpasses")
 
         self.bp_real_interp = [
             interp1d(
@@ -636,11 +652,12 @@ class MiriadGainSolutions:
 
         self.g_real = g_real
         self.g_imag = g_imag
+        print("Finished AIPS solutions init")
 
     def get_solution(self, iant, time, freq_ghz):
         """
         Get solution including time and bandpass
-        iant - antenna index
+        iant - antenna index (zero-based from the full array of 36 antennas, not the subset for this observation)
         time - some version of time. Ignored for now
         freq_ghz - frequency float in Ghz
         """

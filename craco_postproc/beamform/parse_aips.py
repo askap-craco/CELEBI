@@ -35,6 +35,17 @@ class aipscor(object):
             self.get_basic_info()
         
         
+    def mapRowToAntenna(self, filehandle, antennacolumn):
+        mapping = {}
+        filehandle.seek(filehandle.read().find("***BEGIN*PASS***"),0)
+        filehandle.readline() # Skip this header line
+        row = filehandle.readline()
+        while not "***END" in row:
+            print("Mapping", row.split()[0], " to ", row.split()[antennacolumn])
+            mapping[row.split()[0]] = row.split()[antennacolumn]
+            row = filehandle.readline()
+        return mapping
+        
     def get_basic_info(self):
         # self.nant : total number of antennas
         # self.npol : total number of polarizations (should be either 1 or 2)
@@ -285,16 +296,20 @@ class aipscor(object):
         else:
             start = "DELAY 2        RATE 2" # Delay 2
             delay_ind = -2 # delay2 location within a line
+        antennacolumn = 4
+        delays_fring = np.nan
 
         with open(self.fringfile, 'r') as fl:
+            fl.seek(0)
+            rowmap = self.mapRowToAntenna(fl, antennacolumn)
             fl.seek(0)
             fl.seek(fl.read().find(start),0)
 
             bool_record = False
-            while not bool_record:
-                data=fl.readline()
+            data=fl.readline()
+            while (not bool_record) and (len(data.split()) > 0):
                 if self.specific_frb != '190608':
-                    if data.split()[0] == str(an_ind+1):
+                    if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                         bool_record = True
                         delays_fring = float(data.split()[delay_ind]) # FRING fine time delay
                 else:
@@ -305,6 +320,7 @@ class aipscor(object):
                     elif an_ind >=18 and temp == str(an_ind+3):
                         bool_record = True
                         delays_fring = float(data.split()[delay_ind]) # FRING fine time delay
+                data=fl.readline()
         return delays_fring
     
     def get_delay_polfring(self, an_ind, pol):
@@ -314,15 +330,19 @@ class aipscor(object):
         else:
             start = "DELAY 2        RATE 2" # Delay 2
             delay_ind = -2 # delay2 location within a line
+        antennacolumn = 4
+        delays_polfring = np.nan
 
         with open(self.polfringfile, 'r') as fl:
+            fl.seek(0)
+            rowmap = self.mapRowToAntenna(fl, antennacolumn)
             fl.seek(0)
             fl.seek(fl.read().find(start),0)
 
             bool_record = False
-            while not bool_record:
-                data=fl.readline()
-                if data.split()[0] == str(an_ind+1):
+            data=fl.readline()
+            while not bool_record and len(data.split()) > 0:
+                if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                     bool_record = True
                     if 1:
                         delays_polfring = float(data.split()[delay_ind]) # Polarization FRING fine time delay
@@ -332,6 +352,7 @@ class aipscor(object):
                             delays_polfring = -1.1999699e-09 #-1.122035e-9
                             print(("pol delay given to ",delays_polfring))
                     #delays_polfring *= -1
+                data=fl.readline()
         return delays_polfring
     
 
@@ -345,16 +366,20 @@ class aipscor(object):
         else:
             start = "REAL2          IMAG2" # Phase 2
             delay_ind = 5 # real2 location within a line
+        antennacolumn = 4
+        phase_fring = np.nan + 1j*np.nan
 
         with open(self.fringfile, 'r') as fl:
+            fl.seek(0)
+            rowmap = self.mapRowToAntenna(fl, antennacolumn)
             fl.seek(0)
             fl.seek(fl.read().find(start),0)
 
             bool_record = False
-            while not bool_record:
-                data=fl.readline()
+            data=fl.readline()
+            while not bool_record and len(data.split()) > 0:
                 if self.specific_frb != '190608':
-                    if data.split()[0] == str(an_ind+1):
+                    if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                         bool_record = True
                         phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
                         phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
@@ -368,6 +393,7 @@ class aipscor(object):
                         bool_record = True
                         phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
                         phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
+                data=fl.readline()
             phase_fring = phase_fring_real + 1j*phase_fring_imag
             if (abs(phase_fring)-1)>1e-3:
                 print(("WARNING: amplitude of FRING phase is not 1 but "+str(abs(phase_fring))))
@@ -384,16 +410,20 @@ class aipscor(object):
         else:
             start = "REAL2          IMAG2" # Phase 2
             delay_ind = 5 # real2 location within a line
+        antennacolumn = 4
+        phase_fring = np.nan + 1j*np.nan
 
         with open(self.scfile, 'r') as fl:
+            fl.seek(0)
+            rowmap = self.mapRowToAntenna(fl, antennacolumn)
             fl.seek(0)
             fl.seek(fl.read().find(start),0)
             
             bool_record = False
-            while not bool_record:
-                data=fl.readline()
+            data=fl.readline()
+            while not bool_record and len(data.split()) > 0:
                 if self.specific_frb !='190608':
-                    if data.split()[0] == str(an_ind+1):
+                    if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                         bool_record = True
                         phase_sc_real = float(data.split()[delay_ind]) # selfcal real phase
                         phase_sc_imag = float(data.split()[delay_ind+1]) # selfcal imag phase
@@ -407,6 +437,7 @@ class aipscor(object):
                         bool_record = True
                         phase_sc_real = float(data.split()[delay_ind]) # selfcal real phase
                         phase_sc_imag = float(data.split()[delay_ind+1]) # selfcal imag phase
+                data=fl.readline()
             phase_selfcal = phase_sc_real + 1j*phase_sc_imag
         return phase_selfcal
     
@@ -421,6 +452,8 @@ class aipscor(object):
         else:
             start = "REAL 2         IMAG 2" # y pol
             delay_ind = 7 # real2 location within a line
+        antennacolumn = 5
+        phase_bandpass = np.nan + 1j*np.nan
         
         with open(self.bpfile,'r') as fl:
             for line in fl:
@@ -429,15 +462,17 @@ class aipscor(object):
 
         with open(self.bpfile, 'r') as fl:
             fl.seek(0)
+            rowmap = self.mapRowToAntenna(fl, antennacolumn)
+            fl.seek(0)
             fl.seek(fl.read().find(start),0)
 
             bool_record = False
             phase_bp_real = np.full(nfreq,np.nan)
             phase_bp_imag = np.full(nfreq,np.nan)
-            while not bool_record:
-                data=fl.readline()
+            data=fl.readline()
+            while (not bool_record) and (len(data.split()) > 0):
                 if self.specific_frb != '190608':  
-                    if data.split()[0] == str(an_ind+1):
+                    if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                         bool_record = True
                         for chan in range(nfreq):
                             phase_bp_real[chan] = float(data.split()[delay_ind]) # bandpass real phase
@@ -457,6 +492,7 @@ class aipscor(object):
                             phase_bp_real[chan] = float(data.split()[delay_ind]) # bandpass real phase
                             phase_bp_imag[chan] = float(data.split()[delay_ind+1]) # bandpass imag phase
                             data = fl.readline()
+                data=fl.readline()
 
             phase_bandpass = phase_bp_real + 1j*phase_bp_imag
         return phase_bandpass
