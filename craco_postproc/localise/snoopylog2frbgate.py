@@ -12,7 +12,7 @@ def _main():
     timediffsec = args.timediff / 1000.0
 
     cand = parse_snoopy(args.snoopylog)
-    pulsewidthms = float(cand[3]) * 1.7  # filterbank width = 1.7ms
+    pulsewidthms = float(cand[3])
     dm = float(cand[5])
     mjd = float(cand[7])
 
@@ -59,7 +59,7 @@ def _main():
 
     # Finder binconfig
     finderbinedges, finderweights, numfinderbins = calc_finder_bins(
-        rfibinedges, numfinderbins=11
+        rfibinedges, numfinderbins=7
     )
     write_binconfig(
         "craftfrb.finder.binconfig",
@@ -300,7 +300,7 @@ def calc_gate_bins(
     """Determine the bins for the gate binconfig
 
     The gate mode has two bins:
-        > On-pulse (from 50 milliseconds before to 50 milliseconds
+        > On-pulse (from 35 milliseconds before to 35 milliseconds
             after the burst)
         > Off-pulse (everything else) - weighted 0
 
@@ -315,15 +315,11 @@ def calc_gate_bins(
     :return: List of bin edges and list of weights
     :rtype: tuple[list[float], list[float]]
     """
-    pulsewidthms = float(cand[3]) * 1.7
+    pulsewidthms = float(cand[3])
     mjd = float(cand[7])
 
-    gatestartmjd = mjd - (pulsewidthms + 100) / (
-        2 * 86400000.0
-    )  # pulse width is in ms at this point
-    gateendmjd = (
-        gatestartmjd + (pulsewidthms + 100) / 86400000.0
-    )  # pulse width is in ms at this point
+    gatestartmjd = mjd - (pulsewidthms - 70) / (2 * 86400000.0)
+    gateendmjd = gatestartmjd + (pulsewidthms + 70) / 86400000.0
     gatestartphase = (
         86400.0 * (gatestartmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod

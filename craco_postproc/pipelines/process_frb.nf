@@ -606,7 +606,7 @@ workflow process_frb {
 
         if(!params.opt_gate){    
             // Correlate finder
-            finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin11.fits"
+            finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin07.fits"
             if(new File(finder_fits_path).exists()) {
                 finder_fits = Channel.fromPath(
                     "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
