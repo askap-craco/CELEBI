@@ -585,7 +585,19 @@ def fit_pol_frac(freqs, S_ratio):
 
 def fit_pol_ang(freqs, U, Q):
     print("Calculating Polarisation Angle")
-    pol_ang = np.unwrap(np.arctan2(U, Q) / 2, period=np.pi)
+    pol_ang = np.arctan2(U, Q) / 2
+
+    # Unwrap has differing behaviour before/after numpy version 1.21.0
+    # https://numpy.org/doc/stable/reference/generated/numpy.unwrap.html
+    try:
+        # Will work with numpy 1.21.0+.
+        # If you only provide discont=np.pi/2, period's default of 2pi 
+        # will cause unwrap to have on effect, since the discontinuity
+        # it searches for is max(discont, period/2).
+        pol_ang = np.unwrap(pol_ang, period=np.pi)
+    except Exception:
+        # Earlier numpy versions
+        pol_ang = np.unwrap(pol_ang, discont=np.pi/2)
 
     # fit rm and offset
     popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
