@@ -590,14 +590,18 @@ def fit_pol_ang(freqs, U, Q):
     # Unwrap has differing behaviour before/after numpy version 1.21.0
     # https://numpy.org/doc/stable/reference/generated/numpy.unwrap.html
     try:
-        # Will work with numpy 1.21.0+.
-        # If you only provide discont=np.pi/2, period's default of 2pi 
-        # will cause unwrap to have on effect, since the discontinuity
-        # it searches for is max(discont, period/2).
+        # Will work with numpy 1.21.0+
         pol_ang = np.unwrap(pol_ang, period=np.pi)
-    except Exception:
-        # Earlier numpy versions
-        pol_ang = np.unwrap(pol_ang, discont=np.pi/2)
+    except TypeError as e:
+        # Earlier numpy versions - unwrap assumes you want to put values
+        # within the range [0, 2pi], but here we want them in
+        # [-pi/2, pi/2].
+        print(e)
+        pol_ang += np.pi/2              # [-pi/2, pi/2] -> [0, pi]
+        pol_ang *= 2                    # [0, pi] -> [0, 2pi]
+        pol_ang = np.unwrap(pol_ang)
+        pol_ang /= 2                    # [0, 2pi] -> [0, pi]
+        pol_ang -= np.pi/2              # [0, pi] -> [-pi/2, pi/2]
 
     # fit rm and offset
     popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
