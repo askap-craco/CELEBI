@@ -13,6 +13,8 @@ params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
 
+params.image_all_bins = false
+
 params.ICS_DMrange = 100
 params.ICS_DMstep = 0.1
 
@@ -672,15 +674,19 @@ workflow process_frb {
             }
             
             if(!params.opt_gate){
-                finder_fits.view()
-                centre_bin_fits.view()
+                if(params.image_all_bins) {
+                    bins_to_image = finder_fits
+                }
+                else {
+                    bins_to_image = centre_bin_fits
+                }
 
                 if(params.skiprfi){
-                    no_rfi_finder_fits = centre_bin_fits
+                    no_rfi_finder_fits = bins_to_image
                 }
                 else {
                     no_rfi_finder_fits = sub_rfi(
-                        centre_bin_fits, rfi_fits, binconfig.subtractions
+                        bins_to_image, rfi_fits, binconfig.subtractions
                     )                
                 }
 
@@ -692,12 +698,15 @@ workflow process_frb {
                 bin_regs = bins_out.reg
                 bin_mss = bins_out.ms
 
-                // askap_frb_pos = get_peak(
-                //     bin_jmfits.collect(), bin_fits_images.collect(), 
-                //     bin_regs.collect(), bin_mss.collect()
-                // ).peak_jmfit
-
-                askap_frb_pos = bin_jmfits
+                if(params.image_all_bins) {
+                    askap_frb_pos = get_peak(
+                        bin_jmfits.collect(), bin_fits_images.collect(), 
+                        bin_regs.collect(), bin_mss.collect()
+                    ).peak_jmfit
+                }
+                else {
+                    askap_frb_pos = bin_jmfits
+                }
             }
             if(new File(frb_jmfit_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)

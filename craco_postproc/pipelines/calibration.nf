@@ -146,10 +146,12 @@ process image_finder {
         
     stub:
         """
-        touch fbin0.jmfit
-        touch fbin0.fits
-        touch fbin0.reg
-        touch stub_calibrated_uv.ms
+        target_fits=$target_fits
+        bin=\${target_fits:9:2}
+        touch fbin\$bin.jmfit
+        touch fbin\$bin.fits
+        touch fbin\$bin.reg
+        touch fbin\${bin}_calibrated_uv.ms
         """
 }
 

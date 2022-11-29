@@ -466,7 +466,9 @@ process subtract_rfi {
     
     stub:
         """
-        touch stub.fits
+        fits="$target_fits"
+        bin=\${fits:9:2}
+        touch norfifbin\${bin}.fits
         """
 }
 
