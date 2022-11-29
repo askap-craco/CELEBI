@@ -36,7 +36,7 @@ workflow process_pol_cal {
             fits = corr_pcal(
                 label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
                 empty_file, empty_file, 0, "polcal"
-            )
+            ).fits
         }
 
         // Calibration

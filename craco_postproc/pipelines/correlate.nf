@@ -314,7 +314,8 @@ process difx_to_fits {
         val mode
 
     output:
-        path "${label}*.fits"
+        path "${label}*.fits", emit: fits
+        path "finderbin04.fits", emit: centre, optional: true
 
     script:
         """
@@ -331,7 +332,7 @@ process difx_to_fits {
                 done
 
                 if [ "$mode" == "finder" ]; then
-                    for b in `seq 0 20`; do
+                    for b in `seq 0 7`; do
                         bin2="\$(printf "%02d" \$b)"
                         bin4="\$(printf "%04d" \$b)"
                         difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
@@ -379,7 +380,7 @@ process difx_to_fits {
             chmod 775 doloadfits
             ./doloadfits
         else
-            for i in `seq 0 20`; do
+            for i in `seq 0 7`; do
                 bin="\$(printf "%02d" \$i)"
                 args="-u \$aipsid"
                 #args="-u \${BASHPID: -4}"   # get randomly-generated user id
@@ -405,7 +406,13 @@ process difx_to_fits {
     
     stub:
         """
-        touch ${label}stub.fits
+        if [ "$mode" == "finder" ]; then
+            for i in `seq 0 7`; do
+                touch finderbin0\${i}.fits
+            done
+        else
+            touch ${label}_stub.fits
+        fi
         """
 }
 
@@ -519,10 +526,11 @@ workflow correlate {
 
         all_correlations = ref_correlation.concat(correlated_data).collect()
 
-        difx_to_fits(
+        (fits, centre) = difx_to_fits(
             label, all_correlations, polyco, mode
         )
     
     emit:
-        fits = difx_to_fits.out
+        fits = fits
+        centre = centre
 }

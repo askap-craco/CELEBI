@@ -611,9 +611,12 @@ workflow process_frb {
                 finder_fits = Channel.fromPath(
                     "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
                 )
+                centre_bin_fits = Channel.fromPath(
+                    "${params.publish_dir}/${params.label}/loadfits/finder/finderbin04.fits"
+                )
             }
             else {
-                finder_fits = corr_finder(
+                (finder_fits, centre_bin_fits) = corr_finder(
                     "finder", params.data_frb, params.ra_frb, params.dec_frb, 
                     binconfig.finder, binconfig.polyco, binconfig.int_time, "finder"
                 )
@@ -629,7 +632,7 @@ workflow process_frb {
                     rfi_fits = corr_rfi(
                         "${params.label}_rfi", params.data_frb, params.ra_frb, 
                         params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi"
-                    )
+                    ).fits
                 }
             }
         }
@@ -649,7 +652,7 @@ workflow process_frb {
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, beam_centre.ra, 
                 beam_centre.ra, empty_file, empty_file, 0, "field"
-            )
+            ).fits
         }
 
         // Calibrate (i.e. image finder and field)
@@ -669,12 +672,15 @@ workflow process_frb {
             }
             
             if(!params.opt_gate){
+                finder_fits.view()
+                centre_bin_fits.view()
+
                 if(params.skiprfi){
-                    no_rfi_finder_fits = finder_fits
+                    no_rfi_finder_fits = centre_bin_fits
                 }
                 else {
                     no_rfi_finder_fits = sub_rfi(
-                        finder_fits, rfi_fits, binconfig.subtractions
+                        centre_bin_fits, rfi_fits, binconfig.subtractions
                     )                
                 }
 
@@ -686,10 +692,12 @@ workflow process_frb {
                 bin_regs = bins_out.reg
                 bin_mss = bins_out.ms
 
-                askap_frb_pos = get_peak(
-                    bin_jmfits.collect(), bin_fits_images.collect(), 
-                    bin_regs.collect(), bin_mss.collect()
-                ).peak_jmfit
+                // askap_frb_pos = get_peak(
+                //     bin_jmfits.collect(), bin_fits_images.collect(), 
+                //     bin_regs.collect(), bin_mss.collect()
+                // ).peak_jmfit
+
+                askap_frb_pos = bin_jmfits
             }
             if(new File(frb_jmfit_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)
@@ -762,7 +770,7 @@ workflow process_frb {
                         "${params.label}_htrgate", params.data_frb, params.ra_frb, 
                         params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
                         binconfig.int_time, "htrgate"
-                    )
+                    ).fits
                 }
                 if(!params.skiprfi) {
                     htrrfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrrfi/${params.label}_htrrfi.fits"
@@ -774,7 +782,7 @@ workflow process_frb {
                             "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
                             params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
                             binconfig.int_time, "htrrfi"
-                        )
+                        ).fits
                     }
                 }
                 if(params.skiprfi){
