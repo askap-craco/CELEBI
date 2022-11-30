@@ -254,14 +254,13 @@ def _main():
         print(runline)
         runfill.write(runline)
 
-        runline = f"fillDiFX.py ../{args.ref}/*[0-9].difx {basename}.difx -i {basename}.input\n"
-        print(runline)
-        runfill.write(runline)
+        runfill.write(f"rm -r {basename}.difx\n")
+        runfill.write(f"mv -r {basename}_fill.difx {basename}.difx\n")
     os.chmod("run_fill_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
     print("Then run difx2fits")
-    runline = f"rm -rf {basename}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {basename}_fill.difx\n"
+    runline = f"rm -rf {basename}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {basename}.difx\n"
     print(runline)
     with open("runmergedifx", "w") as runmerge:
         runmerge.write(runline)
