@@ -191,6 +191,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog &",
                 f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
+                "./run_fill_DiFX",
                 "./runmergedifx",
             ]
 
@@ -211,6 +212,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
                 f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
+                "./run_fill_DiFX",
                 "./runmergedifx",
             ]
 
@@ -245,11 +247,21 @@ def _main():
         runline = "./run.sh\n"
         print(runline)
 
+    # fillDiFX to ensure correlations work even when the bin goes off
+    # the edge of the voltage dump
+    with open("run_fill_DiFX", "w") as runfill:
+        runline = f"fillDiFX.py {basename}.difx ../{args.ref}/*[0-9].difx {basename}_fill.difx -i {basename}.input\n"
+        print(runline)
+        runfill.write(runline)
+
+        runline = f"fillDiFX.py ../{args.ref}/*[0-9].difx {basename}.difx -i {basename}.input\n"
+        print(runline)
+        runfill.write(runline)
+    os.chmod("run_fill_DiFX", 0o775)
+
     # Print the line needed to run the stitching and then subsequently difx2fits
     print("Then run difx2fits")
-    runline = "rm -rf {0}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {0}.difx\n".format(
-        basename
-    )
+    runline = f"rm -rf {basename}D2D.* ; mergeOversampledDiFX.py craftfrb.stitchconfig {basename}_fill.difx\n"
     print(runline)
     with open("runmergedifx", "w") as runmerge:
         runmerge.write(runline)
@@ -361,6 +373,9 @@ def get_args() -> argparse.Namespace:
         default=False,
         action="store_true",
         help="Stop after creating .calc file",
+    )
+    parser.add_argument(
+        "--ref", help="Reference correlation directory", default=None
     )
     args = parser.parse_args()
 

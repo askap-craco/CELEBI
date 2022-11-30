@@ -244,6 +244,9 @@ def get_args() -> argparse.Namespace:
         action="store_true", 
         help="Force upper sideband for all channels"
     )
+    parser.add_argument(
+        "--ref", help="Reference correlation directory", default=None
+    )
     args = parser.parse_args()
 
     # Check that sensible options were given for the queue destination
@@ -568,6 +571,8 @@ def get_askap2difx_cmd(
         runline += " --large"
     if args.numskylakenodes > 1:
         runline += " --numskylakenodes=" + str(args.numskylakenodes)
+    if args.ref is not None:
+        runline += f" --ref={args.ref}"
     runline += "\n"
     return runline
 

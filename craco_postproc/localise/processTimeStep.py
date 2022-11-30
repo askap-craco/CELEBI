@@ -1,3 +1,6 @@
+"""Performs a correlation on a single card-FPGA pair's voltages
+"""
+
 import argparse
 import glob
 import os
@@ -64,13 +67,15 @@ def _main():
         os.system("./launchjob")
     else:
         os.system("./run.sh")
+        os.system("./run_fill_DiFX")
         os.system("./runmergedifx")
         if args.correctfpgadelays:
             os.system("findOffsets.py")
             os.system("./run.sh")
+            os.system("./run_fill_DiFX")
             os.system("rm -rf craftfrbD2D*")
             os.system("./runmergedifx")
-    
+
     print("Done with job")
     os.chdir("../")
     os.system("pkill difxlog")
@@ -224,11 +229,15 @@ def get_args() -> argparse.Namespace:
         "files for one.",
     )
     parser.add_argument(
-        "--uppersideband", 
-        default=False, 
-        action="store_true", 
+        "--uppersideband",
+        default=False,
+        action="store_true",
         help="Force upper sideband for all channels"
     )
+    parser.add_argument(
+        "--ref", help="Reference correlation directory", default=None
+    )
+
     args = parser.parse_args()
     verify_args(args, parser)
     return args
@@ -318,11 +327,10 @@ def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
     # find all antenna subdirectories
     antennadirs = sorted(glob.glob(f"{datadir}/ak*"))
 
-    """
-    For each antenna subdir, get the beam subdir(s) and look for vcraft
-    files inside of them, stopping once we've verified that any vcraft
-    files exist.
-    """
+    # For each antenna subdir, get the beam subdir(s) and look for vcraft
+    # files inside of them, stopping once we've verified that any vcraft
+    # files exist.
+
     for a in antennadirs:
         if beam is None:
             beamdirs = sorted(glob.glob(f"{a}/*"))
