@@ -318,7 +318,7 @@ def calc_gate_bins(
     pulsewidthms = float(cand[3])
     mjd = float(cand[7])
 
-    gatestartmjd = mjd - (pulsewidthms - 70) / (2 * 86400000.0)
+    gatestartmjd = mjd - (pulsewidthms + 70) / (2 * 86400000.0)
     gateendmjd = gatestartmjd + (pulsewidthms + 70) / 86400000.0
     gatestartphase = (
         86400.0 * (gatestartmjd - polycorefmjd) + timediff
