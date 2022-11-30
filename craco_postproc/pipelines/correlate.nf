@@ -154,7 +154,7 @@ process do_ref_correlation {
 
         # Only include inttime if non-zero
         int_time=`cat $inttime`
-        if [ "\$int_time" != "0" ]; then
+        if [ "\$int_time" != "" ]; then
             args="\$args -i \$int_time"
         fi
 
@@ -273,7 +273,7 @@ process do_correlation {
 
         # Only include inttime if non-zero
         int_time=`cat $inttime`
-        if [ "\$int_time" != "0" ]; then
+        if [ "\$int_time" != "" ]; then
             args="\$args -i \$int_time"
         fi
 
