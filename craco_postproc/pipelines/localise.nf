@@ -24,6 +24,8 @@ process generate_binconfig {
             int_time: env
                 Integration time in seconds
     */
+    storeDir "${params.publish_dir}/${params.label}/binconfigs"
+
     input:
         path cand
     output:
