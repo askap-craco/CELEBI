@@ -34,7 +34,7 @@ process generate_binconfig {
         path "craftfrb.rfi.binconfig", emit: rfi
         path "craftfrb.polyco", emit: polyco
         path "dosubtractions.sh", emit: subtractions
-        env int_time, emit: int_time
+        path "int_time", emit: int_time
 
     script:
         """
@@ -47,7 +47,7 @@ process generate_binconfig {
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
         \$sl2f_cmd > sl2f.out
-        int_time=`cat sl2f.out | tail -1`
+        cat sl2f.out | tail -1 > int_time
         """
     
     stub:
@@ -57,7 +57,7 @@ process generate_binconfig {
         touch craftfrb.rfi.binconfig
         touch craftfrb.polyco
         touch dosubtractions.sh
-        export int_time=0
+        touch int_time
         """
 }
 

@@ -95,7 +95,7 @@ process do_ref_correlation {
         val dec
         path binconfig, stageAs: "craftfrb.binconfig"
         path polyco, stageAs: "craftfrb.polyco"
-        val inttime
+        path inttime
         val startmjd
         tuple val(card), val(fpga)
 
@@ -153,8 +153,9 @@ process do_ref_correlation {
         fi
 
         # Only include inttime if non-zero
-        if [ "$inttime" != "0" ]; then
-            args="\$args -i $inttime"
+        int_time=`cat $inttime`
+        if [ "\$int_time" != "0" ]; then
+            args="\$args -i \$int_time"
         fi
 
         python3 $localise_dir/processTimeStep.py \$args
@@ -213,7 +214,7 @@ process do_correlation {
         val dec
         path binconfig, stageAs: "craftfrb.binconfig"
         path polyco, stageAs: "craftfrb.polyco"
-        val inttime
+        path inttime
         val startmjd
         tuple path(ref_corr), val(card), val(fpga)
 
@@ -271,8 +272,9 @@ process do_correlation {
         fi
 
         # Only include inttime if non-zero
-        if [ "$inttime" != "0" ]; then
-            args="\$args -i $inttime"
+        int_time=`cat $inttime`
+        if [ "\$int_time" != "0" ]; then
+            args="\$args -i \$int_time"
         fi
 
         # Provide reference correlation
@@ -491,8 +493,8 @@ workflow correlate {
                 File specifying how to bin the correlated data
             polyco: path
                 TODO: describe polyco
-            inttime: val
-                Integration time in seconds
+            inttime: path
+                File containing integration time in seconds
             mode: val
                 String describing specific mode (i.e. finder, field, rfi)
         
