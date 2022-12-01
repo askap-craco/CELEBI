@@ -378,21 +378,11 @@ class aipscor(object):
             bool_record = False
             data=fl.readline()
             while not bool_record and len(data.split()) > 0:
-                if self.specific_frb != '190608':
-                    if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
-                        bool_record = True
-                        phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
-                        phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
-                else:
-                    temp = data.split()[0]
-                    if an_ind < 18 and temp == str(an_ind+1):
-                        bool_record = True
-                        phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
-                        phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
-                    elif an_ind >=18 and temp == str(an_ind+3):
-                        bool_record = True
-                        phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
-                        phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
+                if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
+                    bool_record = True
+                    phase_fring_real = float(data.split()[delay_ind]) # FRING real phase
+                    phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
+
                 data=fl.readline()
             phase_fring = phase_fring_real + 1j*phase_fring_imag
             if (abs(phase_fring)-1)>1e-3:
