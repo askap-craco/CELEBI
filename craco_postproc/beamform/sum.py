@@ -61,7 +61,9 @@ def do_sum(fnames):
     for fname in fnames[1:]:
         print(fname)
         # mmap_mode='r' keeps the loaded array on disk, instead of loading it into memory
-        sum_arr += np.load(fname, mmap_mode="r")
+        new_arr = np.load(fname, mmap_mode="r")
+        if not np.isnan(new_arr).any():
+            sum_arr += new_arr
 
     return sum_arr
 

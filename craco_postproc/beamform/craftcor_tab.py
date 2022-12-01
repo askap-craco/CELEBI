@@ -29,6 +29,7 @@ for i in range(36):
 __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
 
+
 def _main():
     values = parse_args()
 
@@ -41,7 +42,6 @@ def _main():
     calcresults = ResultsFile(values.calcfile)
 
     # get vcraft files from data directory
-    antennadirs = sorted(glob.glob(values.data + "/ak*"))
     vcraftfiles = []
     for anname in calcresults.telnames:
         antennadir = values.data + '/' + anname
@@ -66,7 +66,8 @@ def _main():
 
     # hacking delays
     start = timer()
-    delaymap = parse_delays(values) # FIXME: I'm sure this is not robust against changing the antenna subset, but is only relevant for very old FRBs with hardware delays
+    # FIXME: I'm sure this is not robust against changing the antenna subset, but is only relevant for very old FRBs with hardware delays
+    delaymap = parse_delays(values)
     antennas = [
         AntennaSource(mux)
         for mux in vcraft.mux_by_antenna(vcraftfiles, delaymap)
@@ -80,7 +81,6 @@ def _main():
     corr = Correlator(antennas, sources, values, abs_delay=given_offset)
     print(f"setup Correlator: {timer()-start} s")
 
-    # TODO: why is this a try/finally?
     try:
         start = timer()
         if values.ics:
@@ -121,7 +121,8 @@ class AntennaSource:
         self.frparams = FringeRotParams(corr, self)
         # calculate sample start
         framediff_samp = corr.refant.trigger_frame - self.trigger_frame
-        geom_delay_us, geom_delay_rate_us = corr.get_geometric_delay_delayrate_us(self)
+        geom_delay_us, geom_delay_rate_us = corr.get_geometric_delay_delayrate_us(
+            self)
 
         self.all_geom_delays.append(geom_delay_us)
         self.all_mjds.append(corr.curr_mjd_mid)
@@ -157,7 +158,7 @@ class AntennaSource:
             + ", remainder from 32: "
             + str(frameid % 32)
         )
-        # To avoid iPFB fractional delay, set FRAMEID such that the 
+        # To avoid iPFB fractional delay, set FRAMEID such that the
         # remainder is 0
 
         print("samp_start + nsamp <= self.nsamps")
@@ -177,7 +178,6 @@ class AntennaSource:
             np.arange(nfine, dtype=float) - float(nfine) / 2.0
         ) * corr.fine_chanbw
 
-        # TODO: what is sideband?
         if corr.sideband == -1:
             freqs = -freqs
 
@@ -207,7 +207,7 @@ class AntennaSource:
             xf1 = np.fft.fft(x1, axis=1)
             xf1 = np.fft.fftshift(xf1, axes=1)
             xfguard_f = xf1[
-                :, corr.nguard_chan : corr.nguard_chan + nfine :
+                :, corr.nguard_chan: corr.nguard_chan + nfine:
             ]  # scale because oterhwise it overflows
 
             # Fractional sample phases
@@ -230,18 +230,19 @@ class AntennaSource:
 
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
-
         Parallel(n_jobs=corr.values.cpus, require="sharedmem")(
             delayed(process_chan)(c)
             for c in range(corr.ncoarse_chan)
         )
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
-        return data_out
-    
-    def do_ics(self, corr, an):
-        start = timer()
 
+        if np.isnan(data_out).any():
+            print("WARNING: Output contains NaNs. Calibration solutions not available?")
+
+        return data_out
+
+    def do_ics(self, corr, an):
         nfine = corr.nfft - 2 * corr.nguard_chan
 
         # number of 1 ms-time resolution samples
@@ -271,7 +272,7 @@ class AntennaSource:
             xf1 = np.fft.fft(x1, axis=1)
             xf1 = np.fft.fftshift(xf1, axes=1)
             xfguard_f = xf1[
-                0, corr.nguard_chan : corr.nguard_chan + nfine :
+                0, corr.nguard_chan: corr.nguard_chan + nfine:
             ]
 
             XX_1us = np.abs(np.fft.ifft(xfguard_f))**2
@@ -285,8 +286,7 @@ class AntennaSource:
             for c in range(nchan)
         )
 
-        return ics_data        
-
+        return ics_data
 
 
 class FringeRotParams:
@@ -341,7 +341,7 @@ class Correlator:
         # maximal number of samples.
         # First get maximum sample offset (assumes no given offset)
         trigger_offsets = [
-            int(np.round(self.refant.trigger_frame - a.trigger_frame)) 
+            int(np.round(self.refant.trigger_frame - a.trigger_frame))
             for a in self.ants
         ]
 
@@ -350,9 +350,9 @@ class Correlator:
         ]
 
         # number of samples in final spectra
-        nsamp = int(self.refant.vfile.nsamps 
-                - max(trigger_offsets) 
-                - max(sample_offsets))
+        nsamp = int(self.refant.vfile.nsamps
+                    - max(trigger_offsets)
+                    - max(sample_offsets))
 
         self.nfft = nsamp
         self.nguard_chan = int(5 * nsamp // 64)
@@ -458,7 +458,7 @@ class Correlator:
         fr1 = FringeRotParams(self, ant)
         fr2 = FringeRotParams(self, self.refant)
 
-        # TODO: There is a discrepancy here, below comment says fr1 is ref ant, 
+        # TODO: There is a discrepancy here, below comment says fr1 is ref ant,
         # but above suggests fr2 is?
 
         # fr1: reference antenna
@@ -518,12 +518,12 @@ class Correlator:
         temp = ant.do_f_tab(self, iant)
         print(f"do_f_tab (total): {timer()-start} s")
         return temp
-    
+
     def do_ics(self, an):
         # Incoherent sum
         ant = self.ants[an]
         ant_ics = ant.do_ics(self, an)
-        
+
         return ant_ics
 
 
@@ -591,7 +591,7 @@ class AipsGainSolutions:
             iant = ant_map[antname]
             loadantennas = [iant]
         for iant in loadantennas:
-            print("Loading antenna {0} from {1}".format(iant, str(loadantennas)))
+            print(f"Loading antenna {iant} from {loadantennas}")
             bp = aips_cor.get_phase_bandpass(iant, pol)
             print("Phase bandpass loaded")
             bp = np.fliplr([bp])[0]  # decreasing order
@@ -669,8 +669,8 @@ class AipsGainSolutions:
                 self.bp_coeff[iant, 1, :]
             )
             bp_value = bp_fit(freq_ghz * 1e3)
-        else:  
-            # AIPS polyfit coefficient doesn't exist. Use Miriad/AIPS 
+        else:
+            # AIPS polyfit coefficient doesn't exist. Use Miriad/AIPS
             # bandpass interpolation
             f_real = self.bp_real_interp[iant](freq_ghz)
             f_imag = self.bp_imag_interp[iant](freq_ghz)
@@ -684,9 +684,9 @@ class AipsGainSolutions:
 
 def parse_args():
     parser = ArgumentParser(
-        description="Perform polyphase filterbank inversion and tied-" \
-            "array beamforming to produce a fine spectrum from vcraft " \
-            "voltages",
+        description="Perform polyphase filterbank inversion and tied-"
+        "array beamforming to produce a fine spectrum from vcraft "
+        "voltages",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
 
@@ -754,7 +754,7 @@ def parse_args():
         "--ics",
         action="store_true",
         default=False,
-        help="Incoherent sum mode. Produces intensity dynamic spectrum at "\
+        help="Incoherent sum mode. Produces intensity dynamic spectrum at "
              " 1 ms time resolution."
     )
 
