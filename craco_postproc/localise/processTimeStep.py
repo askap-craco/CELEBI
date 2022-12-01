@@ -67,12 +67,14 @@ def _main():
         os.system("./launchjob")
     else:
         os.system("./run.sh")
-        os.system("./run_fill_DiFX")
+        if args.ref is not None:
+            os.system("./run_fill_DiFX")
         os.system("./runmergedifx")
         if args.correctfpgadelays:
             os.system("findOffsets.py")
             os.system("./run.sh")
-            os.system("./run_fill_DiFX")
+            if args.ref is not None:
+                os.system("./run_fill_DiFX")
             os.system("rm -rf craftfrbD2D*")
             os.system("./runmergedifx")
 

@@ -191,7 +191,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog &",
                 f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
-                "./run_fill_DiFX",
+                "./run_fill_DiFX" if args.ref is not None else "",
                 "./runmergedifx",
             ]
 
@@ -212,7 +212,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
                 f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
-                "./run_fill_DiFX",
+                "./run_fill_DiFX" if args.ref is not None else "",
                 "./runmergedifx",
             ]
 
@@ -249,14 +249,15 @@ def _main():
 
     # fillDiFX to ensure correlations work even when the bin goes off
     # the edge of the voltage dump
-    with open("run_fill_DiFX", "w") as runfill:
-        runline = f"fillDiFX.py {basename}.difx ../{args.ref}/*[0-9].difx {basename}_fill.difx -i {basename}.input\n"
-        print(runline)
-        runfill.write(runline)
+    if args.ref is not None:
+        with open("run_fill_DiFX", "w") as runfill:
+            runline = f"fillDiFX.py {basename}.difx ../{args.ref}/*[0-9].difx {basename}_fill.difx -i {basename}.input\n"
+            print(runline)
+            runfill.write(runline)
 
-        runfill.write(f"rm -r {basename}.difx\n")
-        runfill.write(f"mv -r {basename}_fill.difx {basename}.difx\n")
-    os.chmod("run_fill_DiFX", 0o775)
+            runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
+            runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
+        os.chmod("run_fill_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
     print("Then run difx2fits")
