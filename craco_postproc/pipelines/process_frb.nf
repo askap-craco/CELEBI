@@ -653,7 +653,7 @@ workflow process_frb {
             beam_centre = get_beam_centre()
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, beam_centre.ra, 
-                beam_centre.ra, empty_file, empty_file, empty_file, "field"
+                beam_centre.dec, empty_file, empty_file, empty_file, "field"
             ).fits
         }
 
