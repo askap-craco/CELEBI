@@ -160,6 +160,11 @@ def _main():
         os.chmod("launchjob", 0o775)
         print("./launchjob")
 
+        if args.ref is not None:
+            fill = "./run_fill_DiFX"
+        else:
+            fill = "#skip fill_DiFX"
+
         # Create a run script that will actually be executed by sbatch
         if args.gstar:
             # NOTE: use either 192 or 384 for 16 or 32 node request
@@ -191,7 +196,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog &",
                 f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
-                "./run_fill_DiFX" if args.ref is not None else "",
+                fill,
                 "./runmergedifx",
             ]
 
@@ -212,7 +217,7 @@ def _main():
                 "date",
                 #f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
                 f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
-                "./run_fill_DiFX" if args.ref is not None else "",
+                fill,
                 "./runmergedifx",
             ]
 
