@@ -425,6 +425,8 @@ def create_v2oargs(
         v2oargs += " --calconly"
     if args.uppersideband:
         v2oargs += " --uppersideband"
+    if args.ref is not None:
+        v2oargs += f" --ref={args.ref}"
 
     v2oargs += f" --fpga {args.freqlabel}"
 
