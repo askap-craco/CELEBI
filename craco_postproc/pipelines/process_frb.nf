@@ -60,7 +60,7 @@ process load_coarse_dynspec {
             time: path
                 Time axis in MJD
     */
-    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+    storeDir "${params.publish_dir}/${params.label}/ics"
 
     input:
         val label
@@ -140,7 +140,7 @@ process refine_candidate {
             snoopy: path
                 Initial detection snoopy candidate
     */
-    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+    storeDir "${params.publish_dir}/${params.label}/ics"
 
     input:
         val label
@@ -244,6 +244,10 @@ process plot {
                 Dispersion measure the data has been dedispersed to
             xy: path
                 High-time resolution time series of X and Y pols
+            time: path
+                Time in MJD (1 ms steps) from coarse dynspecs
+            cand: path
+                Refined candidate for FRB from ICS search
         
         Output:
             plot: path
@@ -260,6 +264,8 @@ process plot {
         val centre_freq
         val dm
         path xy
+        path time
+        path cand
     
     output:
         path "*.png"
@@ -282,6 +288,8 @@ process plot {
         args="\$args -d $dm"
         args="\$args -x ${label}*X_t*npy"
         args="\$args -y ${label}*Y_t*npy"
+        args="\$args -t $time"
+        args="\$args -c $cand"
 
         mkdir crops
 
@@ -748,7 +756,8 @@ workflow process_frb {
                 )
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy
+                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
+                    coarse_ds.time.first(), refine_candidate.out.cand
                 )
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start

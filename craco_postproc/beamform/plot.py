@@ -15,11 +15,13 @@ def _main():
         fnames = fnames_file.readlines()
         fnames = [fname.strip() for fname in fnames]
     
-    plot(args, fnames)
+    with open(args.c) as cand_file:
+        cand = list(map(float, cand_file.readlines()[1].split(" ")))
+    
+    plot(args, fnames, cand)
 
 
 def get_args():
-
     parser = ArgumentParser(
         description="Plots FRB Stokes dynamic spectra"
     )
@@ -40,6 +42,12 @@ def get_args():
     )
     parser.add_argument(
         "-y", type=str, help="Y fine spectrum"
+    )
+    parser.add_argument(
+        "-c", type=str, help="Optimal FRB candidate"
+    )
+    parser.add_argument(
+        "-t", type=str, help="Time axis in MJD (1 ms steps)"
     )
 
     return parser.parse_args()
@@ -85,6 +93,7 @@ def reduce(a, n, axis=0):
 def plot_IQUV_dts(
     ds_list,
     f0,
+    init_t,
     facs=[1, 3, 10, 30, 100, 300],
     time_range=100,
     labels=None,
@@ -96,19 +105,22 @@ def plot_IQUV_dts(
     abs_peak = None
     peaks = []
 
+    # find peak within init_range, which is centred on expected FRB MJD
+    init_range = slice(init_t-time_range, init_t+time_range, 1)
+
     prof_axs = [fig.add_subplot(spec[0, 3 * j : 3 * (j + 1)]) for j in range(len(facs))]
 
     for i, ds in enumerate(ds_list):
         print(f"{i}")
         j = len(prof_axs) - 1
-        prev_fac = None
         for k, dt in enumerate(facs[::-1]):
             print(f"  {j}, {dt}")
             ds_red = reduce(ds, dt, axis=1)
             ts_red = np.sum(ds_red, axis=0)
             if abs_peak is None:
-                abs_peak = (np.argmax(ts_red) * dt,
-                            np.argmax(ts_red) * dt+dt+1)
+                first_peak = np.argmax(ts_red[init_range])+init_range.start
+                abs_peak = (first_peak * dt,
+                            first_peak * dt+dt+1)
             
             if len(peaks) < len(prof_axs):
                 peaks.append(
@@ -122,7 +134,7 @@ def plot_IQUV_dts(
             print(f"  peak = {peak}")
             
             plot_ds = ds_red[
-                :, 
+                :,
                 max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
             ]
 
@@ -229,14 +241,22 @@ def plot_ts(ds, fname):
     plt.savefig(fname)
 
 
-def plot(args, stokes_fnames):
+def plot(args, stokes_fnames, cand):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
+
+    # start crops at expected MJD of FRB - identify index to use
+    facs = [1, 3, 10, 30, 100, 300, 1000] # reduction factors --> dt in us
+
+    t_mjd = np.load(args.t)
+    mjd_cand = cand[-2]
+    idx_1ms = np.argmin(np.abs(t_mjd - mjd_cand))
 
     # IQUV over four timescales
     peak = plot_IQUV_dts(
         stks, 
         args.f,
-        facs=[1, 3, 10, 30, 100, 300],
+        idx_1ms,
+        facs=facs,
         labels=["I", "Q", "U", "V"], 
         fname=f"{args.label}_IQUV_{args.DM}.png"
     )
