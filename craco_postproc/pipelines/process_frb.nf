@@ -60,7 +60,6 @@ process load_coarse_dynspec {
             time: path
                 Time axis in MJD
     */
-    storeDir "${params.publish_dir}/${params.label}/ics"
 
     input:
         val label
@@ -140,7 +139,7 @@ process refine_candidate {
             snoopy: path
                 Initial detection snoopy candidate
     */
-    storeDir "${params.publish_dir}/${params.label}/ics"
+    publishDir "${params.publish_dir}/${params.label}/ics"
 
     input:
         val label
@@ -607,13 +606,13 @@ workflow process_frb {
         pol_cal_solns
 
     main:
-        coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
         if ( new File(refined_candidate_path).exists()) {
             refined_candidate = Channel.fromPath(refined_candidate_path)
         }
         else {
+            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
+                                            antennas)
             refine_candidate(params.label, coarse_ds.data.collect(), 
                              coarse_ds.time.first(), params.snoopy)
             refined_candidate = refine_candidate.out.cand
