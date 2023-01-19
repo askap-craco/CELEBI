@@ -53,17 +53,23 @@ def do_sum(fnames):
 
     print(fnames)
 
-    # Initialise summation array with the first file
+    # Initialise summation array with the shape of the first file
     print("Initialising sum array...")
-    sum_arr = np.load(fnames[0]).copy()
+    f = np.load(fnames[0])
+    sum_arr = np.zeros(f.shape, dtype=f.dtype)
+
+    n_antennas = 0
 
     # Go over the rest of the files, summing their contents into sum_arr
-    for fname in fnames[1:]:
+    for fname in fnames:
         print(fname)
         # mmap_mode='r' keeps the loaded array on disk, instead of loading it into memory
         new_arr = np.load(fname, mmap_mode="r")
         if not np.isnan(new_arr).any():
             sum_arr += new_arr
+            n_antennas += 1
+
+    print(f"Number of good antennas: {n_antennas}")
 
     return sum_arr
 
