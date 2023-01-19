@@ -630,3 +630,14 @@ nextflow.config
 
 # deripple coefficients
 craco_postproc/beamform/.deripple_coeffs/*npy
+craco_postproc/beamform/craftcor_tab.py.org
+craco_postproc/difx/askap2difx.py.bak
+craco_postproc/flagging/main_ab.old
+craco_postproc/flagging/process_flux_cal_ab.old
+craco_postproc/flagging/process_frb_ab.old
+craco_postproc/flagging/process_pol_cal_ab.old
+craco_postproc/pipelines/.process_frb.nf.swp
+craco_postproc/pipelines/main_ab.nf
+craco_postproc/pipelines/process_flux_cal_ab.nf
+craco_postproc/pipelines/process_frb_ab.nf
+craco_postproc/pipelines/process_pol_cal_ab.nf
