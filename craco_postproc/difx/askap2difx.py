@@ -1,6 +1,7 @@
 import argparse
 import getpass
 import math
+import glob
 import os
 import sys
 
@@ -255,13 +256,17 @@ def _main():
     # fillDiFX to ensure correlations work even when the bin goes off
     # the edge of the voltage dump
     if args.ref is not None:
+        binneddifxoutputs = glob.glob("{basename}.difx/*.b0*")
+        if len(binneddifxoutputs) == 0:
+            print("Couldn't find any matching difx outputs to fillDiFX on!")
         with open("run_fill_DiFX", "w") as runfill:
-            runline = f"fillDiFX.py {basename}.difx ../{args.ref}/*[0-9].difx {basename}_fill.difx -i {basename}.input\n"
-            print(runline)
-            runfill.write(runline)
+            for b in binneddifxoutputs:
+                runline = f"fillDiFX.py {basename}.difx/{b} ../{args.ref}/*[0-9].difx/{b} {basename}_fill.difx/{b} -i {basename}.input\n"
+                print(runline)
+                runfill.write(runline)
 
-            runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
-            runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
+                runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
+                runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
         os.chmod("run_fill_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
