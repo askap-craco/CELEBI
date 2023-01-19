@@ -206,6 +206,7 @@ process sum_antennas {
         args="\$args -p $pol"
         args="\$args -o ${label}_frb_sum_${pol}_f.npy"
 
+        echo "python3 $beamform_dir/sum.py \$args"
         python3 $beamform_dir/sum.py \$args
         """
     
