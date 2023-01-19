@@ -524,7 +524,11 @@ workflow correlate {
         // card_fpgas kicks off an instance of do_correlation for
         // every unique card-fpga pair, which are then collated with .collect()
         correlated_data = do_correlation(
-            label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
+            label, data, ra, dec, 
+            binconfig.first(), 
+            polyco.first(), 
+            inttime.first(), 
+            startmjd, 
             ref_correlation.combine(card_fpgas)
         ).cx_fy
 
