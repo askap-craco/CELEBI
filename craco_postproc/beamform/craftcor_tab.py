@@ -375,7 +375,7 @@ class Correlator:
         self.oversamp = 32.0 / 27.0
         self.fs = self.oversamp  # samples per microsecnd
         self.ncoarse_chan = len(self.refant.vfile.freqs)
-        self.sideband = -1
+        self.sideband = 1 if values.uppersideband else -1
         self.coarse_chanbw = 1.0
         self.nfine_per_coarse = self.nfft - 2 * self.nguard_chan
         self.nfine_chan = self.ncoarse_chan * self.nfine_per_coarse
@@ -756,6 +756,13 @@ def parse_args():
         default=False,
         help="Incoherent sum mode. Produces intensity dynamic spectrum at "
              " 1 ms time resolution."
+    )
+    parser.add_argument(
+        "--uppersideband",
+        action="store_true",
+        default=False,
+        help="Set when the data is from the ASKAP high band where the "
+             "frequency axis is not reversed."
     )
 
     return parser.parse_args()

@@ -18,6 +18,7 @@ params.hwfile = "N/A"
 
 localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
+params.uppersideband = false
 
 process create_calcfiles {
     /*
@@ -150,6 +151,11 @@ process do_beamform {
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args -i 1"
         args="\$args --cpus=16"
+
+        # High band FRBs need --uppersideband
+        if [ "$params.uppersideband" = "true" ]; then
+            args="\$args --uppersideband"
+        fi
 
         # Legacy compatibility: some very old FRBs need a hwfile
         if [ ! "$params.hwfile" = "N/A" ]; then
