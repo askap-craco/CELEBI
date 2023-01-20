@@ -58,7 +58,7 @@ Temporary Items
 .idea/**/libraries
 
 # Gradle and Maven with auto-import
-# When using Gradle or Maven with auto-import, you should exclude module files,
+# When using Gradr Maven with auto-import, you should exclude module files,
 # since they will be recreated, and may cause churn.  Uncomment if using
 # auto-import.
 # .idea/modules.xml
@@ -615,29 +615,29 @@ healthchecksdb
 MigrationBackup/
 
 # End of https://www.gitignore.io/api/osx,python,pycharm,windows,visualstudio,visualstudiocode
-craco_postproc/pipelines/.nextflow.log.1
-craco_postproc/pipelines/.nextflow.log.2
-craco_postproc/pipelines/.nextflow.log.3
-craco_postproc/pipelines/.nextflow.log.4
-craco_postproc/pipelines/.nextflow.log.5
-craco_postproc/pipelines/.nextflow.log.6
-craco_postproc/pipelines/.nextflow.log.7
-craco_postproc/pipelines/.nextflow.log.8
-craco_postproc/pipelines/.nextflow.log.9
-craco_postproc/pipelines/work
-craco_postproc/pipelines/.nextflow
+pipelines/.nextflow.log.1
+pipelines/.nextflow.log.2
+pipelines/.nextflow.log.3
+pipelines/.nextflow.log.4
+pipelines/.nextflow.log.5
+pipelines/.nextflow.log.6
+pipelines/.nextflow.log.7
+pipelines/.nextflow.log.8
+pipelines/.nextflow.log.9
+pipelines/work
+pipelines/.nextflow
 nextflow.config
 
 # deripple coefficients
-craco_postproc/beamform/.deripple_coeffs/*npy
-craco_postproc/beamform/craftcor_tab.py.org
-craco_postproc/difx/askap2difx.py.bak
-craco_postproc/flagging/main_ab.old
-craco_postproc/flagging/process_flux_cal_ab.old
-craco_postproc/flagging/process_frb_ab.old
-craco_postproc/flagging/process_pol_cal_ab.old
-craco_postproc/pipelines/.process_frb.nf.swp
-craco_postproc/pipelines/main_ab.nf
-craco_postproc/pipelines/process_flux_cal_ab.nf
-craco_postproc/pipelines/process_frb_ab.nf
-craco_postproc/pipelines/process_pol_cal_ab.nf
+beamform/.deripple_coeffs/*npy
+beamform/craftcor_tab.py.org
+difx/askap2difx.py.bak
+flagging/main_ab.old
+flagging/process_flux_cal_ab.old
+flagging/process_frb_ab.old
+flagging/process_pol_cal_ab.old
+pipelines/.process_frb.nf.swp
+pipelines/main_ab.nf
+pipelines/process_flux_cal_ab.nf
+pipelines/process_frb_ab.nf
+pipelines/process_pol_cal_ab.nf

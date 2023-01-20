@@ -34,8 +34,8 @@ antennas = Channel
     .of(0..params.nants-1)
 
 //beamform_dir = "$baseDir/../beamform/"
-beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/beamform"
-localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise"
+beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/beamform"
+localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/localise"
 
 process load_coarse_dynspec {
     /*
@@ -78,7 +78,7 @@ process load_coarse_dynspec {
         fi
 
         # create calcfiles for antenna delay
-        startmjd=`python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/get_start_mjd.py $data`
+        startmjd=`python3 $localise_dir/get_start_mjd.py $data`
 
         export CRAFTCATDIR="."
 
@@ -94,12 +94,12 @@ process load_coarse_dynspec {
         args="\$args --name=210117_ICS"
         args="\$args -o ."
         args="\$args --freqlabel c1_f0"
-        args="\$args --dir=/fred/oz002/askap/craft/craco/CELEBI/craco_postproc/difx"
+        args="\$args --dir=$localise_dir/../difx"
         args="\$args --calconly"
         args="\$args --startmjd \$startmjd"
 
-        echo "python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py \$args"
-        python3 /fred/oz002/askap/craft/craco/CELEBI/craco_postproc/localise/processTimeStep.py \$args
+        echo "python3 $localise_dir/processTimeStep.py \$args"
+        python3 $localise_dir/processTimeStep.py \$args
 
 
         mkdir delays
