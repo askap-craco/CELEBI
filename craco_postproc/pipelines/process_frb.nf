@@ -712,15 +712,10 @@ workflow process_frb {
                 bin_regs = bins_out.reg
                 bin_mss = bins_out.ms
 
-                if(params.image_all_bins) {
-                    askap_frb_pos = get_peak(
-                        bin_jmfits.collect(), bin_fits_images.collect(), 
-                        bin_regs.collect(), bin_mss.collect()
-                    ).peak_jmfit
-                }
-                else {
-                    askap_frb_pos = bin_jmfits
-                }
+                askap_frb_pos = get_peak(
+                    bin_jmfits.collect(), bin_fits_images.collect(), 
+                    bin_regs.collect(), bin_mss.collect()
+                ).peak_jmfit
             }
             if(new File(frb_jmfit_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)
