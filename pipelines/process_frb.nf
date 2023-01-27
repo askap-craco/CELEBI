@@ -784,21 +784,21 @@ workflow process_frb {
                 crop_start = plot.out.crop_start
                 crop_50us = plot.out.crop_50us
             }
-
-            if(params.opt_DM) {
-                optimise_DM(
-                    bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
-                    "-ds -t -XYIQUV"
-                )
-                dm = optimise_DM.out.dm_opt
-                crops = optimise_DM.out.crops
-                crop_start = optimise_DM.out.crop_start
-            }
-            else {
-                dm = params.dm_frb
-            }
-
+            
             // experimental high time res gating
+            // if(params.opt_DM) {
+            //     optimise_DM(
+            //         bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
+            //         "-ds -t -XYIQUV"
+            //     )
+            //     dm = optimise_DM.out.dm_opt
+            //     crops = optimise_DM.out.crops
+            //     crop_start = optimise_DM.out.crop_start
+            // }
+            // else {
+            //     dm = params.dm_frb
+            // }
+            //
             // if(params.opt_gate) {
             //     opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
             //     htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
