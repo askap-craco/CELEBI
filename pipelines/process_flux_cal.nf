@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_fcal } from './correlate'
 include { determine_flux_cal_solns as cal_fcal } from './calibration'
+include { flag_proper as flagdat } from './flagging'
 
 workflow process_flux_cal {
     /*
@@ -28,6 +29,20 @@ workflow process_flux_cal {
                 label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
                 empty_file, empty_file, empty_file, "fluxcal"
             ).fits
+        }
+
+        // Flagging
+        if(params.autoflag) {
+            fluxcal_fits_flagged = "${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"
+        
+            if(new File(fluxcal_fits_flagged).exists()) {
+                    outfits = Channel.fromPath(fluxcal_fits_flagged)
+            }
+            else {
+                outfits = flagdat(fits,fluxcal_fits_flagged,"cal").outfile
+            }
+            
+            fits = outfits
         }
 
         // Calibration

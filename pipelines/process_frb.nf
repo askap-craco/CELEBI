@@ -8,6 +8,7 @@ include { image_finder; image_field; get_peak; image_htrgate } from './calibrati
 include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
     generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
+include { flag_proper as flagdat } from './flagging'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -669,6 +670,25 @@ workflow process_frb {
                 "${params.label}_field", params.data_frb, beam_centre.ra, 
                 beam_centre.dec, empty_file, empty_file, empty_file, "field"
             ).fits
+        }
+
+        // Flagging
+        if(params.autoflag) {
+            field_fits_flagged = "${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field_f.fits"
+        
+            if(new File(field_fits_flagged).exists()) {
+                    field_outfits = Channel.fromPath(field_fits_flagged)
+            }
+            else {
+                field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
+            }
+
+            if(params.fieldimage == "") {
+                    field_fits = field_outfits
+                        }
+            else {
+                field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
+            }}
         }
 
         // Calibrate (i.e. image finder and field)

@@ -4,6 +4,7 @@ include { create_empty_file } from './utils'
 include { correlate as corr_pcal } from './correlate'
 include { beamform as bform_pcal } from './beamform'
 include { image_polcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
+include { flag_proper as flagdat } from './flagging'
 
 workflow process_pol_cal {
     /*
@@ -37,6 +38,19 @@ workflow process_pol_cal {
                 label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
                 empty_file, empty_file, empty_file, "polcal"
             ).fits
+        }
+
+        // Flagging
+        if("${params.autoflag}" == "true") {
+            polcal_fits_flagged = "${params.publish_dir}/${params.label}/loadfits/polcal/${params.label}_polcal_f.fits"
+        
+            if(new File(polcal_fits_flagged).exists()) {
+                    outfits = Channel.fromPath(polcal_fits_flagged)
+            }
+            else {
+                outfits = flagdat(fits,polcal_fits_flagged, "cal").outfile
+            }
+            fits = outfits
         }
 
         // Calibration
