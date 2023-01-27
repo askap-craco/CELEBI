@@ -31,7 +31,7 @@ process determine_flux_cal_solns {
             plot: path
                 AIPS postscript plots of calibration solutions
     */
-    publishDir "${params.publish_dir}/${params.label}/fluxcal", mode: "copy"
+    publishDir "${params.out_dir}/fluxcal", mode: "copy"
 
     input:
         path cal_fits
@@ -90,7 +90,7 @@ process image_finder {
             ms: path
                 Calibrated bin measurement set
     */
-    publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
+    publishDir "${params.out_dir}/finder", mode: "copy"
     maxForks 1
 
     input:
@@ -180,7 +180,7 @@ process get_peak {
             peak_ms: path
                 Calibrated visibility measurement set of peak bin    
     */
-    publishDir "${params.publish_dir}/${params.label}/finder", mode: "copy"
+    publishDir "${params.out_dir}/finder", mode: "copy"
 
     input:
         path jmfit
@@ -269,7 +269,7 @@ process image_field {
             regions: path
                 DS9 region file containing regions for all sources fit.
     */
-    publishDir "${params.publish_dir}/${params.label}/field", mode: "copy"
+    publishDir "${params.out_dir}/field", mode: "copy"
 
     input:
         path target_fits
@@ -356,7 +356,7 @@ process image_polcal {
             regions: path
                 DS9 region of source fit    
     */
-    publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
+    publishDir "${params.out_dir}/polcal", mode: "copy"
 
     input:
         path target_fits
@@ -435,7 +435,7 @@ process image_htrgate {
             ms: path
                 Calibrated measurement set
     */
-    publishDir "${params.publish_dir}/${params.label}/htrgate", mode: "copy"
+    publishDir "${params.out_dir}/htrgate", mode: "copy"
     maxForks 1
 
     input:
@@ -510,7 +510,7 @@ process determine_pol_cal_solns {
                 A set of .png plots generated at various stages of polcal.py
                 for troubleshooting/verifying solutions
     */
-    publishDir "${params.publish_dir}/${params.label}/polcal", mode: "copy"
+    publishDir "${params.out_dir}/polcal", mode: "copy"
     
     input:
         path htr_data

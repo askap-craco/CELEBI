@@ -623,13 +623,13 @@ workflow process_frb {
 
         if(!params.opt_gate){    
             // Correlate finder
-            finder_fits_path = "${params.publish_dir}/${params.label}/loadfits/finder/finderbin07.fits"
+            finder_fits_path = "${params.out_dir}/loadfits/finder/finderbin07.fits"
             if(new File(finder_fits_path).exists()) {
                 finder_fits = Channel.fromPath(
-                    "${params.publish_dir}/${params.label}/loadfits/finder/finderbin*.fits"
+                    "${params.out_dir}/loadfits/finder/finderbin*.fits"
                 )
                 centre_bin_fits = Channel.fromPath(
-                    "${params.publish_dir}/${params.label}/loadfits/finder/finderbin04.fits"
+                    "${params.out_dir}/loadfits/finder/finderbin04.fits"
                 )
             }
             else {
@@ -640,7 +640,7 @@ workflow process_frb {
             }
 
             // Correlate RFI (if not directly flagging finder)
-            rfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/rfi/${params.label}_rfi.fits"
+            rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
             if ( new File(rfi_fits_path).exists() ) {
                 rfi_fits = Channel.fromPath(rfi_fits_path)
             }
@@ -655,7 +655,7 @@ workflow process_frb {
         }
 
         // Correlate field (if not using deep field image)
-        field_fits_path = "${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field.fits"
+        field_fits_path = "${params.out_dir}/loadfits/field/${params.label}_field.fits"
         if((params.fieldimage != "") or new File(field_fits_path).exists() ) {
             if(params.fieldimage == "") {
                 field_fits = Channel.fromPath(field_fits_path)
@@ -674,7 +674,7 @@ workflow process_frb {
 
         // Flagging
         if(params.autoflag) {
-            field_fits_flagged = "${params.publish_dir}/${params.label}/loadfits/field/${params.label}_field_f.fits"
+            field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
         
             if(new File(field_fits_flagged).exists()) {
                     field_outfits = Channel.fromPath(field_fits_flagged)
@@ -692,9 +692,9 @@ workflow process_frb {
         }
 
         // Calibrate (i.e. image finder and field)
-        frb_jmfit_path = "${params.publish_dir}/${params.label}/finder/${params.label}.jmfit"
-        offset_path = "${params.publish_dir}/${params.label}/position/offset0.dat"
-        frb_pos_path = "${params.publish_dir}/${params.label}/position/${params.label}_final_position.txt"
+        frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
+        offset_path = "${params.out_dir}/position/offset0.dat"
+        frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
         if(new File(frb_jmfit_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
         }
@@ -764,8 +764,8 @@ workflow process_frb {
         }
 
         if(params.beamform) {
-            crop_50us_path = "${params.publish_dir}/${params.label}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
-            crop_start_path = "${params.publish_dir}/${params.label}/htr/50us_crop_start_s.txt"
+            crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
+            crop_start_path = "${params.out_dir}/htr/50us_crop_start_s.txt"
             if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
                 crop_50us = Channel.fromPath(crop_50us_path)
                 crop_start = Channel.fromPath(crop_start_path)
@@ -800,7 +800,7 @@ workflow process_frb {
 
             if(params.opt_gate) {
                 opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
-                htrgate_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrgate/${params.label}_htrgate.fits"
+                htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
                 if(new File(htrgate_fits_path).exists()) {
                     htrgate_fits = Channel.fromPath(htrgate_fits_path)
                 }
@@ -812,7 +812,7 @@ workflow process_frb {
                     ).fits
                 }
                 if(!params.skiprfi) {
-                    htrrfi_fits_path = "${params.publish_dir}/${params.label}/loadfits/htrrfi/${params.label}_htrrfi.fits"
+                    htrrfi_fits_path = "${params.out_dir}/loadfits/htrrfi/${params.label}_htrrfi.fits"
                     if(new File(htrrfi_fits_path).exists()) {
                         htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
                     }
@@ -841,7 +841,5 @@ workflow process_frb {
                     offset, image_htrgate.out.jmfit
                 )
             }
-
-            //npy2fil(params.label, plot.out.crops, 0, params.centre_freq_frb, final_position)
         }
 }

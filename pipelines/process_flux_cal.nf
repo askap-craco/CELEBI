@@ -19,7 +19,7 @@ workflow process_flux_cal {
         label = "${params.label}_fluxcal"
 
         // Correlation
-        fluxcal_fits_path = "${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal.fits"
+        fluxcal_fits_path = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
         if(new File(fluxcal_fits_path).exists()) {
             fits = Channel.fromPath(fluxcal_fits_path)
         }
@@ -33,7 +33,7 @@ workflow process_flux_cal {
 
         // Flagging
         if(params.autoflag) {
-            fluxcal_fits_flagged = "${params.publish_dir}/${params.label}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"
+            fluxcal_fits_flagged = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"
         
             if(new File(fluxcal_fits_flagged).exists()) {
                     outfits = Channel.fromPath(fluxcal_fits_flagged)
@@ -46,7 +46,7 @@ workflow process_flux_cal {
         }
 
         // Calibration
-        fluxcal_solns_path = "${params.publish_dir}/${params.label}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
+        fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
         if(new File(fluxcal_solns_path).exists()) {
             flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
         }

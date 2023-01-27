@@ -465,7 +465,7 @@ process generate_dynspecs {
             dynspec_fnames: path
                 File containing file names of dynamic spectra created
     */
-    publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
+    publishDir "${params.out_dir}/htr", mode: "copy"
     cpus 16
 
     input:

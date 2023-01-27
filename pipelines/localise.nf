@@ -24,7 +24,7 @@ process generate_binconfig {
             int_time: env
                 Integration time in seconds
     */
-    publishDir "${params.publish_dir}/${params.label}/binconfigs", mode: "copy"
+    publishDir "${params.out_dir}/binconfigs", mode: "copy"
 
     input:
         path cand
@@ -79,7 +79,7 @@ process find_offset {
                 Plots generated while calculating offset for verification and
                 troubleshooting
     */
-    publishDir "${params.publish_dir}/${params.label}/position", mode: "copy"
+    publishDir "${params.out_dir}/position", mode: "copy"
 
     input:
         path field_sources
@@ -135,7 +135,7 @@ process apply_offset {
             final_position: path
                 FRB final position with error as a txt file
     */
-    publishDir "${params.publish_dir}/${params.label}/position", mode: "copy"
+    publishDir "${params.out_dir}/position", mode: "copy"
     
     input:
         path offset

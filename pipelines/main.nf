@@ -20,7 +20,7 @@ params.nopolcal = false     // some FRBs have no good pol cal
 
 params.target = "FRB${params.label}"
 
-params.outdir = "${params.publish_dir}/${params.label}"
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 workflow {
     flux_cal_solns = fcal()
