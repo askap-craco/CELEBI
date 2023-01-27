@@ -798,48 +798,49 @@ workflow process_frb {
                 dm = params.dm_frb
             }
 
-            if(params.opt_gate) {
-                opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
-                htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
-                if(new File(htrgate_fits_path).exists()) {
-                    htrgate_fits = Channel.fromPath(htrgate_fits_path)
-                }
-                else {
-                    htrgate_fits = corr_htrgate(
-                        "${params.label}_htrgate", params.data_frb, params.ra_frb, 
-                        params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
-                        binconfig.int_time, "htrgate"
-                    ).fits
-                }
-                if(!params.skiprfi) {
-                    htrrfi_fits_path = "${params.out_dir}/loadfits/htrrfi/${params.label}_htrrfi.fits"
-                    if(new File(htrrfi_fits_path).exists()) {
-                        htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
-                    }
-                    else {
-                        htrrfi_fits = corr_htrrfi(
-                            "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
-                            params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
-                            binconfig.int_time, "htrrfi"
-                        ).fits
-                    }
-                }
-                if(params.skiprfi){
-                    no_rfi_htrgate_fits = htrgate_fits
-                }
-                else {
-                    no_rfi_htrgate_fits = sub_htrrfi(    
-                        htrgate_fits, htrrfi_fits, empty_file
-                    )                
-                }
+            // experimental high time res gating
+            // if(params.opt_gate) {
+            //     opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
+            //     htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
+            //     if(new File(htrgate_fits_path).exists()) {
+            //         htrgate_fits = Channel.fromPath(htrgate_fits_path)
+            //     }
+            //     else {
+            //         htrgate_fits = corr_htrgate(
+            //             "${params.label}_htrgate", params.data_frb, params.ra_frb, 
+            //             params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
+            //             binconfig.int_time, "htrgate"
+            //         ).fits
+            //     }
+            //     if(!params.skiprfi) {
+            //         htrrfi_fits_path = "${params.out_dir}/loadfits/htrrfi/${params.label}_htrrfi.fits"
+            //         if(new File(htrrfi_fits_path).exists()) {
+            //             htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
+            //         }
+            //         else {
+            //             htrrfi_fits = corr_htrrfi(
+            //                 "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
+            //                 params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
+            //                 binconfig.int_time, "htrrfi"
+            //             ).fits
+            //         }
+            //     }
+            //     if(params.skiprfi){
+            //         no_rfi_htrgate_fits = htrgate_fits
+            //     }
+            //     else {
+            //         no_rfi_htrgate_fits = sub_htrrfi(    
+            //             htrgate_fits, htrrfi_fits, empty_file
+            //         )                
+            //     }
 
-                image_htrgate(
-                    no_rfi_htrgate_fits, flux_cal_solns
-                )
+            //     image_htrgate(
+            //         no_rfi_htrgate_fits, flux_cal_solns
+            //     )
 
-                final_position = apply_offset_htr(
-                    offset, image_htrgate.out.jmfit
-                )
-            }
+            //     final_position = apply_offset_htr(
+            //         offset, image_htrgate.out.jmfit
+            //     )
+            // }
         }
 }
