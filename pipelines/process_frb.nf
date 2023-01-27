@@ -688,7 +688,7 @@ workflow process_frb {
                         }
             else {
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
-            }}
+            }
         }
 
         // Calibrate (i.e. image finder and field)
