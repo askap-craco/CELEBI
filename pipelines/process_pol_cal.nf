@@ -61,13 +61,9 @@ workflow process_pol_cal {
             pos = Channel.fromPath(polcal_jmfit_path)
         }
         else if(params.calibrate) {
-                if(params.polflagfile == "") {
-                    println "No polcal flag file!"
-                    System.exit(1)
-                }
-                pos = image_polcal(
-                    fits, flux_cal_solns, params.polflagfile
-                ).jmfit
+            pos = image_polcal(
+                fits, flux_cal_solns, params.polflagfile
+            ).jmfit
         }
 
         // Beamforming

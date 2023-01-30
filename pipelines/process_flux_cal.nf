@@ -53,10 +53,6 @@ workflow process_flux_cal {
             flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
         }
         else if(params.calibrate) {
-            if(params.fluxflagfile == "") {
-                println "No fluxcal flag file!"
-                System.exit(1)
-            }
             flux_cal_solns = cal_fcal(fits, params.fluxflagfile).solns
         }
         else {

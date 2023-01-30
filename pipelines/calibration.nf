@@ -52,7 +52,9 @@ process determine_flux_cal_solns {
         args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
         args="\$args -f 15"
-        args="\$args --flagfile=$flagfile"
+        if [ "$flagfile" != "" ]; then
+            args="\$args --flagfile=$flagfile"
+        fi
 
         if [ "$params.ozstar" == "true" ]; then
             . $launchDir/../setup_parseltongue3
@@ -307,8 +309,10 @@ process image_field {
             args="\$args -a 16"
             args="\$args --skipplot"
             args="\$args --pixelsize=4"
-            args="\$args --src=$params.target"
             args="\$args --tarflagfile=$flagfile"
+            if [ "$flagfile" != "" ]; then
+                args="\$args --tarflagfile=$flagfile"
+            fi
         else
             args="\$args --image=$params.fieldimage"
         fi
@@ -387,7 +391,9 @@ process image_polcal {
         args="\$args -u 502"
         args="\$args --skipplot"
         args="\$args --src=$params.target"
-        args="\$args --tarflagfile=$flagfile"
+        if [ "$flagfile" != "" ]; then
+            args="\$args --tarflagfile=$flagfile"
+        fi
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"

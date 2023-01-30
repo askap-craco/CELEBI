@@ -703,11 +703,6 @@ workflow process_frb {
             final_position = Channel.fromPath(frb_pos_path)
         }
         if(params.calibrate) {
-            if((params.fieldimage == "") && (params.fieldflagfile == "")){
-                println "No field flag file!"
-                System.exit(1)
-            }
-            
             if(!params.opt_gate){
                 if(params.image_all_bins) {
                     bins_to_image = finder_fits
