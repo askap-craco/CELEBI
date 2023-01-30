@@ -199,7 +199,7 @@ def plot_IQUV_dts(
         spec_ax.yaxis.set_label_position("right")
         spec_ax.set_ylabel(labels[i], rotation=0, fontsize=20, labelpad=20)
 
-    prof_ax.legend(bbox_to_anchor=(1, 0.5), loc="center left")
+    prof_axs[-1].legend(bbox_to_anchor=(1, 0.5), loc="center left")
 
     plt.subplots_adjust(
         wspace=0, hspace=0, left=0.075, right=0.95, top=0.975, bottom=0.05
