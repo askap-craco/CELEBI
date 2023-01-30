@@ -12,6 +12,7 @@ params.polcalimagesize = 128
 
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 process determine_flux_cal_solns {
     /*

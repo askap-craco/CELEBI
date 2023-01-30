@@ -37,6 +37,7 @@ antennas = Channel
 //beamform_dir = "$baseDir/../beamform/"
 beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/beamform"
 localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/localise"
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 process load_coarse_dynspec {
     /*
@@ -764,13 +765,13 @@ workflow process_frb {
         }
 
         if(params.beamform) {
-            crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
-            crop_start_path = "${params.out_dir}/htr/50us_crop_start_s.txt"
-            if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
-                crop_50us = Channel.fromPath(crop_50us_path)
-                crop_start = Channel.fromPath(crop_start_path)
-            }
-            else {
+            // crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
+            // crop_start_path = "${params.out_dir}/htr/50us_crop_start_s.txt"
+            // if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
+            //     crop_50us = Channel.fromPath(crop_50us_path)
+            //     crop_start = Channel.fromPath(crop_start_path)
+            // }
+            // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV"
@@ -783,7 +784,7 @@ workflow process_frb {
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start
                 crop_50us = plot.out.crop_50us
-            }
+            // }
             
             // experimental high time res gating
             // if(params.opt_DM) {

@@ -5,6 +5,7 @@
 */
 
 flagging_dir = "$baseDir/../flagging/"
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 process flag_proper {
     /*

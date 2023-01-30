@@ -19,6 +19,7 @@ params.hwfile = "N/A"
 localise_dir = "$baseDir/../localise/"
 beamform_dir = "$baseDir/../beamform/"
 params.uppersideband = false
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 process create_calcfiles {
     /*

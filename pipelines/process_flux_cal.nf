@@ -5,6 +5,8 @@ include { correlate as corr_fcal } from './correlate'
 include { determine_flux_cal_solns as cal_fcal } from './calibration'
 include { flag_proper as flagdat } from './flagging'
 
+params.out_dir = "${params.publish_dir}/${params.label}"
+
 workflow process_flux_cal {
     /*
         Process voltages to obtain flux+phase calibration solutions

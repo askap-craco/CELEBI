@@ -6,6 +6,8 @@ include { beamform as bform_pcal } from './beamform'
 include { image_polcal; determine_pol_cal_solns as get_cal_pcal } from './calibration'
 include { flag_proper as flagdat } from './flagging'
 
+params.out_dir = "${params.publish_dir}/${params.label}"
+
 workflow process_pol_cal {
     /*
         Process voltages to obtain polarisation calibration solutions

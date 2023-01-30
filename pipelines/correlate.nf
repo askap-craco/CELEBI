@@ -14,6 +14,7 @@ ref_card_fpga = cards.min().combine(fpgas.min())
 localise_dir = "$baseDir/../localise/"
 
 params.uppersideband = false
+params.out_dir = "${params.publish_dir}/${params.label}"
 
 process get_start_mjd {
     /*
