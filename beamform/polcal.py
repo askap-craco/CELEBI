@@ -48,6 +48,9 @@ def _main():
         V_noisesub / I_noisesub,
     ])
 
+    L_model = np.polyval(np.loadtxt(args.l_model), freqs.value)
+    V_model = np.polyval(np.loadtxt(args.v_model), freqs.value)
+
     if args.nopeak:  # fit in each time step
         pol_fs = np.zeros((t.shape[0], freqs.shape[0]))
         pol_fits = np.zeros(t.shape)
@@ -232,10 +235,10 @@ def _main():
 
         pa, pa_fit = fit_pol_ang(freqs, U_noisesub, Q_noisesub)
 
-        Q_askap, L_amp_fit, psi_sky_fit, Q_fit = fit_psi_sky(freqs, S_ratio, pa_fit)
+        Q_askap, psi_sky_fit, Q_fit = fit_psi_sky(freqs, S_ratio, pa_fit, L_model)
 
         phi, delay_fit, offset_fit, phi_fit = fit_phi(
-            freqs, S_ratio, pa_fit, L_amp_fit[0], psi_sky_fit[0]
+            freqs, S_ratio, pa_fit, psi_sky_fit[0], L_model, V_model
         )
 
         if args.plot:
@@ -321,6 +324,9 @@ def _main():
             plt.tight_layout()
             fig.savefig(f"{args.plotdir}/{args.label}_polang.png")
 
+            def QoverI_askap(i, psi_sky):
+                return L_model[i] * np.cos(2 * pa_fit[i] + psi_sky)
+
             # psi_sky fit
             fig, ax = plt.subplots()
             ax = ax_plot(
@@ -333,7 +339,7 @@ def _main():
             ax = ax_plot(
                 ax,
                 pa_fit,
-                QoverI_askap(pa_fit, L_amp_fit[0], psi_sky_fit[0]),
+                QoverI_askap(range(pa_fit.shape[0]), psi_sky_fit[0]),
                 label=r"$\psi_{sky}$ fit",
                 c="r",
                 type="line",
@@ -414,6 +420,19 @@ def get_args() -> argparse.Namespace:
         default=False,
         help="DEBUG: Do not take peak spectra and fit per time step"
     )
+    parser.add_argument(
+        "--l_model",
+        type=str,
+        required=True,
+        help="Coefficients file for Stokes L model"
+    )
+    parser.add_argument(
+        "--v_model",
+        type=str,
+        required=True,
+        help="Coefficients file for Stokes V model"
+    )
+
     return parser.parse_args()
 
 
@@ -622,27 +641,29 @@ def faraday_angle(freq_mhz, rm=30, offset=0):
     return rm * np.power(lamb, 2) + offset
 
 
-def fit_psi_sky(freqs, S_ratio, pa_fit):
+def fit_psi_sky(freqs, S_ratio, pa_fit, L_model):
     # psi'(nu) = psi(nu) + psi_sky
     print("Fitting psi_sky")
     Q_askap = np.copy(S_ratio[0])
-    popt, pcov = curve_fit(QoverI_askap, pa_fit, Q_askap, p0=[0.95, -0.8])
-    L_amp, psi_sky = popt
-    L_amp_err, psi_sky_err = np.diag(pcov)
 
-    print(f"L_amp\t= {L_amp:.3f}\t+- {L_amp_err:.5f}")
+    def QoverI_askap(i, psi_sky):
+        return L_model[i] * np.cos(2 * pa_fit[i] + psi_sky)
+    
+    popt, pcov = curve_fit(QoverI_askap, range(pa_fit.shape[0]), Q_askap, p0=[0])
+    psi_sky = popt[0]
+    psi_sky_err = pcov[0][0]
+
+    # print(f"L_amp\t= {L_amp:.3f}\t+- {L_amp_err:.5f}")
     print(f"psi_sky\t= {psi_sky:.3f}\t+- {psi_sky_err:.5f}")
 
-    Q_fit = QoverI_askap(pa_fit, L_amp, psi_sky)
+    Q_fit = QoverI_askap(range(pa_fit.shape[0]), psi_sky)
 
-    return Q_askap, (L_amp, L_amp_err), (psi_sky, psi_sky_err), Q_fit
-
-
-def QoverI_askap(pa, L_amp, psi_sky):
-    return L_amp * np.cos(2 * pa + psi_sky)
+    return Q_askap, (psi_sky, psi_sky_err), Q_fit
 
 
-def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
+
+
+def fit_phi(freqs, S_ratio, pa_fit, psi_sky, L_model, V_model):
     # Solve using matrices
     tan_phi = np.full((freqs.shape[0], 2), np.nan)
     u_prime = S_ratio[1]  # U/I
@@ -650,8 +671,8 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
     for i, f in enumerate(freqs.value):
         pa_prime = psi_sky + pa_fit[i]
 
-        u = L_amp * np.sin(2 * pa_prime)
-        v = -0.05
+        u = L_model[i] * np.sin(2 * pa_prime)
+        v = -V_model[i]
 
         A = np.array([[u + v, v - u],
                       [u - v, u + v]])
@@ -665,7 +686,7 @@ def fit_phi(freqs, S_ratio, pa_fit, L_amp, psi_sky):
     phi = np.arctan2(tan_phi[:, 1], tan_phi[:, 0])
 
     # fit phi in several overlapping sub-bands, take best fit
-    n_bands = 3
+    n_bands = 4
     overlap = 2
     band_width = phi.shape[0] // n_bands
     slices = [

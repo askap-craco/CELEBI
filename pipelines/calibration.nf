@@ -543,6 +543,8 @@ process determine_pol_cal_solns {
         args="\$args --reduce_df 1"
         args="\$args --plot"
         args="\$args --plotdir ."
+        args="\$args --l_model $params.polcal_l_model"
+        args="\$args --v_model $params.polcal_v_model"
 
         python3 $beamform_dir/polcal.py \$args
         """
