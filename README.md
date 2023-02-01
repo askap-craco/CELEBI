@@ -1,6 +1,6 @@
 # CELEBI: The CRAFT Effortless Localisation and Enhanced Burst Inspection Pipeline
 
-CELEBI (arxiv pending) is an automated data processing pipeline for producing sub-arcsecond precision localisations and high-time resolution polarimetric measurements of fast radio bursts (FRBs) from voltages obtained with the Australian Square Kilometre Array Pathfinder (ASKAP).
+[CELEBI](https://arxiv.org/abs/2301.13484) is an automated data processing pipeline for producing sub-arcsecond precision localisations and high-time resolution polarimetric measurements of fast radio bursts (FRBs) from voltages obtained with the Australian Square Kilometre Array Pathfinder (ASKAP).
 
 CELEBI operates on the VCRAFT data format, and is designed to be run on a supercomputer. Once the dependencies have been installed, you should set up a config file based on the [template](configs/template.config) for the data you are processing, and then run [main.nf](pipelines/main.nf):
 ```
