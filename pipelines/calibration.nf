@@ -299,6 +299,7 @@ process image_field {
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
         args="\$args --nmaxsources=$params.nfieldsources"
+        args="\$args --src=$params.target"
 
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == "null" ]; then
