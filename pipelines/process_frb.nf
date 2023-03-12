@@ -141,7 +141,7 @@ process refine_candidate {
             snoopy: path
                 Initial detection snoopy candidate
     */
-    publishDir "${params.publish_dir}/${params.label}/ics"
+    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
     input:
         val label
