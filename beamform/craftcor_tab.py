@@ -27,6 +27,7 @@ for i in range(36):
     ant_map[f"ak{i+1:02d}"] = i
 
 __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
+              "Hyerin Cho <hyerin.cho@cfa.harvard.edu>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
 
 
