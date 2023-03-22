@@ -15,6 +15,7 @@ It is recommended that you do this from a separate processing directory, and mak
 - [CASA](https://dx.doi.org/10.1088/1538-3873/ac9642)
 - [CASA Analysis Utilities](https://casaguides.nrao.edu/index.php/Analysis_Utilities)
 - [DiFX](http://dx.doi.org/10.1086/658907)
+- [psrvlbireduce](https://github.com/dingswin/psrvlbireduce)
 - Numpy
 - Scipy
 - Matplotlib
