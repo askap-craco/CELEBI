@@ -62,6 +62,7 @@ process load_coarse_dynspec {
             time: path
                 Time axis in MJD
     */
+    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
     input:
         val label
@@ -608,13 +609,17 @@ workflow process_frb {
         pol_cal_solns
 
     main:
-        coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-        if ( new File(refined_candidate_path).exists()) {
+        t_mjd_path = "${params.publish_dir}/${params.label}/ics/t_mjd.npy"
+        if ( new File(refined_candidate_path).exists() 
+             and new File(t_mjd_path).exists() ) {
             refined_candidate = Channel.fromPath(refined_candidate_path)
+            t_mjd = Channel.fromPath(t_mjd_path)
         }
         else {
+            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
+                                            antennas)
+            t_mjd = coarse_ds.time.first()
             refine_candidate(params.label, coarse_ds.data.collect(), 
                              coarse_ds.time.first(), params.snoopy)
             refined_candidate = refine_candidate.out.cand
@@ -774,7 +779,7 @@ workflow process_frb {
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                     params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                    coarse_ds.time.first(), refined_candidate
+                    t_mjd, refined_candidate
                 )
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start
