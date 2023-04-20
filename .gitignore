@@ -641,3 +641,10 @@ pipelines/main_ab.nf
 pipelines/process_flux_cal_ab.nf
 pipelines/process_frb_ab.nf
 pipelines/process_pol_cal_ab.nf
+flagging/run_ab.sh.3feb23
+flagging/process-d_ab.sh.3feb23
+flagging/process_pol_cal_ab.nf.3feb23
+flagging/process_flux_cal_ab.nf.3feb23
+flagging/main_ab.nf.3feb23
+flagging/process_frb_ab.nf.3feb23
+beamform/craftcor_tab_ad.py
