@@ -104,6 +104,7 @@ def plot_IQUV_dts(
 
     abs_peak = None
     peaks = []
+    windows = []
 
     # find peak within init_range, which is centred on expected FRB MJD
     init_range = slice(init_t-time_range, init_t+time_range, 1)
@@ -115,30 +116,40 @@ def plot_IQUV_dts(
         j = len(prof_axs) - 1
         for k, dt in enumerate(facs[::-1]):
             print(f"  {j}, {dt}")
-            ds_red = reduce(ds, dt, axis=1)
-            ts_red = np.sum(ds_red, axis=0)
-            if abs_peak is None:
-                first_peak = np.argmax(ts_red[init_range])+init_range.start
-                abs_peak = (first_peak * dt,
-                            first_peak * dt+dt+1)
+            if i == 0:  # Stokes I, identify peak
+                ds_red = reduce(ds, dt, axis=1)
+                ts_red = np.sum(ds_red, axis=0)
+                if abs_peak is None:
+                    first_peak = np.argmax(ts_red)#[init_range])+init_range.start
+                    abs_peak = (first_peak * dt,
+                                first_peak * dt+dt+1)
             
-            if len(peaks) < len(prof_axs):
                 peaks.append(
                     abs_peak[0] // dt + 
                     np.argmax(ts_red[abs_peak[0]//dt:abs_peak[1]//dt])
                 )
 
-            # choose peak within abs_peak
-            peak = peaks[k]
+                windows.append(slice(
+                    max(0, peaks[k] - time_range)*dt,
+                    min(ds_red.shape[1], peaks[k] + time_range)*dt,
+                    1
+                ))
+                peak = peaks[k]
+                window = windows[k]
+                plot_ds = ds_red[
+                    :,
+                    max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
+                ]
+                plot_ts = np.sum(plot_ds, axis=0)
+
+            else:   # Q, U, V
+                peak = peaks[k]
+                window = windows[k]
+                plot_ds = reduce(ds[:, window], dt, axis=1)
+                plot_ts = np.sum(plot_ds, axis=0)
 
             print(f"  peak = {peak}")
-            
-            plot_ds = ds_red[
-                :,
-                max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
-            ]
 
-            plot_ts = np.sum(plot_ds, axis=0)
             t = np.linspace(
                 -time_range * dt / 1e3, time_range * dt / 1e3, plot_ts.shape[0]
             )
@@ -179,7 +190,10 @@ def plot_IQUV_dts(
                 ds_ax.set_yticks([])
 
             if k == 0:  # lowest time resolution
-                plot_spec = ds_red[:, peak]
+                if i == 0:  # Stokes I
+                    plot_spec = ds_red[:, peak]
+                else:
+                    plot_spec = plot_ds[:, time_range]
 
             j -= 1
             prev_fac = dt
@@ -206,7 +220,9 @@ def plot_IQUV_dts(
     )
 
     if fname:
-        plt.savefig(fname)
+        plt.savefig(fname, dpi=200.0)
+
+    print("Done with dynamic spectra")
 
     return peaks[-1]  # 1 us peak
 
@@ -230,11 +246,12 @@ def crop(stks, peak, dt, labels, time_range, prefix, c=None):
     return c
 
 
-def plot_ts(ds, fname):
+def plot_ts(ds, idx_1ms, fname):
     ts = np.sum(ds, axis=0)
     ts = reduce(ts, 1000)
     plt.figure(figsize=(10, 5))
     plt.plot(ts)
+    plt.axvline(idx_1ms, c='r')
     plt.xlabel("Time (ms)")
     plt.ylabel("I")
     plt.tight_layout()
@@ -312,7 +329,7 @@ def plot(args, stokes_fnames, cand):
     )
 
     # plot full Stokes I time series at 1 ms time resolution
-    plot_ts(stks[0], f"{args.label}_I_{args.DM}.png")
+    plot_ts(stks[0], idx_1ms, f"{args.label}_I_{args.DM}.png")
 
 
 if __name__ == "__main__":
