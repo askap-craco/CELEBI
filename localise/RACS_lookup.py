@@ -30,42 +30,68 @@ def _main():
         print(f)
         coord = Coord(f)
 
-        table = RACS_lookup(coord.ra_hms, coord.dec_dms, casdatap)
+        if coord.sn < 7:
+            continue
+
+        t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
+
+        if len(t1) > 0:
+            table = t1
+        else:
+            # fall back on less robust query
+            # e.g. if source is near the edge of the RACS footprint
+            table = RACS_lookup2(coord.ra_hms, coord.dec_dms, casdatap)
 
         if len(table) == 0:
             continue
 
-        print(table)
-
-        # sort table by peak flux and use the brightest entry
-        table.sort("flux_peak")
-        brightest = table[-1]
+        # if more than one source: skip
+        if len(table) > 1:
+            continue
+        
+        source = table[0]
 
         # highest precision position is with the deg coords
-        brightest_sc = sc(
-            brightest["ra_deg_cont"], brightest["dec_deg_cont"], unit="deg"
-        )
-        ra_hms, dec_dms = brightest_sc.to_string("hmsdms").split()
-
-        # Avoid repeating sources and sources with low S/N
-        if brightest["component_name"] not in names and coord.sn >= 7:
-            names.append(brightest["component_name"])
-
-            askap_file.write(
-                writestr(
-                    coord.ra_hms, coord.ra_err, coord.dec_dms, coord.dec_err
-                )
+        try:
+            source_sc = sc(
+                source["ra"], source["dec"], unit="deg"
             )
+        except KeyError:
+            source_sc = sc(
+                source["ra_deg_cont"], source["dec_deg_cont"], unit="deg"
+            )
+        ra_hms, dec_dms = source_sc.to_string("hmsdms").split()
+
+        askap_file.write(
+            writestr(
+                coord.ra_hms, coord.ra_err, coord.dec_dms, coord.dec_err
+            )
+        )
+
+        try:
             pos_file.write(
                 writestr(
-                    ra_hms, max(float(brightest["ra_err"]), 0.01), dec_dms, max(float(brightest["dec_err"]), 0.01)
+                    ra_hms, max(float(source["e_ra"]), 0.01), dec_dms, max(float(source["e_dec"]), 0.01)
                 )
             )
-            name_file.write(brightest["component_name"] + "\n")
-            region_str = f'{coord.ra_hms}, {coord.dec_dms}, {coord.ra_err}", {coord.dec_err}", 0'
-            region_file.write(
-                f'fk5;ellipse({region_str.replace("h", ":").replace("d", ":").replace("m", ":").replace("s", ":")}) # text="{brightest["component_name"]} - S/N={coord.sn:.2f}"\n'
+        except KeyError:
+            pos_file.write(
+                writestr(
+                    ra_hms, max(float(source["ra_err"]), 0.01), dec_dms, max(float(source["dec_err"]), 0.01)
+                )
             )
+        
+        try:
+            name = source["source_id"]
+        except KeyError:
+            name = source["component_name"]
+
+        name_file.write(name + "\n")
+
+        region_str = f'{coord.ra_hms}, {coord.dec_dms}, {coord.ra_err}", {coord.dec_err}", 0'
+        region_file.write(
+            f'fk5;ellipse({region_str.replace("h", ":").replace("d", ":").replace("m", ":").replace("s", ":")}) # text="{name} - S/N={coord.sn:.2f}"\n'
+        )
 
     askap_file.close()
     pos_file.close()
@@ -88,14 +114,23 @@ class Coord:
         self.sn = float(fields["S/N"])
 
 
-def RACS_lookup(ra_hms, dec_dms, casdatap):
+def RACS_lookup1(ra_hms, dec_dms, casdatap):
     c = sc(ra_hms, dec_dms, unit="hour,deg")
-    # search radius of ~10 arcseconds
-    print(f"Looking up {c}")
-    job = casdatap.launch_job_async(
-        f"SELECT * FROM casda.continuum_component where 1=CONTAINS(POINT('ICRS', ra_deg_cont, dec_deg_cont),CIRCLE('ICRS',{c.ra.value},{c.dec.value},0.005)) and project_id = 23"
+    # print(f"Looking up {c}")
+    job1 = casdatap.launch_job_async(
+        f"SELECT * FROM AS110.racs_dr1_gaussians_galacticcut_v2021_08_v02 WHERE 1=CONTAINS(POINT('ICRS', ra, dec),CIRCLE('ICRS', {c.ra.value},{c.dec.value},0.0014))",
     )
-    return job.get_results()
+    return job1.get_results()
+
+
+def RACS_lookup2(ra_hms, dec_dms, casdatap):
+    c = sc(ra_hms, dec_dms, unit="hour,deg")
+    #print(f"Looking up {c}")
+    job2 = casdatap.launch_job_async(
+        f"SELECT * FROM casda.continuum_component where 1=CONTAINS(POINT('ICRS', ra_deg_cont, dec_deg_cont),CIRCLE('ICRS',{c.ra.value},{c.dec.value},0.0014)) and project_id = 23",
+    )
+    return job2.get_results()
+
 
 
 def writestr(ra_hms, ra_err, dec_dms, dec_err):
