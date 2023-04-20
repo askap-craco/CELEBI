@@ -1,11 +1,3 @@
-###############################################################################
-# craftpy2 stage 2.6: apply offset
-# Author: Danica Scott [danica.scott@postgrad.curtin.edu.au]
-# Last modified: 2021-05-24
-#
-# Applies the systematic offset calculated from field source positions and
-# applies it to the FRB position
-###############################################################################
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
@@ -32,7 +24,6 @@ class Coord:
             line = line[:-1].split(": ")  # [:-1] to trim newline
             fields[line[0]] = line[1].strip()  # strip extra whitespace
         f.close()
-
         self.ra_hms = fields["Actual RA"]  # hms
         self.ra_err = float(fields["Est. RA error (mas)"]) / 1e3  # arcseconds
         self.dec_dms = fields["Actual Dec"]  # dms
