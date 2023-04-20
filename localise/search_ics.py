@@ -1,6 +1,7 @@
 import numpy as np
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 from requests import head
 
@@ -205,18 +206,35 @@ def incoh_search(ds, freqs, DMs, widths, t):
     plt.tight_layout()
     plt.savefig("DM_vs_w.png")
 
+    gs = GridSpec(2, 1, height_ratios=[1, 3])
+
     ds_dd = incoh_dedisp(ds, freqs, DMs[d_peak])
     prof = np.sum(ds_dd, axis=0)
-    fig, (ax0, ax1) = plt.subplots(2, 1, height_ratios=[1, 3], figsize=(16, 9), sharex=True)
+    plt.figure(figsize=(16, 9))
+    ax0 = plt.subplot(gs[0])
+    ax1 = plt.subplot(gs[1], sharex=ax0)
     ax0.plot(t, prof)
-    ax0.ylabel("S/N")
+    ax0.set_ylabel("S/N")
     ax1.imshow(ds_dd, extent=(t[0], t[-1], freqs[0], freqs[-1]), aspect="auto", interpolation="none")
-    ax1.xlabel("Time (MJD)")
-    ax1.ylabel("Freq (MHz)")
+    ax1.set_xlabel("Time (MJD)")
+    ax1.set_ylabel("Freq (MHz)")
     plt.tight_layout()
     plt.savefig("ds_dd.png")
 
+    smth_ds = np.array([np.convolve(ds_dd[i], np.ones(widths[w_peak]), mode="same") for i in range(ds_dd.shape[0])])
     smth_prof = np.convolve(prof, np.ones(widths[w_peak]), mode="same")
+    plt.figure(figsize=(16, 9))
+    ax0 = plt.subplot(gs[0])
+    ax1 = plt.subplot(gs[1], sharex=ax0)
+    ax0.plot(t, smth_prof)
+    ax0.set_ylabel("S/N")
+    ax1.imshow(smth_ds, extent=(t[0], t[-1], freqs[0], freqs[-1]), aspect="auto", interpolation="none")
+    ax1.set_xlabel("Time (MJD)")
+    ax1.set_ylabel("Freq (MHz)")
+    plt.tight_layout()
+    plt.savefig("smth_ds.png")
+
+
     plt.figure(figsize=(16, 9))
     plt.plot(t, prof)
     plt.plot(t, smth_prof)
