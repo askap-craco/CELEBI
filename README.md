@@ -8,6 +8,13 @@ nextflow /path/to/CELEBI/pipelines/main.nf -c [config file]
 ```
 It is recommended that you do this from a separate processing directory, and make use of the `-with-report` and `-w` Nextflow configuration options.
 
+## Options
+Running CELEBI without any additional flags will run everything up until completion of correlation. To perform flux calibration, imaging, and localisation, add `--calibrate`. To perform polarisation calibration and beamforming after this, add `--beamform`. Both of these flags can be provided together to run the entire pipeline in one go.
+
+You can omit the FRB and polcal workflows from running with `--nofrb` and `--nopolcal` respectively. If the polcal is omited, the beamforming will substitute zeros in its polarisation calibration solutions.
+
+RFI subtraction can be skipped with `--skiprfi`.
+
 ## Dependencies
 - [Nextflow](https://nextflow.io/)
 - [AIPS](https://doi.org/10.1007/0-306-48080-8_7)
