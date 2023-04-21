@@ -10,10 +10,10 @@ params.fluxflagfile = ""
 params.polflagfile = ""
 params.fieldflagfile = ""
 
-params.nocorrelate = false
 params.calibrate = false
-params.nocalibrate = false
 params.beamform = false
+
+params.autoflag = true
 
 params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
