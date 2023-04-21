@@ -15,6 +15,8 @@ You can omit the FRB and polcal workflows from running with `--nofrb` and `--nop
 
 RFI subtraction can be skipped with `--skiprfi`.
 
+Visibility flagging can be skipped with `--noflag`. You can provide custom AIPS flag files with `--fieldflagfile`, `--polflagfile`, and `--fluxflagfile`. These can be provided alongside using automatic flagging.
+
 ## Dependencies
 - [Nextflow](https://nextflow.io/)
 - [AIPS](https://doi.org/10.1007/0-306-48080-8_7)
