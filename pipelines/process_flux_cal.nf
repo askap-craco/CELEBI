@@ -34,7 +34,7 @@ workflow process_flux_cal {
         }
 
         // Flagging
-        if(params.autoflag) {
+        if(!params.noflag) {
             fluxcal_fits_flagged = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"
         
             if(new File(fluxcal_fits_flagged).exists()) {

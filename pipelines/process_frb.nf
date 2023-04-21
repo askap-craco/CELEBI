@@ -679,7 +679,7 @@ workflow process_frb {
         }
 
         // Flagging
-        if(params.autoflag) {
+        if(!params.noflag) {
             field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
         
             if(new File(field_fits_flagged).exists()) {

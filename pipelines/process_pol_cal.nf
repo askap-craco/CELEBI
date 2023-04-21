@@ -43,7 +43,7 @@ workflow process_pol_cal {
         }
 
         // Flagging
-        if("${params.autoflag}" == "true") {
+        if(!params.noflag) {
             polcal_fits_flagged = "${params.out_dir}/loadfits/polcal/${params.label}_polcal_f.fits"
         
             if(new File(polcal_fits_flagged).exists()) {
