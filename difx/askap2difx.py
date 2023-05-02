@@ -195,7 +195,7 @@ def _main():
                 "export DIFX_MESSAGE_GROUP=`hostname -i`",
                 "export DIFX_BINARY_GROUP=`hostname -i`",
                 "date",
-                #f"difxlog {basename} {currentdir}/{basename}.difxlog &",
+                f"difxlog {basename} {currentdir}/{basename}.difxlog &",
                 f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
                 fill,
                 "./runmergedifx",
@@ -216,7 +216,7 @@ def _main():
                 "export DIFX_MESSAGE_GROUP=`hostname -i`",
                 "export DIFX_BINARY_GROUP=`hostname -i`",
                 "date",
-                #f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
+                f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
                 f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
                 fill,
                 "./runmergedifx",
@@ -256,17 +256,16 @@ def _main():
     # fillDiFX to ensure correlations work even when the bin goes off
     # the edge of the voltage dump
     if args.ref is not None:
-        binneddifxoutputs = glob.glob("{basename}.difx/*.b0*")
-        if len(binneddifxoutputs) == 0:
-            print("Couldn't find any matching difx outputs to fillDiFX on!")
         with open("run_fill_DiFX", "w") as runfill:
-            for b in binneddifxoutputs:
-                runline = f"fillDiFX.py {basename}.difx/{b} ../{args.ref}/*[0-9].difx/{b} {basename}_fill.difx/{b} -i {basename}.input\n"
-                print(runline)
-                runfill.write(runline)
+            runfill.write(f"for b in {basename}.difx/*.b0* ; do\n")
+            runfill.write("  echo $b\n")
+            runline = f"  fillDiFX.py $b ../{args.ref}/*[0-9].difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
+            print(runline)
+            runfill.write(runline)
+            runfill.write("done\n")
 
-                runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
-                runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
+            runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
+            runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
         os.chmod("run_fill_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
