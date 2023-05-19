@@ -10,6 +10,9 @@ params.finderpixelsize = 1
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
 
+params.refant = 3   // reference antenna - index corresponds to ak name
+                    // i.e. refant = 3 corresponds to ak03
+
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
 params.out_dir = "${params.publish_dir}/${params.label}"
@@ -52,6 +55,7 @@ process determine_flux_cal_solns {
         args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
         args="\$args -f 15"
+        args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
             args="\$args --flagfile=$flagfile"
         fi
@@ -133,6 +137,7 @@ process image_finder {
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --refant=$params.refant"
 
         if [ "$params.flagfinder" != "" ] && [ "$params.flagfinder" != "null" ]; then
             args="\$args --tarflagfile=$params.flagfinder"
@@ -300,6 +305,7 @@ process image_field {
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
         args="\$args --nmaxsources=$params.nfieldsources"
         args="\$args --src=$params.target"
+        args="\$args --refant=$params.refant"
 
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == "null" ]; then
@@ -392,6 +398,7 @@ process image_polcal {
         args="\$args -u 502"
         args="\$args --skipplot"
         args="\$args --src=$params.target"
+        args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
             args="\$args --tarflagfile=$flagfile"
         fi
@@ -482,6 +489,7 @@ process image_htrgate {
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --refant=$params.refant"
 
         ParselTongue $localise_dir/calibrateFRB.py \$args
 
