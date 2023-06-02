@@ -257,15 +257,19 @@ def _main():
     # the edge of the voltage dump
     if args.ref is not None:
         with open("run_fill_DiFX", "w") as runfill:
-            runfill.write(f"for b in {basename}.difx/*.b0* ; do\n")
-            runfill.write("  echo $b\n")
-            runline = f"  fillDiFX.py $b ../{args.ref}/*[0-9].difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
-            print(runline)
-            runfill.write(runline)
-            runfill.write("done\n")
-
-            runfill.write(f"mv {basename}.difx {basename}_old.difx\n")
-            runfill.write(f"mv {basename}_fill.difx {basename}.difx\n")
+            runscript = (
+                f"for b in {basename}.difx/*b0* ; do\n"
+                 "  echo $b\n"
+                f"  tscrunchDiFX.py ../{args.ref}/*[0-9].difx/$(basename $b) ref_tscrunch.difx/$(basename $b) -i {basename}.input > tscrunch_log.txt\n"
+                 "  mjd=`tac tscrunch_log.txt | awk 'NF{print $NF; exit}'`\n"
+                f"  tscrunchDiFX.py $b {basename}_tscrunch.difx/$(basename $b) -i {basename}.input --mjd=$mjd > tscrunch_log2.txt\n"
+                f"  fillDiFX.py {basename}_tscrunch.difx/$(basename $b) ref_tscrunch.difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
+                 "done\n"
+                f"mv {basename}.difx {basename}_old.difx\n"
+                f"mv {basename}_fill.difx {basename}.difx\n"
+            )
+            print(runscript)
+            runfill.write(runscript)
         os.chmod("run_fill_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
