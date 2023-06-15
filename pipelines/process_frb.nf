@@ -34,9 +34,8 @@ params.nants = 2
 antennas = Channel
     .of(0..params.nants-1)
 
-//beamform_dir = "$baseDir/../beamform/"
-beamform_dir = "/fred/oz002/askap/craft/craco/CELEBI/beamform"
-localise_dir = "/fred/oz002/askap/craft/craco/CELEBI/localise"
+beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$baseDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process load_coarse_dynspec {
@@ -62,7 +61,6 @@ process load_coarse_dynspec {
             time: path
                 Time axis in MJD
     */
-    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
     input:
         val label
@@ -115,8 +113,8 @@ process load_coarse_dynspec {
         args="\$args --pol=$pol"
         args="\$args --an=$ant_idx"
 
-        echo "python3 $beamform_dir/craftcor_tab.py \$args"
-        python3 $beamform_dir/craftcor_tab.py \$args
+        echo "python3 $beamform_dir/craftcor_tab_2.py \$args"
+        python3 $beamform_dir/craftcor_tab_2.py \$args
         """
     
     stub:
@@ -295,7 +293,7 @@ process plot {
 
         mkdir crops
 
-        python3 $beamform_dir/plot.py \$args
+        python3 $beamform_dir/plot_2.py \$args
         """
     
     stub:
@@ -609,17 +607,13 @@ workflow process_frb {
         pol_cal_solns
 
     main:
+        coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
+                                        antennas)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-        t_mjd_path = "${params.publish_dir}/${params.label}/ics/t_mjd.npy"
-        if ( new File(refined_candidate_path).exists() 
-             and new File(t_mjd_path).exists() ) {
+        if ( new File(refined_candidate_path).exists()) {
             refined_candidate = Channel.fromPath(refined_candidate_path)
-            t_mjd = Channel.fromPath(t_mjd_path)
         }
         else {
-            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                            antennas)
-            t_mjd = coarse_ds.time.first()
             refine_candidate(params.label, coarse_ds.data.collect(), 
                              coarse_ds.time.first(), params.snoopy)
             refined_candidate = refine_candidate.out.cand
@@ -679,7 +673,7 @@ workflow process_frb {
         }
 
         // Flagging
-        if(!params.noflag) {
+        if(params.autoflag) {
             field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
         
             if(new File(field_fits_flagged).exists()) {
@@ -700,6 +694,7 @@ workflow process_frb {
         // Calibrate (i.e. image finder and field)
         frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
         offset_path = "${params.out_dir}/position/offset0.dat"
+	    doffset_path = "${params.out_dir}/position/offsetfit.txt"
         frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
         if(new File(frb_jmfit_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
@@ -745,19 +740,24 @@ workflow process_frb {
             //     askap_frb_pos = empty_file
             // }
 
-            if(new File(offset_path).exists()) {
+            if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
                 offset = Channel.fromPath(offset_path)
+		        doffset = Channel.fromPath(doffset_path)
             }
             else {
                 field_sources = image_field(
                     field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
                 ).jmfit
-
-                offset = find_offset(field_sources).offset
+		
+        		offres = find_offset(field_sources)
+                offset = offres.offset
+                doffset = offres.doffset
             }
 
             if(!params.opt_gate){
-                final_position = apply_offset(offset, askap_frb_pos).final_position
+        		finalres = apply_offset(offset, doffset, askap_frb_pos)
+                final_position = finalres.final_position
+        		finalmap = finalres.hpmap
             }
         }
         else if(new File(offset_path).exists()) {
@@ -779,7 +779,7 @@ workflow process_frb {
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                     params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                    t_mjd, refined_candidate
+                    coarse_ds.time.first(), refined_candidate
                 )
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start

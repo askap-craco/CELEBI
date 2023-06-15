@@ -89,7 +89,7 @@ process find_offset {
     
     output:
         path "offset0.dat", emit: offset
-	path "offsetfit.txt", emit: doffset
+	    path "offsetfit.txt", emit: doffset
         path "*.reg"
         path "*.png"
     
@@ -140,8 +140,8 @@ process apply_offset {
         Input
             offset: path
                 Offset as output by weighted_multi_image_fit_updated.py
-	    doffset: path
-	    	Detailed offsets
+            doffset: path
+                Detailed offsets
             askap_frb_pos: path
                 JMFIT output file of FRB position fit
 
