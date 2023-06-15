@@ -9,12 +9,14 @@ import glob
 import os
 import re
 import sys
+import math
 from itertools import dropwhile, islice
 
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import constants as const
 from astropy import units as u
+from astropy.io import fits
 from astropy.coordinates import SkyCoord as sc
 
 #####################################################################################
@@ -35,6 +37,7 @@ one or more source catalogues and their uncertainties.
 INPUT:
 File: containing the source positions from ASKAP
 File: containing the ASKAP source names
+File: containing relevant jmfit filenames
 File(s): containing catalogue source positions for comparison
 Notes on file formats:
 txt files with comma separated values as follows
@@ -55,6 +58,8 @@ weighted_multi_image_fit.py infile1 infile2 ...
 Revision history:
      Written by Cherie Day on 5 June, 2020
      Python version: 3.7.0
+
+     Modified by AB on March 14, 2023
 """,
 )
 parser.add_argument(
@@ -68,6 +73,18 @@ parser.add_argument(
     type=str,
     default=None,
     help="The file containing the ASKAP continuum source names",
+)
+parser.add_argument(
+    "--jmfitnames",
+    type=str,
+    default=None,
+    help="The file containing the list of jmfit files",
+)
+parser.add_argument(
+    "--fieldfits",
+    type=str,
+    default=None,
+    help="The FITS image of the field",
 )
 parser.add_argument(
     "--first",
@@ -182,6 +199,8 @@ col_bank = {
     "15": "#a6611a",
     "16": "#018571",
 }
+
+RAD_IN_ARCSEC = 180.0*3600/np.pi
 
 #####################################################################################
 
@@ -595,343 +614,142 @@ def gettotaloffsetunc(
     return offset_unc_dict
 
 
-#####################################################################################
+#--------------------------------------------------------------------
 
-# DETERMINE OFFSETS AND UNCERTAINTIES
+# Astro utility functions
 
-#####################################################################################
+#--------------------------------------------------------------------
 
-# Grab all the source info and put in a list
-askap_srcinfo = grabsrcinfo(askap_posfile)
-if args.first is not None:
-    first_srcinfo = grabsrcinfo(first_posfile)
-if args.nvss is not None:
-    nvss_srcinfo = grabsrcinfo(nvss_posfile)
-if args.racs is not None:
-    racs_srcinfo = grabsrcinfo(racs_posfile)
-if args.sumss is not None:
-    sumss_srcinfo = grabsrcinfo(sumss_posfile)
-if args.vlass is not None:
-    vlass_srcinfo = grabsrcinfo(vlass_posfile)
+def stringToRad(posstr, was_hms):
+    posstr = posstr.strip()
+    if was_hms and "h" in posstr:
+        posstr = posstr.replace("h", ":")
+        posstr = posstr.replace("m", ":")
+        posstr = posstr.replace("s", "")
+    if not was_hms and "d" in posstr:
+        posstr = posstr.replace("d", ":")
+        posstr = posstr.replace("'", ":")
+        posstr = posstr.replace("\"", "")
+    splits = posstr.split(':')
+    try:
+        d = int(splits[0])
+        m = 0
+        s = 0
+        negmult = 1.0
+        if len(splits) > 1 and len(splits[1].strip()) > 0:
+            m = int(splits[1])
+        if len(splits) > 2 and len(splits[2].strip()) > 0:
+            s = float(splits[2])
+        if posstr[0] == "-":
+            d = -d
+            negmult = -1.0
+        radval = d + m/60.0 + s/3600.0
+        radval *= math.pi/180.0
+        radval *= negmult
+        if was_hms:
+            radval *= 180.0/12.0
+    except ValueError:
+        print("Bad position string", posstr)
+        radval = -999
+    return(radval)
 
-# Extract the positions in arcsec and radians
-askap_radec = getradec(askap_srcinfo)
-askap_ra_arcsec = askap_radec["ra_arc"]
-askap_dec_arcsec = askap_radec["dec_arc"]
-askap_dec_rad = askap_radec["dec_rad"]
-if args.first is not None:
-    first_radec = getradec(first_srcinfo, first=True)
-    first_ra_arcsec = first_radec["ra_arc"]
-    first_dec_arcsec = first_radec["dec_arc"]
-    first_dec_rad = first_radec["dec_rad"]
-if args.nvss is not None:
-    nvss_radec = getradec(nvss_srcinfo)
-    nvss_ra_arcsec = nvss_radec["ra_arc"]
-    nvss_dec_arcsec = nvss_radec["dec_arc"]
-    nvss_dec_rad = nvss_radec["dec_rad"]
-if args.racs is not None:
-    racs_radec = getradec(racs_srcinfo)
-    racs_ra_arcsec = racs_radec["ra_arc"]
-    racs_dec_arcsec = racs_radec["dec_arc"]
-    racs_dec_rad = racs_radec["dec_rad"]
-if args.sumss is not None:
-    sumss_radec = getradec(sumss_srcinfo)
-    sumss_ra_arcsec = sumss_radec["ra_arc"]
-    sumss_dec_arcsec = sumss_radec["dec_arc"]
-    sumss_dec_rad = sumss_radec["dec_rad"]
-if args.vlass is not None:
-    vlass_radec = getradec(vlass_srcinfo)
-    vlass_ra_arcsec = vlass_radec["ra_arc"]
-    vlass_dec_arcsec = vlass_radec["dec_arc"]
-    vlass_dec_rad = vlass_radec["dec_rad"]
 
-# Get uncertainties for RA and Dec in arcsec
-askap_radec_unc = getradec_unc(askap_srcinfo, askap_dec_rad, askap=True)
-askap_ra_unc_arcsec = askap_radec_unc["ra_unc_arcsec"]
-askap_dec_unc_arcsec = askap_radec_unc["dec_unc_arcsec"]
-if args.first is not None:
-    first_radec_unc = getradec_unc(first_srcinfo, first_dec_rad, first=True)
-    first_ra_unc_arcsec = first_radec_unc["ra_unc_arcsec"]
-    first_dec_unc_arcsec = first_radec_unc["dec_unc_arcsec"]
-if args.nvss is not None:
-    nvss_radec_unc = getradec_unc(nvss_srcinfo, nvss_dec_rad, nvss=True)
-    nvss_ra_unc_arcsec = nvss_radec_unc["ra_unc_arcsec"]
-    nvss_dec_unc_arcsec = nvss_radec_unc["dec_unc_arcsec"]
-if args.racs is not None:
-    racs_radec_unc = getradec_unc(racs_srcinfo, racs_dec_rad, racs=True)
-    racs_ra_unc_arcsec = racs_radec_unc["ra_unc_arcsec"]
-    racs_dec_unc_arcsec = racs_radec_unc["dec_unc_arcsec"]
-if args.sumss is not None:
-    sumss_radec_unc = getradec_unc(sumss_srcinfo, sumss_dec_rad, sumss=True)
-    sumss_ra_unc_arcsec = sumss_radec_unc["ra_unc_arcsec"]
-    sumss_dec_unc_arcsec = sumss_radec_unc["dec_unc_arcsec"]
-if args.vlass is not None:
-    vlass_radec_unc = getradec_unc(vlass_srcinfo, vlass_dec_rad, vlass=True)
-    vlass_ra_unc_arcsec = vlass_radec_unc["ra_unc_arcsec"]
-    vlass_dec_unc_arcsec = vlass_radec_unc["dec_unc_arcsec"]
+def posdiff(targetrarad, targetdecrad, calrarad, caldecrad):
+    sinsqdecdiff = math.sin((targetdecrad-caldecrad)/2.0)
+    sinsqdecdiff = sinsqdecdiff*sinsqdecdiff
+    sinsqradiff  = math.sin((targetrarad-calrarad)/2.0)
+    sinsqradiff  = sinsqradiff*sinsqradiff
 
-# Determine the offsets and their total uncertainties between the ASKAP and catalogue source positions,
-# and save the offsets and uncertainties to a .dat file for use with weighted_multi_image_fit.py
-if args.first is not None:
-    # Offsets
-    askap2first_offsets = getoffsets(
-        askap_ra_arcsec,
-        askap_dec_arcsec,
-        first_ra_arcsec,
-        first_dec_arcsec,
-        first_dec_rad,
-    )
-    askap2first_offsets_ra = askap2first_offsets["ra_offset_arcsec"]
-    askap2first_offsets_dec = askap2first_offsets["dec_offset_arcsec"]
-    # Total uncertainties
-    askap2first_offsets_unc = gettotaloffsetunc(
-        askap_ra_unc_arcsec,
-        askap_dec_unc_arcsec,
-        first_ra_unc_arcsec,
-        first_dec_unc_arcsec,
-    )
-    askap2first_offsets_unc_ra = askap2first_offsets_unc["totra_unc"]
-    askap2first_offsets_unc_dec = askap2first_offsets_unc["totdec_unc"]
-    # Format into strings
-    offsets_ra_first_str = " ".join(
-        [
-            str(askap2first_offsets_ra[i])
-            for i in np.arange(len(askap2first_offsets_ra))
-        ]
-    )
-    offsets_dec_first_str = " ".join(
-        [
-            str(askap2first_offsets_dec[i])
-            for i in np.arange(len(askap2first_offsets_dec))
-        ]
-    )
-    offsets_ra_unc_first_str = " ".join(
-        [
-            str(askap2first_offsets_unc_ra[i])
-            for i in np.arange(len(askap2first_offsets_unc_ra))
-        ]
-    )
-    offsets_dec_unc_first_str = " ".join(
-        [
-            str(askap2first_offsets_unc_dec[i])
-            for i in np.arange(len(askap2first_offsets_unc_dec))
-        ]
-    )
-    # Save to .dat file
-    offset_unc_out = open("askap2first_offsets_unc.dat", "w")
-    offset_unc_out.write(f"{offsets_ra_first_str}\n")
-    offset_unc_out.write(f"{offsets_dec_first_str}\n")
-    offset_unc_out.write(f"{offsets_ra_unc_first_str}\n")
-    offset_unc_out.write(f"{offsets_dec_unc_first_str}\n")
-    offset_unc_out.close()
-if args.nvss is not None:
-    # Offsets
-    askap2nvss_offsets = getoffsets(
-        askap_ra_arcsec,
-        askap_dec_arcsec,
-        nvss_ra_arcsec,
-        nvss_dec_arcsec,
-        nvss_dec_rad,
-    )
-    askap2nvss_offsets_ra = askap2nvss_offsets["ra_offset_arcsec"]
-    askap2nvss_offsets_dec = askap2nvss_offsets["dec_offset_arcsec"]
-    # Total uncertainties
-    askap2nvss_offsets_unc = gettotaloffsetunc(
-        askap_ra_unc_arcsec,
-        askap_dec_unc_arcsec,
-        nvss_ra_unc_arcsec,
-        nvss_dec_unc_arcsec,
-    )
-    askap2nvss_offsets_unc_ra = askap2nvss_offsets_unc["totra_unc"]
-    askap2nvss_offsets_unc_dec = askap2nvss_offsets_unc["totdec_unc"]
-    # Format into strings
-    offsets_ra_nvss_str = " ".join(
-        [
-            str(askap2nvss_offsets_ra[i])
-            for i in np.arange(len(askap2nvss_offsets_ra))
-        ]
-    )
-    offsets_dec_nvss_str = " ".join(
-        [
-            str(askap2nvss_offsets_dec[i])
-            for i in np.arange(len(askap2nvss_offsets_dec))
-        ]
-    )
-    offsets_ra_unc_nvss_str = " ".join(
-        [
-            str(askap2nvss_offsets_unc_ra[i])
-            for i in np.arange(len(askap2nvss_offsets_unc_ra))
-        ]
-    )
-    offsets_dec_unc_nvss_str = " ".join(
-        [
-            str(askap2nvss_offsets_unc_dec[i])
-            for i in np.arange(len(askap2nvss_offsets_unc_dec))
-        ]
-    )
-    # Save to .dat file
-    offset_unc_out = open("askap2nvss_offsets_unc.dat", "w")
-    offset_unc_out.write(f"{offsets_ra_nvss_str}\n")
-    offset_unc_out.write(f"{offsets_dec_nvss_str}\n")
-    offset_unc_out.write(f"{offsets_ra_unc_nvss_str}\n")
-    offset_unc_out.write(f"{offsets_dec_unc_nvss_str}\n")
-    offset_unc_out.close()
-if args.racs is not None:
-    # Offsets
-    askap2racs_offsets = getoffsets(
-        askap_ra_arcsec,
-        askap_dec_arcsec,
-        racs_ra_arcsec,
-        racs_dec_arcsec,
-        racs_dec_rad,
-    )
-    askap2racs_offsets_ra = askap2racs_offsets["ra_offset_arcsec"]
-    askap2racs_offsets_dec = askap2racs_offsets["dec_offset_arcsec"]
-    # Total uncertainties
-    askap2racs_offsets_unc = gettotaloffsetunc(
-        askap_ra_unc_arcsec,
-        askap_dec_unc_arcsec,
-        racs_ra_unc_arcsec,
-        racs_dec_unc_arcsec,
-    )
-    askap2racs_offsets_unc_ra = askap2racs_offsets_unc["totra_unc"]
-    askap2racs_offsets_unc_dec = askap2racs_offsets_unc["totdec_unc"]
-    # Format into strings
-    offsets_ra_racs_str = " ".join(
-        [
-            str(askap2racs_offsets_ra[i])
-            for i in np.arange(len(askap2racs_offsets_ra))
-        ]
-    )
-    offsets_dec_racs_str = " ".join(
-        [
-            str(askap2racs_offsets_dec[i])
-            for i in np.arange(len(askap2racs_offsets_dec))
-        ]
-    )
-    offsets_ra_unc_racs_str = " ".join(
-        [
-            str(askap2racs_offsets_unc_ra[i])
-            for i in np.arange(len(askap2racs_offsets_unc_ra))
-        ]
-    )
-    offsets_dec_unc_racs_str = " ".join(
-        [
-            str(askap2racs_offsets_unc_dec[i])
-            for i in np.arange(len(askap2racs_offsets_unc_dec))
-        ]
-    )
-    # Save to .dat file
-    offset_unc_out = open("askap2racs_offsets_unc.dat", "w")
-    offset_unc_out.write(f"{offsets_ra_racs_str}\n")
-    offset_unc_out.write(f"{offsets_dec_racs_str}\n")
-    offset_unc_out.write(f"{offsets_ra_unc_racs_str}\n")
-    offset_unc_out.write(f"{offsets_dec_unc_racs_str}\n")
-    offset_unc_out.close()
-if args.sumss is not None:
-    # Offsets
-    askap2sumss_offsets = getoffsets(
-        askap_ra_arcsec,
-        askap_dec_arcsec,
-        sumss_ra_arcsec,
-        sumss_dec_arcsec,
-        sumss_dec_rad,
-    )
-    askap2sumss_offsets_ra = askap2sumss_offsets["ra_offset_arcsec"]
-    askap2sumss_offsets_dec = askap2sumss_offsets["dec_offset_arcsec"]
-    # Total uncertainties
-    askap2sumss_offsets_unc = gettotaloffsetunc(
-        askap_ra_unc_arcsec,
-        askap_dec_unc_arcsec,
-        sumss_ra_unc_arcsec,
-        sumss_dec_unc_arcsec,
-    )
-    askap2sumss_offsets_unc_ra = askap2sumss_offsets_unc["totra_unc"]
-    askap2sumss_offsets_unc_dec = askap2sumss_offsets_unc["totdec_unc"]
-    # Format into strings
-    offsets_ra_sumss_str = " ".join(
-        [
-            str(askap2sumss_offsets_ra[i])
-            for i in np.arange(len(askap2sumss_offsets_ra))
-        ]
-    )
-    offsets_dec_sumss_str = " ".join(
-        [
-            str(askap2sumss_offsets_dec[i])
-            for i in np.arange(len(askap2sumss_offsets_dec))
-        ]
-    )
-    offsets_ra_unc_sumss_str = " ".join(
-        [
-            str(askap2sumss_offsets_unc_ra[i])
-            for i in np.arange(len(askap2sumss_offsets_unc_ra))
-        ]
-    )
-    offsets_dec_unc_sumss_str = " ".join(
-        [
-            str(askap2sumss_offsets_unc_dec[i])
-            for i in np.arange(len(askap2sumss_offsets_unc_dec))
-        ]
-    )
-    # Save to .dat file
-    offset_unc_out = open("askap2sumss_offsets_unc.dat", "w")
-    offset_unc_out.write(f"{offsets_ra_sumss_str}\n")
-    offset_unc_out.write(f"{offsets_dec_sumss_str}\n")
-    offset_unc_out.write(f"{offsets_ra_unc_sumss_str}\n")
-    offset_unc_out.write(f"{offsets_dec_unc_sumss_str}\n")
-    offset_unc_out.close()
-if args.vlass is not None:
-    # Offsets
-    askap2vlass_offsets = getoffsets(
-        askap_ra_arcsec,
-        askap_dec_arcsec,
-        vlass_ra_arcsec,
-        vlass_dec_arcsec,
-        vlass_dec_rad,
-    )
-    askap2vlass_offsets_ra = askap2vlass_offsets["ra_offset_arcsec"]
-    askap2vlass_offsets_dec = askap2vlass_offsets["dec_offset_arcsec"]
-    # Total uncertainties
-    askap2vlass_offsets_unc = gettotaloffsetunc(
-        askap_ra_unc_arcsec,
-        askap_dec_unc_arcsec,
-        vlass_ra_unc_arcsec,
-        vlass_dec_unc_arcsec,
-    )
-    askap2vlass_offsets_unc_ra = askap2vlass_offsets_unc["totra_unc"]
-    askap2vlass_offsets_unc_dec = askap2vlass_offsets_unc["totdec_unc"]
-    # Format into strings
-    offsets_ra_vlass_str = " ".join(
-        [
-            str(askap2vlass_offsets_ra[i])
-            for i in np.arange(len(askap2vlass_offsets_ra))
-        ]
-    )
-    offsets_dec_vlass_str = " ".join(
-        [
-            str(askap2vlass_offsets_dec[i])
-            for i in np.arange(len(askap2vlass_offsets_dec))
-        ]
-    )
-    offsets_ra_unc_vlass_str = " ".join(
-        [
-            str(askap2vlass_offsets_unc_ra[i])
-            for i in np.arange(len(askap2vlass_offsets_unc_ra))
-        ]
-    )
-    offsets_dec_unc_vlass_str = " ".join(
-        [
-            str(askap2vlass_offsets_unc_dec[i])
-            for i in np.arange(len(askap2vlass_offsets_unc_dec))
-        ]
-    )
-    # Save to .dat file
-    offset_unc_out = open("askap2vlass_offsets_unc.dat", "w")
-    offset_unc_out.write(f"{offsets_ra_vlass_str}\n")
-    offset_unc_out.write(f"{offsets_dec_vlass_str}\n")
-    offset_unc_out.write(f"{offsets_ra_unc_vlass_str}\n")
-    offset_unc_out.write(f"{offsets_dec_unc_vlass_str}\n")
-    offset_unc_out.close()
+    return(2*math.asin(math.sqrt(sinsqdecdiff + math.cos(targetdecrad)*math.cos(caldecrad)*sinsqradiff)))
+
+
+def posradians2string(rarad, decrad):
+    rah = rarad * 12 / math.pi
+    rhh = int(rah)
+    rmm = int(60*(rah - rhh))
+    rss = 3600*rah - (3600*rhh + 60*rmm)
+    decd = decrad * 180 / math.pi
+    decformat = "+%02d:%02d:%010.7f"
+    if decd < 0:
+        decd = -decd
+        decformat = '-' + decformat[1:]
+    ddd = int(decd)
+    dmm = int(60*(decd - ddd))
+    dss = 3600*decd - (3600*ddd + 60*dmm)
+    rastring  = "%02d:%02d:%011.8f" % (rhh,rmm,rss)
+    decstring = decformat % (ddd, dmm, dss)
+    return(rastring, decstring)
+
+
+
+class AstroObsResult:
+    def __init__(self, obj, exp, lines, isexp):
+        self.object = obj
+        self.experiment = exp
+        self.isexploratory = isexp
+        self.gategain = -1.0
+        self.lowerlimit = True
+        self.mjd = float(lines[0].split()[3][:-1])
+        self.raerrmas = float(lines[10].split()[-1])
+        self.raerrhhh = float(lines[11].split()[-1])
+        self.decerrmas = float(lines[12].split()[-1])
+        self.snr = float(lines[4].split()[-1])
+        self.flux = float(lines[3].split()[-1])
+        self.ra = lines[7].split()[-1]
+        self.dec = lines[8].split()[-1]
+        self.rarad = 0
+        self.decrad = 0
+        if self.snr != 0.0:
+            self.rarad = stringToRad(self.ra, True)
+            self.decrad = stringToRad(self.dec, False)
+        tempsplit = lines[9].split()
+        self.fitmin = float(tempsplit[1].split('x')[0])
+        self.fitmaj = float(tempsplit[1].split('x')[1])
+        self.fitpa  = float(tempsplit[3])
+        self.hasbeam = False
+        if len(tempsplit) > 6 and "x" in tempsplit[6]:
+            self.hasbeam = True
+            self.beammin = float(tempsplit[6].split('x')[0])
+            self.beammaj = float(tempsplit[6].split('x')[1])
+            self.beampa  = float(tempsplit[8])
+            self.beamparad = math.pi*self.beampa/180.0
+
+    def updateRA(self, newrarad, newraraderr=-1):
+        self.rarad = newrarad
+        newra, xxx = posradians2string(newrarad, 1)
+        self.ra = newra
+        if newraraderr > 0:
+            self.raerrmas = newraraderr*180*60*60*1000/math.pi
+            self.raerrhms = self.raerrmas/(15*math.cos(self.decrad))
+
+    def updateDec(self, newdecrad, newdecraderr=-1):
+        self.decrad = newdecrad
+        xxx, newdec = posradians2string(1, newdecrad)
+        self.dec = newdec
+        if newdecraderr > 0:
+            self.decerrmas = newdecraderr*180*60*60*1000/math.pi
+
+    def write(self, outputfile, overwrite=False):
+        if os.path.exists(outputfile) and not overwrite:
+            print("%s exists and overwrite is False - aborting" % outputfile)
+            sys.exit()
+        output = open(outputfile, "w")
+        output.write("Pulsar %s: MJD %.4f: Frequency X, pol ?.:\n" % (self.object, self.mjd))
+        output.write("%s%s\n" % ("Centre RA:".ljust(22), self.ra))
+        output.write("%s%s\n" % ("Centre Dec:".ljust(22), self.dec))
+        output.write("%s%.4f\n" % ("Flux (mJy):".ljust(22), self.flux))
+        output.write("%s%.4f\n" % ("S/N:".ljust(22), self.snr))
+        output.write("%s%.4f\n" % ("RA offset (mas)".ljust(22), 0.0))
+        output.write("%s%.4f\n" % ("Dec offset (mas)".ljust(22), 0.0))
+        output.write("%s%s\n" % ("Actual RA:".ljust(22), self.ra))
+        output.write("%s%s\n" % ("Actual Dec:".ljust(22), self.dec))
+        output.write("%s%.4fx%.4f at %.2f degrees\n" % ("Fit:".ljust(22), self.fitmin, self.fitmaj, self.fitpa))
+        output.write("%s%.4f\n" % ("Est. RA error (mas):".ljust(22), self.raerrmas))
+        output.write("%s%.4f\n" % ("Est. RA error (hms):".ljust(22), self.raerrhms))
+        output.write("%s%.4f\n" % ("Est. Dec error (mas):".ljust(22), self.decerrmas))
+        output.close()
+
+
 
 
 #######################################################
@@ -1071,6 +889,551 @@ def plotter(
     plt.savefig(f"{args.frbtitletext}_field_offsets_from_{catname}.png")
 
 
+#######################################################
+
+# BOOTSTRAPPING
+
+#######################################################
+
+
+def bootstrap(data, samp_size, num_trials):
+
+    boot_mean = []
+    boot_68 = []
+
+    n = 0
+    while n < num_trials:
+
+        samp = np.random.choice(data, size=samp_size, replace=True)
+
+        samp_mean = np.mean(samp)
+        boot_mean.append(samp_mean)
+
+        n += 1
+
+    mean_boot_mean = np.mean(boot_mean)
+    # add histogram
+    # bin histogram in 5% increments and then take bin with hightest value --> call this the most probable value
+    # show median and mode and their +/- confidence intervals
+
+    return mean_boot_mean
+
+
+#######################################################
+
+# CALCULATING THE CHI-SQUARED AND REDUCED CHI-SQUARED
+
+#######################################################
+
+
+def chi_sq(meas, model, err, num_srcs):
+
+    """
+    Return the chi-squared value for a given set of measurements and model.
+    meas, model -- Numpy arrays with the same shape
+    err, deg_free -- floats
+    """
+
+    deg_free = num_srcs - 1
+    print("Number of degrees of freedom: ", deg_free)
+    chi_squared = np.sum(((meas - model) / err) ** 2)
+    chisq_red = chi_squared / deg_free
+
+    return (chi_squared, chisq_red)
+
+
+# ----------------------------------------------------------------------------------------------------------
+#
+# Calculate offsets along beam axes
+#
+# ----------------------------------------------------------------------------------------------------------
+
+def rotated_offsets(catnameref, refras, refdecs, sigmarefras, sigmarefdecs, jmfitnamefile, frbfitsfile):
+    ''' 
+    This function calculates offsets long the the synthesized beam axes
+    
+    Written by AB based on AD's hardcoded script
+    
+    Inputs - 
+           Name of reference catalogue
+           List of reference RAs in arcsec
+           List of reference DECs in arcsec
+           Uncertainties on reference RAs in arcsec
+           Uncertainties on reference DECs in arcsec
+           Filename of list of relevant jmfit files
+           Fits image containing the FRB - required to get the synthesized beam
+           
+    Returns -
+           Chi-squared of fit
+           DoF of fit
+    
+    Writes to disk - 
+           Offsets along the beam axes and associated uncertainties
+    '''
+
+    #--- Reading BPA from the FRB FITS file
+
+    frbfits  = fits.open(frbfitsfile)
+    frbhdr   = frbfits[0].header
+    frbbpa   = frbhdr['BPA']    
+    print("BPA from %s is %.2f deg"%(frbfitsfile,frbbpa))
+    posangle = frbbpa*np.pi/180
+    frbfits.close()
+    
+    #--- Reading list of field sources
+
+    reflines = open(jmfitnamefile).readlines()    
+    nrefsrcs = len(reflines)
+    print("Found %d sources"%(nrefsrcs))
+    #print(refras,refdecs,sigmarefras,sigmarefdecs)
+
+    #--- Initializing necessary lists and parameters
+
+    xoffsets = []
+    yoffsets = []
+    totalxuncertainties = []
+    totalyuncertainties = []
+    dof = 0
+    chisq = 0
+
+    #---Looping over field sources
+
+    for isrc in range(0,nrefsrcs):
+        
+        #--- Reading details of the field source 
+
+        askapfile = reflines[isrc].split('\n')[0]
+        askapresult = AstroObsResult("src"+str(isrc), "CRAFT", open(askapfile).readlines(), False)
+        
+        #--- Reading details of the same source from the reference catalogue
+        
+        raref = refras[isrc]/RAD_IN_ARCSEC
+        decref = refdecs[isrc]/RAD_IN_ARCSEC
+        sigmararef = sigmarefras[isrc]
+        sigmadecref = sigmarefdecs[isrc]
+        
+        #--- Calculating offsets and associated uncertainties
+
+        raraddiff = posdiff(raref, decref, askapresult.rarad, decref)
+        if(askapresult.rarad > raref):
+            raraddiff = -raraddiff
+        
+        decraddiff = posdiff(raref, decref, raref, askapresult.decrad)
+        if(askapresult.decrad > decref):
+            decraddiff = -decraddiff
+
+        xdiff = raraddiff*np.sin(posangle) + decraddiff*np.cos(posangle)
+        ydiff = raraddiff*np.cos(posangle) - decraddiff*np.sin(posangle)
+        deltapa = posangle - np.pi*askapresult.fitpa / 180.0
+        xuncertainty = np.sqrt((askapresult.fitmaj*np.cos(deltapa))**2 + (askapresult.fitmin*np.sin(deltapa))**2) / (2350 * askapresult.snr)
+        yuncertainty = np.sqrt((askapresult.fitmaj*np.sin(deltapa))**2 + (askapresult.fitmin*np.cos(deltapa))**2) / (2350 * askapresult.snr)
+            
+        rauncertainty = askapresult.raerrmas/1000.
+        decuncertainty = askapresult.decerrmas/1000.
+        xoffsigma = (180*60*60/np.pi) * xdiff / np.sqrt(xuncertainty**2 + sigmararef**2) 
+        # Just using RA uncertainty from reference, since beam is pretty circular
+        yoffsigma = (180*60*60/np.pi) * ydiff / np.sqrt(yuncertainty**2 + sigmararef**2) 
+        # Just using RA uncertainty from reference, since beam is pretty circular
+        
+        print (isrc, raraddiff*180*60*60/np.pi, decraddiff*180*60*60/np.pi, rauncertainty, decuncertainty, \
+               xdiff*180*60*60/np.pi, ydiff*180*60*60/np.pi, xuncertainty, yuncertainty, \
+               np.sqrt(rauncertainty**2 + decuncertainty**2)/np.sqrt(xuncertainty**2 + yuncertainty**2), \
+               xoffsigma, yoffsigma)
+        
+        #--- Appending results to the list of offsets
+
+        xoffsets.append(xdiff*180*60*60*1000/np.pi)
+        yoffsets.append(ydiff*180*60*60*1000/np.pi)
+        chisq += xoffsigma**2 + yoffsigma**2
+        dof += 2
+        totalxuncertainties.append(1000*np.sqrt(xuncertainty**2 + sigmararef**2))
+        totalyuncertainties.append(1000*np.sqrt(yuncertainty**2 + sigmararef**2))
+        
+    print("For the case of zero offset, chi squared is", chisq, "for", dof, "degrees of freedom")
+    
+    #--- Writing the offsets to the  output file
+
+    output = open("askap2"+catnameref+"_rotated_offsets.dat","w")
+    
+    for i in range(len(xoffsets)):
+        output.write(str(xoffsets[i]) + " ")
+    output.write("\n")
+
+    for i in range(len(yoffsets)):
+        output.write(str(yoffsets[i]) + " ")
+    output.write("\n")
+
+    for i in range(len(totalxuncertainties)):
+        output.write(str(totalxuncertainties[i]) + " ")
+    output.write("\n")
+
+    for i in range(len(totalyuncertainties)):
+        output.write(str(totalyuncertainties[i]) + " ")
+    output.write("\n")
+    output.close()  
+    
+    #--- Work done! Now return the chi-squared and the DoF in case it is useful
+    
+    return(chisq,dof)
+
+
+
+
+#-----------------------------------------------------------------------------------
+
+# The main script starts here
+
+#####################################################################################
+
+# DETERMINE OFFSETS AND UNCERTAINTIES
+
+#####################################################################################
+
+# Grab all the source info and put in a list
+
+askap_srcinfo = grabsrcinfo(askap_posfile)
+
+if args.first is not None:
+    first_srcinfo = grabsrcinfo(first_posfile)
+if args.nvss is not None:
+    nvss_srcinfo = grabsrcinfo(nvss_posfile)
+if args.racs is not None:
+    racs_srcinfo = grabsrcinfo(racs_posfile)
+if args.sumss is not None:
+    sumss_srcinfo = grabsrcinfo(sumss_posfile)
+if args.vlass is not None:
+    vlass_srcinfo = grabsrcinfo(vlass_posfile)
+
+# Extract the positions in arcsec and radians
+
+askap_radec = getradec(askap_srcinfo)
+askap_ra_arcsec = askap_radec["ra_arc"]
+askap_dec_arcsec = askap_radec["dec_arc"]
+askap_dec_rad = askap_radec["dec_rad"]
+
+if args.first is not None:
+    first_radec = getradec(first_srcinfo, first=True)
+    first_ra_arcsec = first_radec["ra_arc"]
+    first_dec_arcsec = first_radec["dec_arc"]
+    first_dec_rad = first_radec["dec_rad"]
+if args.nvss is not None:
+    nvss_radec = getradec(nvss_srcinfo)
+    nvss_ra_arcsec = nvss_radec["ra_arc"]
+    nvss_dec_arcsec = nvss_radec["dec_arc"]
+    nvss_dec_rad = nvss_radec["dec_rad"]
+if args.racs is not None:
+    racs_radec = getradec(racs_srcinfo)
+    racs_ra_arcsec = racs_radec["ra_arc"]
+    racs_dec_arcsec = racs_radec["dec_arc"]
+    racs_dec_rad = racs_radec["dec_rad"]
+if args.sumss is not None:
+    sumss_radec = getradec(sumss_srcinfo)
+    sumss_ra_arcsec = sumss_radec["ra_arc"]
+    sumss_dec_arcsec = sumss_radec["dec_arc"]
+    sumss_dec_rad = sumss_radec["dec_rad"]
+if args.vlass is not None:
+    vlass_radec = getradec(vlass_srcinfo)
+    vlass_ra_arcsec = vlass_radec["ra_arc"]
+    vlass_dec_arcsec = vlass_radec["dec_arc"]
+    vlass_dec_rad = vlass_radec["dec_rad"]
+
+
+# Get uncertainties for RA and Dec in arcsec
+
+askap_radec_unc = getradec_unc(askap_srcinfo, askap_dec_rad, askap=True)
+askap_ra_unc_arcsec = askap_radec_unc["ra_unc_arcsec"]
+askap_dec_unc_arcsec = askap_radec_unc["dec_unc_arcsec"]
+
+if args.first is not None:
+    first_radec_unc = getradec_unc(first_srcinfo, first_dec_rad, first=True)
+    first_ra_unc_arcsec = first_radec_unc["ra_unc_arcsec"]
+    first_dec_unc_arcsec = first_radec_unc["dec_unc_arcsec"]
+if args.nvss is not None:
+    nvss_radec_unc = getradec_unc(nvss_srcinfo, nvss_dec_rad, nvss=True)
+    nvss_ra_unc_arcsec = nvss_radec_unc["ra_unc_arcsec"]
+    nvss_dec_unc_arcsec = nvss_radec_unc["dec_unc_arcsec"]
+if args.racs is not None:
+    racs_radec_unc = getradec_unc(racs_srcinfo, racs_dec_rad, racs=True)
+    racs_ra_unc_arcsec = racs_radec_unc["ra_unc_arcsec"]
+    racs_dec_unc_arcsec = racs_radec_unc["dec_unc_arcsec"]
+if args.sumss is not None:
+    sumss_radec_unc = getradec_unc(sumss_srcinfo, sumss_dec_rad, sumss=True)
+    sumss_ra_unc_arcsec = sumss_radec_unc["ra_unc_arcsec"]
+    sumss_dec_unc_arcsec = sumss_radec_unc["dec_unc_arcsec"]
+if args.vlass is not None:
+    vlass_radec_unc = getradec_unc(vlass_srcinfo, vlass_dec_rad, vlass=True)
+    vlass_ra_unc_arcsec = vlass_radec_unc["ra_unc_arcsec"]
+    vlass_dec_unc_arcsec = vlass_radec_unc["dec_unc_arcsec"]
+
+# Determine the offsets and their total uncertainties between the ASKAP and catalogue source positions,
+# and save the offsets and uncertainties to a .dat file for use with weighted_multi_image_fit.py
+
+if args.first is not None:
+    # Offsets
+    askap2first_offsets = getoffsets(
+        askap_ra_arcsec,
+        askap_dec_arcsec,
+        first_ra_arcsec,
+        first_dec_arcsec,
+        first_dec_rad,
+    )
+    askap2first_offsets_ra = askap2first_offsets["ra_offset_arcsec"]
+    askap2first_offsets_dec = askap2first_offsets["dec_offset_arcsec"]
+    # Total uncertainties
+    askap2first_offsets_unc = gettotaloffsetunc(
+        askap_ra_unc_arcsec,
+        askap_dec_unc_arcsec,
+        first_ra_unc_arcsec,
+        first_dec_unc_arcsec,
+    )
+    askap2first_offsets_unc_ra = askap2first_offsets_unc["totra_unc"]
+    askap2first_offsets_unc_dec = askap2first_offsets_unc["totdec_unc"]
+    # Format into strings
+    offsets_ra_first_str = " ".join(
+        [
+            str(askap2first_offsets_ra[i])
+            for i in np.arange(len(askap2first_offsets_ra))
+        ]
+    )
+    offsets_dec_first_str = " ".join(
+        [
+            str(askap2first_offsets_dec[i])
+            for i in np.arange(len(askap2first_offsets_dec))
+        ]
+    )
+    offsets_ra_unc_first_str = " ".join(
+        [
+            str(askap2first_offsets_unc_ra[i])
+            for i in np.arange(len(askap2first_offsets_unc_ra))
+        ]
+    )
+    offsets_dec_unc_first_str = " ".join(
+        [
+            str(askap2first_offsets_unc_dec[i])
+            for i in np.arange(len(askap2first_offsets_unc_dec))
+        ]
+    )
+    # Save to .dat file
+    offset_unc_out = open("askap2first_offsets_unc.dat", "w")
+    offset_unc_out.write(f"{offsets_ra_first_str}\n")
+    offset_unc_out.write(f"{offsets_dec_first_str}\n")
+    offset_unc_out.write(f"{offsets_ra_unc_first_str}\n")
+    offset_unc_out.write(f"{offsets_dec_unc_first_str}\n")
+    offset_unc_out.close()
+
+if args.nvss is not None:
+    # Offsets
+    askap2nvss_offsets = getoffsets(
+        askap_ra_arcsec,
+        askap_dec_arcsec,
+        nvss_ra_arcsec,
+        nvss_dec_arcsec,
+        nvss_dec_rad,
+    )
+    askap2nvss_offsets_ra = askap2nvss_offsets["ra_offset_arcsec"]
+    askap2nvss_offsets_dec = askap2nvss_offsets["dec_offset_arcsec"]
+    # Total uncertainties
+    askap2nvss_offsets_unc = gettotaloffsetunc(
+        askap_ra_unc_arcsec,
+        askap_dec_unc_arcsec,
+        nvss_ra_unc_arcsec,
+        nvss_dec_unc_arcsec,
+    )
+    askap2nvss_offsets_unc_ra = askap2nvss_offsets_unc["totra_unc"]
+    askap2nvss_offsets_unc_dec = askap2nvss_offsets_unc["totdec_unc"]
+    # Format into strings
+    offsets_ra_nvss_str = " ".join(
+        [
+            str(askap2nvss_offsets_ra[i])
+            for i in np.arange(len(askap2nvss_offsets_ra))
+        ]
+    )
+    offsets_dec_nvss_str = " ".join(
+        [
+            str(askap2nvss_offsets_dec[i])
+            for i in np.arange(len(askap2nvss_offsets_dec))
+        ]
+    )
+    offsets_ra_unc_nvss_str = " ".join(
+        [
+            str(askap2nvss_offsets_unc_ra[i])
+            for i in np.arange(len(askap2nvss_offsets_unc_ra))
+        ]
+    )
+    offsets_dec_unc_nvss_str = " ".join(
+        [
+            str(askap2nvss_offsets_unc_dec[i])
+            for i in np.arange(len(askap2nvss_offsets_unc_dec))
+        ]
+    )
+    # Save to .dat file
+    offset_unc_out = open("askap2nvss_offsets_unc.dat", "w")
+    offset_unc_out.write(f"{offsets_ra_nvss_str}\n")
+    offset_unc_out.write(f"{offsets_dec_nvss_str}\n")
+    offset_unc_out.write(f"{offsets_ra_unc_nvss_str}\n")
+    offset_unc_out.write(f"{offsets_dec_unc_nvss_str}\n")
+    offset_unc_out.close()
+
+if args.racs is not None:
+    # Offsets
+    askap2racs_offsets = getoffsets(
+        askap_ra_arcsec,
+        askap_dec_arcsec,
+        racs_ra_arcsec,
+        racs_dec_arcsec,
+        racs_dec_rad,
+    )
+    askap2racs_offsets_ra = askap2racs_offsets["ra_offset_arcsec"]
+    askap2racs_offsets_dec = askap2racs_offsets["dec_offset_arcsec"]
+    # Total uncertainties
+    askap2racs_offsets_unc = gettotaloffsetunc(
+        askap_ra_unc_arcsec,
+        askap_dec_unc_arcsec,
+        racs_ra_unc_arcsec,
+        racs_dec_unc_arcsec,
+    )
+    askap2racs_offsets_unc_ra = askap2racs_offsets_unc["totra_unc"]
+    askap2racs_offsets_unc_dec = askap2racs_offsets_unc["totdec_unc"]
+    # Format into strings
+    offsets_ra_racs_str = " ".join(
+        [
+            str(askap2racs_offsets_ra[i])
+            for i in np.arange(len(askap2racs_offsets_ra))
+        ]
+    )
+    offsets_dec_racs_str = " ".join(
+        [
+            str(askap2racs_offsets_dec[i])
+            for i in np.arange(len(askap2racs_offsets_dec))
+        ]
+    )
+    offsets_ra_unc_racs_str = " ".join(
+        [
+            str(askap2racs_offsets_unc_ra[i])
+            for i in np.arange(len(askap2racs_offsets_unc_ra))
+        ]
+    )
+    offsets_dec_unc_racs_str = " ".join(
+        [
+            str(askap2racs_offsets_unc_dec[i])
+            for i in np.arange(len(askap2racs_offsets_unc_dec))
+        ]
+    )
+    # Save to .dat file
+    offset_unc_out = open("askap2racs_offsets_unc.dat", "w")
+    offset_unc_out.write(f"{offsets_ra_racs_str}\n")
+    offset_unc_out.write(f"{offsets_dec_racs_str}\n")
+    offset_unc_out.write(f"{offsets_ra_unc_racs_str}\n")
+    offset_unc_out.write(f"{offsets_dec_unc_racs_str}\n")
+    offset_unc_out.close()
+
+if args.sumss is not None:
+    # Offsets
+    askap2sumss_offsets = getoffsets(
+        askap_ra_arcsec,
+        askap_dec_arcsec,
+        sumss_ra_arcsec,
+        sumss_dec_arcsec,
+        sumss_dec_rad,
+    )
+    askap2sumss_offsets_ra = askap2sumss_offsets["ra_offset_arcsec"]
+    askap2sumss_offsets_dec = askap2sumss_offsets["dec_offset_arcsec"]
+    # Total uncertainties
+    askap2sumss_offsets_unc = gettotaloffsetunc(
+        askap_ra_unc_arcsec,
+        askap_dec_unc_arcsec,
+        sumss_ra_unc_arcsec,
+        sumss_dec_unc_arcsec,
+    )
+    askap2sumss_offsets_unc_ra = askap2sumss_offsets_unc["totra_unc"]
+    askap2sumss_offsets_unc_dec = askap2sumss_offsets_unc["totdec_unc"]
+    # Format into strings
+    offsets_ra_sumss_str = " ".join(
+        [
+            str(askap2sumss_offsets_ra[i])
+            for i in np.arange(len(askap2sumss_offsets_ra))
+        ]
+    )
+    offsets_dec_sumss_str = " ".join(
+        [
+            str(askap2sumss_offsets_dec[i])
+            for i in np.arange(len(askap2sumss_offsets_dec))
+        ]
+    )
+    offsets_ra_unc_sumss_str = " ".join(
+        [
+            str(askap2sumss_offsets_unc_ra[i])
+            for i in np.arange(len(askap2sumss_offsets_unc_ra))
+        ]
+    )
+    offsets_dec_unc_sumss_str = " ".join(
+        [
+            str(askap2sumss_offsets_unc_dec[i])
+            for i in np.arange(len(askap2sumss_offsets_unc_dec))
+        ]
+    )
+    # Save to .dat file
+    offset_unc_out = open("askap2sumss_offsets_unc.dat", "w")
+    offset_unc_out.write(f"{offsets_ra_sumss_str}\n")
+    offset_unc_out.write(f"{offsets_dec_sumss_str}\n")
+    offset_unc_out.write(f"{offsets_ra_unc_sumss_str}\n")
+    offset_unc_out.write(f"{offsets_dec_unc_sumss_str}\n")
+    offset_unc_out.close()
+
+if args.vlass is not None:
+    # Offsets
+    askap2vlass_offsets = getoffsets(
+        askap_ra_arcsec,
+        askap_dec_arcsec,
+        vlass_ra_arcsec,
+        vlass_dec_arcsec,
+        vlass_dec_rad,
+    )
+    askap2vlass_offsets_ra = askap2vlass_offsets["ra_offset_arcsec"]
+    askap2vlass_offsets_dec = askap2vlass_offsets["dec_offset_arcsec"]
+    # Total uncertainties
+    askap2vlass_offsets_unc = gettotaloffsetunc(
+        askap_ra_unc_arcsec,
+        askap_dec_unc_arcsec,
+        vlass_ra_unc_arcsec,
+        vlass_dec_unc_arcsec,
+    )
+    askap2vlass_offsets_unc_ra = askap2vlass_offsets_unc["totra_unc"]
+    askap2vlass_offsets_unc_dec = askap2vlass_offsets_unc["totdec_unc"]
+    # Format into strings
+    offsets_ra_vlass_str = " ".join(
+        [
+            str(askap2vlass_offsets_ra[i])
+            for i in np.arange(len(askap2vlass_offsets_ra))
+        ]
+    )
+    offsets_dec_vlass_str = " ".join(
+        [
+            str(askap2vlass_offsets_dec[i])
+            for i in np.arange(len(askap2vlass_offsets_dec))
+        ]
+    )
+    offsets_ra_unc_vlass_str = " ".join(
+        [
+            str(askap2vlass_offsets_unc_ra[i])
+            for i in np.arange(len(askap2vlass_offsets_unc_ra))
+        ]
+    )
+    offsets_dec_unc_vlass_str = " ".join(
+        [
+            str(askap2vlass_offsets_unc_dec[i])
+            for i in np.arange(len(askap2vlass_offsets_unc_dec))
+        ]
+    )
+    # Save to .dat file
+    offset_unc_out = open("askap2vlass_offsets_unc.dat", "w")
+    offset_unc_out.write(f"{offsets_ra_vlass_str}\n")
+    offset_unc_out.write(f"{offsets_dec_vlass_str}\n")
+    offset_unc_out.write(f"{offsets_ra_unc_vlass_str}\n")
+    offset_unc_out.write(f"{offsets_dec_unc_vlass_str}\n")
+    offset_unc_out.close()
+
+
 # Weight the RA and Dec offsets by their total errors
 if args.first is not None:
     raweight_first = 1.0 / np.array(askap2first_offsets_unc_ra)
@@ -1128,6 +1491,7 @@ if args.vlass is not None:
 # Grab ASKAP source names
 askap_names = grabsrcinfo(args.askapnames)
 askap_names = [askap_names[s].strip("\n") for s in np.arange(len(askap_names))]
+
 
 # Plot the comparisons and save the plots
 if args.first is not None:
@@ -1191,60 +1555,6 @@ if args.vlass is not None:
         catname="VLASS",
     )
 
-
-#######################################################
-
-# BOOTSTRAPPING
-
-#######################################################
-
-
-def bootstrap(data, samp_size, num_trials):
-
-    boot_mean = []
-    boot_68 = []
-
-    n = 0
-    while n < num_trials:
-
-        samp = np.random.choice(data, size=samp_size, replace=True)
-
-        samp_mean = np.mean(samp)
-        boot_mean.append(samp_mean)
-
-        n += 1
-
-    mean_boot_mean = np.mean(boot_mean)
-    # add histogram
-    # bin histogram in 5% increments and then take bin with hightest value --> call this the most probable value
-    # show median and mode and their +/- confidence intervals
-
-    return mean_boot_mean
-
-
-#######################################################
-
-# CALCULATING THE CHI-SQUARED AND REDUCED CHI-SQUARED
-
-#######################################################
-
-
-def chi_sq(meas, model, err, num_srcs):
-
-    """
-    Return the chi-squared value for a given set of measurements and model.
-    meas, model -- Numpy arrays with the same shape
-    err, deg_free -- floats
-    """
-
-    deg_free = num_srcs - 1
-    print("Number of degrees of freedom: ", deg_free)
-    chi_squared = np.sum(((meas - model) / err) ** 2)
-    chisq_red = chi_squared / deg_free
-
-    return (chi_squared, chisq_red)
-
-
 # Calculate the numbers of 'points' of measurement; i.e., the number of sources
 # num_sources = len(askapnames)
 
@@ -1264,3 +1574,45 @@ def chi_sq(meas, model, err, num_srcs):
 # print("chi-squared, reduced chi-squared Dec (zero offset model): ", chi_sq_zero_dec, chisq_red_zero_dec)
 # print("chi-squared, reduced chi-squared RA (weighted mean offset model): ", chi_sq_wm_ra, chisq_red_wm_ra)
 # print("chi-squared, reduced chi-squared Dec (weighted mean offset model): ", chi_sq_wm_dec, chisq_red_wm_dec)
+# Calculate the numbers of 'points' of measurement; i.e., the number of sources
+# num_sources = len(askapnames)
+
+# Two test models:
+# Test 1: A zero offset in position
+# pos_model_zero_ra = np.zeros(np.shape(ra_offset))
+# pos_model_zero_dec = np.zeros(np.shape(ra_offset))
+# chi_sq_zero_ra, chisq_red_zero_ra = chi_sq(ra_offset, pos_model_zero_ra, totra_err, num_sources)
+# chi_sq_zero_dec, chisq_red_zero_dec = chi_sq(dec_offset, pos_model_zero_dec, totdec_err, num_sources)
+# Test 2: Offsets given by the above weighted mean offsets
+# pos_model_wm_ra = np.full(np.shape(ra_offset),wmean_raoffset)
+# pos_model_wm_dec = np.full(np.shape(dec_offset),wmean_decoffset)
+# chi_sq_wm_ra, chisq_red_wm_ra = chi_sq(ra_offset, pos_model_wm_ra, totra_err, num_sources)
+# chi_sq_wm_dec, chisq_red_wm_dec = chi_sq(dec_offset, pos_model_wm_dec, totdec_err, num_sources)
+
+# print("chi-squared, reduced chi-squared RA (zero offset model): ", chi_sq_zero_ra, chisq_red_zero_ra)
+# print("chi-squared, reduced chi-squared Dec (zero offset model): ", chi_sq_zero_dec, chisq_red_zero_dec)
+# print("chi-squared, reduced chi-squared RA (weighted mean offset model): ", chi_sq_wm_ra, chisq_red_wm_ra)
+# print("chi-squared, reduced chi-squared Dec (weighted mean offset model): ", chi_sq_wm_dec, chisq_red_wm_dec)
+
+#--------------------------------------------------------------------------------------------------------------
+# Alright, now calculate offsets along the beam axes
+
+if args.first is not None:
+    dummyres = rotated_offsets('first',first_ra_arcsec,first_dec_arcsec,first_ra_unc_arcsec,first_dec_unc_arcsec,args.jmfitnames,args.fieldfits)
+    print(dummyres)
+
+if args.nvss is not None:
+    dummyres = rotated_offsets('nvss',nvss_ra_arcsec,nvss_dec_arcsec,nvss_ra_unc_arcsec,nvss_dec_unc_arcsec,args.jmfitnames,args.fieldfits)
+    print(dummyres)
+
+if args.racs is not None:
+    dummyres = rotated_offsets('racs',racs_ra_arcsec,racs_dec_arcsec,racs_ra_unc_arcsec,racs_dec_unc_arcsec,args.jmfitnames,args.fieldfits)
+    print(dummyres)
+
+if args.sumss is not None:
+    dummyres = rotated_offsets('sumss',sumss_ra_arcsec,sumss_dec_arcsec,sumss_ra_unc_arcsec,sumss_dec_unc_arcsec,args.jmfitnames,args.fieldfits)
+    print(dummyres)
+
+if args.vlass is not None:
+    dummyres = rotated_offsets('vlass',racs_ra_arcsec,racs_dec_arcsec,racs_ra_unc_arcsec,racs_dec_unc_arcsec,args.jmfitnames,args.fieldfits)
+    print(dummyres)
