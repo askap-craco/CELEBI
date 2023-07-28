@@ -10,9 +10,6 @@ include { get_start_mjd } from './correlate'
 params.pols = ['X', 'Y']
 polarisations = Channel
     .fromList(params.pols)
-params.nants = 2
-antennas = Channel
-    .of(0..params.nants-1)
 
 params.hwfile = "N/A"
 
@@ -538,6 +535,8 @@ workflow beamform {
                 String containing arguments to be passed to dynspecs.py. Use
                 this to specify which Stokes parameters and data types (time
                 series or dynamic spectrum) to generate.
+            nants: val
+                Number of antennas available in the data
         
         Emit
             htr_data: path
@@ -552,10 +551,14 @@ workflow beamform {
         dm 
         centre_freq
         ds_args
+        nants
     
     main:
         // preliminaries
         calcfiles = create_calcfiles(label, data, pos)
+
+        antennas = Channel
+            .of(0..nants-1)
 
         // processing
         do_beamform(

@@ -30,9 +30,9 @@ params.opt_gate = false
 params.pols = ['X', 'Y']
 polarisations = Channel
     .fromList(params.pols)
-params.nants = 2
+params.nants_frb = params.nants
 antennas = Channel
-    .of(0..params.nants-1)
+    .of(0..params.nants_frb-1)
 
 beamform_dir = "$baseDir/../beamform/"
 localise_dir = "$baseDir/../localise/"
@@ -113,8 +113,8 @@ process load_coarse_dynspec {
         args="\$args --pol=$pol"
         args="\$args --an=$ant_idx"
 
-        echo "python3 $beamform_dir/craftcor_tab_2.py \$args"
-        python3 $beamform_dir/craftcor_tab_2.py \$args
+        echo "python3 $beamform_dir/craftcor_tab.py \$args"
+        python3 $beamform_dir/craftcor_tab.py \$args
         """
     
     stub:
@@ -293,7 +293,7 @@ process plot {
 
         mkdir crops
 
-        python3 $beamform_dir/plot_2.py \$args
+        python3 $beamform_dir/plot.py \$args
         """
     
     stub:
@@ -762,7 +762,7 @@ workflow process_frb {
         }
         else if(new File(offset_path).exists()) {
             offset = Channel.fromPath(offset_path)
-        }
+    }
 
         if(params.beamform) {
             // crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
@@ -774,7 +774,8 @@ workflow process_frb {
             // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV"
+                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV",
+                    params.nants_frb
                 )
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
