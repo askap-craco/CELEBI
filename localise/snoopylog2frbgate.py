@@ -185,6 +185,10 @@ def calc_best_int_time(corrstartmjd: float, midmjd: float) -> float:
     bestinttime = 2 * (midmjd - corrstartmjd) * 86400
     nsubints = int(round(bestinttime / subintsec))
     bestinttime = nsubints * subintsec
+
+    if bestinttime < 0.1:
+        bestinttime = 1.3824
+
     return bestinttime
 
 
