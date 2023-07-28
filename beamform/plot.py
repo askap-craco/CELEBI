@@ -258,6 +258,116 @@ def plot_ts(ds, idx_1ms, fname):
     plt.savefig(fname)
 
 
+def plot_stokes_mask_chan(dsall, idx_1ms, outhresh, extims, chanlist, fname, fpltname):
+    """
+    Function to mask noisy channels and plot 'clean' Stokes parameters
+    
+    Inputs are -- All Stokes dynamic spectrum
+                  
+                  location of the burst
+                  
+                  Outlier threshold in units of SD
+                  
+                  Time to exclude around burst in units of ms
+                  
+                  File containing known bad channels
+                  
+                  File name for masked channels
+                  
+                  File name for output plot
+                                                       AB 27 Feb 2023
+                                              Revised  AB  2 Apr 2023
+    """
+
+    dspec1ms  = reduce(dsall[0], 1000, axis=1)
+    qdspec1ms = reduce(dsall[1], 1000, axis=1)
+    udspec1ms = reduce(dsall[2], 1000, axis=1)
+    vdspec1ms = reduce(dsall[3], 1000, axis=1)
+    dspecdumm = np.copy(dspec1ms)
+    dspecdumm[:,int(round(idx_1ms-extims)):int(round(idx_1ms+extims))] = np.nan
+
+    nchans      =  dspec1ms.shape[0]
+    chanmask    =  np.ones(nchans, dtype=int)
+    chanstoflag =  np.loadtxt(chanlist)
+    if(chanstoflag.shape[0]>2):
+        for i in range(2,chanstoflag.shape[0]):
+            chanmask[int(round(chanstoflag[i,0])):int(round(chanstoflag[i,1]))+1]=0
+
+    for cc in range(0,nchans):
+        if(chanmask[cc]==0):
+            dspecdumm[cc] = np.nan
+            dspec1ms[cc]  = np.nan
+            qdspec1ms[cc]  = np.nan
+            udspec1ms[cc]  = np.nan
+            vdspec1ms[cc]  = np.nan
+
+    chanrmsarr  = np.nanstd(dspecdumm, axis=1)
+    medrms      = np.nanmedian(chanrmsarr)
+    madrms      = 1.48*np.nanmedian(np.abs(chanrmsarr - medrms))
+    badchans    = np.where(chanrmsarr > (medrms + outhresh*madrms))[0]
+    chanmask[badchans] = 0
+    np.savetxt(fname, chanmask, fmt='%d')
+
+    dspec1ms[badchans] = np.nan
+    dspecdumm[badchans]= np.nan
+    ts1ms = np.nanmean(dspec1ms,axis=0)
+    tsdumm= np.nanmean(dspecdumm,axis=0)
+    tsrms = np.nanstd(tsdumm)
+    tspeak= np.nanmax(ts1ms)
+    peaksn= tspeak/tsrms
+
+    ldspec1ms = np.sqrt(qdspec1ms**2 + udspec1ms**2)
+    ldspec1ms[badchans] = np.nan
+    vdspec1ms[badchans] = np.nan
+
+    qts1ms = np.nanmean(qdspec1ms,axis=0)
+    uts1ms = np.nanmean(udspec1ms,axis=0)
+    lts1ms = np.nanmean(ldspec1ms,axis=0)
+    ltsdummy = np.copy(lts1ms)
+    ltsdummy[int(round(idx_1ms-extims)):int(round(idx_1ms+extims))] = np.nan
+    lts1ms = lts1ms - np.nanmean(ltsdummy)
+    vts1ms = np.nanmean(vdspec1ms,axis=0)
+    
+    pats1ms = 0.5*np.arctan(uts1ms/qts1ms)
+
+    fig=plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(2,2,3)
+    plt.imshow(dspec1ms,origin='lower',aspect='auto',interpolation='none',vmin=-2.0*medrms,vmax=3.0*medrms)
+    plt.xlim([int(round(idx_1ms-52)),int(round(idx_1ms+52))])
+    plt.ylabel('Channel')
+
+    ax2 = fig.add_subplot(2,2,1)
+    plt.plot(ts1ms, 'b-')
+    plt.text(0.05*len(ts1ms), 0.8*np.amax(ts1ms), "Peak S/N = %.2f"%peaksn)
+    plt.xlim([int(round(idx_1ms-52)),int(round(idx_1ms+52))])
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Stokes I")
+
+    ax3 = fig.add_subplot(2,2,2)
+    plt.plot(ts1ms, 'k-', label='I')
+    plt.plot(lts1ms, 'b-', label='L')
+    plt.plot(vts1ms, 'r-', label='v')
+    #plt.text(0.05*len(ts1ms), 0.8*np.amax(ts1ms), "Peak S/N = %.2f"%peaksn)
+    plt.xlim([int(round(idx_1ms-22)),int(round(idx_1ms+22))])
+    plt.xlabel("Time (ms)")
+    plt.ylabel("I, L, V")
+    plt.legend(loc="upper right")
+
+    ax4 = fig.add_subplot(2,2,4)
+    plt.plot(pats1ms*180.0/np.pi, 'b*')
+    #plt.text(0.05*len(ts1ms), 0.8*np.amax(ts1ms), "Peak S/N = %.2f"%peaksn)
+    plt.xlim([int(round(idx_1ms-22)),int(round(idx_1ms+22))])
+    #plt.xlabel("Time (ms)")
+    plt.ylabel("PA (deg)")
+
+    plt.tight_layout()
+    plt.savefig(fpltname)
+    plt.close()
+
+    return 0
+
+
+
 def plot(args, stokes_fnames, cand):
     stks = [np.load(f, mmap_mode="r") for f in stokes_fnames]
 
@@ -330,6 +440,17 @@ def plot(args, stokes_fnames, cand):
 
     # plot full Stokes I time series at 1 ms time resolution
     plot_ts(stks[0], idx_1ms, f"{args.label}_I_{args.DM}.png")
+
+    chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_low.txt'
+    if(args.f > 1100.0):
+        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_mid.txt'
+    if(args.f > 1500.0):
+        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_high.txt'
+    # Mask bad channels and calculate S/N
+    plot_stokes_mask_chan(stks, idx_1ms, 10.0, 50.0, \
+                    chanlist, \
+                    f"{args.label}_channel_mask.txt", \
+                    f"{args.label}_I_{args.DM}_masked.png")
 
 
 if __name__ == "__main__":
