@@ -804,6 +804,7 @@ exhaustiveAutocorrs = True
     v2dout.write("{\n")
     fftnSec = 27.0 / 32.0 * 1000 * nFFTChan
     intNsec = float(tInt) * 1e9
+    print('Debug 1: ',tInt,intNsec, fftnSec, nFFTChan)
     # numFFT = int(round(intNsec/fftnSec))
     if intNsec > 5e8:  # 0.5sec
         subintNsec = 13824000  # 13.8 millisec
@@ -827,6 +828,7 @@ exhaustiveAutocorrs = True
                 subintNsec = intNsec / float(nSubint)
     numFFT = int(round(subintNsec / fftnSec))
     subintNsec = int(round(numFFT * fftnSec))
+    print('Debug 2: ',numFFT, subintNsec, fftnSec)
     nSubint = int(round(intNsec / float(subintNsec)))
     tInt = float(nSubint * subintNsec) / 1.0e9
     v2dout.write(f"  tInt =  {tInt:.9f}\n")
