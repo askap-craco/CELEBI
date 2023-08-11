@@ -27,10 +27,10 @@ def _main():
 
     # get Stokes spectra and noise
     print("Getting spectra")
-    I_f, I_noise, peak = get_pulsar_spec(I, period, dt, args, "I")
-    Q_f, Q_noise, peak = get_pulsar_spec(Q, period, dt, args, "Q", peak=peak)
-    U_f, U_noise, peak = get_pulsar_spec(U, period, dt, args, "U", peak=peak)
-    V_f, V_noise, peak = get_pulsar_spec(V, period, dt, args, "V", peak=peak)
+    I_f, I_noise, peak = get_pulsar_spec(I, period, dt, args, "I", widthms=args.pulsewidth)
+    Q_f, Q_noise, peak = get_pulsar_spec(Q, period, dt, args, "Q", widthms=args.pulsewidth, peak=peak)
+    U_f, U_noise, peak = get_pulsar_spec(U, period, dt, args, "U", widthms=args.pulsewidth, peak=peak)
+    V_f, V_noise, peak = get_pulsar_spec(V, period, dt, args, "V", widthms=args.pulsewidth, peak=peak)
 
     t = np.arange(I_f.shape[0])
 
@@ -154,9 +154,10 @@ def _main():
             fig, axs = plt.subplots(
                 nrows=2, ncols=1, figsize=(8,12), sharex=True, sharey=True
             )
+
             axs[0] = im_plot(
                 axs[0],
-                pa_fits,
+                pa_fits - np.floor(pa_fits/np.pi + 0.5)*np.pi,
                 ylabel="Frequency (MHz)",
                 title="Fit PA",
                 extent=ext,
@@ -165,7 +166,7 @@ def _main():
             )
             axs[1] = im_plot(
                 axs[1],
-                pas,
+                pas - np.floor(pas/np.pi + 0.5)*np.pi,
                 xlabel="Time (samp.)",
                 ylabel="Frequency (MHz)",
                 title="Measured PA",
@@ -293,7 +294,7 @@ def _main():
             ax = ax_plot(
                 ax,
                 freqs,
-                pa,
+                pa - np.floor(pa/np.pi + 0.5)*np.pi,
                 type="scatter",
                 xlabel="Frequency (MHz)",
                 ylabel="Pol angle",
@@ -302,15 +303,16 @@ def _main():
             ax = ax_plot(
                 ax,
                 freqs,
-                pa_fit,
+                pa_fit - np.floor(pa_fit/np.pi + 0.5)*np.pi,
                 type="line",
                 xlabel="Frequency (MHz)",
                 ylabel="Pol angle",
                 c="r",
                 label="Fit"
             )
-            ax.set_ylim(min(-np.pi / 2, np.min(pa)), 
-                        max(np.pi / 2, np.max(pa)))
+            #ax.set_ylim(min(-np.pi / 2, np.min(pa)), 
+            #            max(np.pi / 2, np.max(pa)))
+            ax.set_ylim(-np.pi / 2, np.pi/2)
             plt.yticks(
                 np.linspace(-1 / 2, 1 / 2, 5) * np.pi,
                 [
@@ -396,6 +398,8 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("-l", "--label", type=str, help="Label for plots")
     parser.add_argument("-r", "--ref", type=str, help="Reference Parkes data")
     parser.add_argument("-o", type=str, help="File to output delay and offset")
+    parser.add_argument("--pulsewidth", type=float, default=0.5,
+                        help="Pulse width in ms (take this around peak).",)
     parser.add_argument(
         "--reduce_df",
         type=int,
@@ -526,20 +530,23 @@ def reduce(a, n, transpose=False, pbar=True):
 
 
 def get_pulsar_spec(
-    ds, period, dt, args, par, peak=None, red_fac=100, width=5,
+    ds, period, dt, args, par, peak=None, red_fac=100, widthms=0.5,
 ):
     folded_ds = fold_ds(ds, period, dt)
     folded_ds_red = reduce(folded_ds, red_fac, transpose=True).transpose()
 
-    print(f"dt = {dt.to(un.us) * red_fac}")
+    width = int(widthms / (dt.to(un.ms) * red_fac).value)
+    if width < 1: 
+        width = 1 
+    print(f"dt = {dt.to(un.us) * red_fac} microsec, width is now {width} because widthms was {widthms} ms")
 
     if args.reduce_df > 1:
         folded_ds_red = reduce(folded_ds_red, args.reduce_df)
 
     peak = peak if peak else np.argmax(np.sum(folded_ds_red, axis=0))
 
-    turn_on = peak - width
-    turn_off = peak + width + 1
+    turn_on = peak - width//2
+    turn_off = peak + width//2 + 1
 
     fmin = args.f - args.b / 2
     fmax = args.f + args.b / 2
@@ -560,10 +567,9 @@ def get_pulsar_spec(
         plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_peak.png")
 
     # [::-1] because it will be in the wrong order otherwise
-    if args.nopeak:
-        spec = folded_ds_red[::-1, turn_on:turn_off][:-1]
-    else:
-        spec = folded_ds_red[:, peak][::-1][:-1]
+    spec = folded_ds_red[::-1, turn_on:turn_off][:-1]
+    if not args.nopeak:
+        spec = np.mean(spec, axis=1)
 
     # roll folded data halfway along time axis and get noise with same indexes
     folded_ds_red = np.roll(
@@ -586,17 +592,16 @@ def get_pulsar_spec(
         plt.tight_layout()
         plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_noise.png")
 
-    if args.nopeak:
-        noise = folded_ds_red[::-1, turn_on:turn_off][:-1]
-    else:
-        noise = folded_ds_red[:, peak][::-1][:-1]
+    noise = folded_ds_red[::-1, turn_on:turn_off][:-1]
+    if not args.nopeak:
+        noise = np.mean(noise, axis=1)
 
     return spec.T, noise.T, peak
 
 
 def fit_pol_frac(freqs, S_ratio):
     print("Calculating and fitting polarisation fraction")
-    pol_f = S_ratio[0] ** 2 + S_ratio[1] ** 2 + S_ratio[2] ** 2
+    pol_f = np.sqrt(S_ratio[0] ** 2 + S_ratio[1] ** 2 + S_ratio[2] ** 2)
     pol_fit = np.polyfit(freqs, pol_f, 0)[0]
     print(f"Pol frac fit: {pol_fit}")
     return pol_f, pol_fit

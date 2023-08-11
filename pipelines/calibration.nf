@@ -26,6 +26,8 @@ process determine_flux_cal_solns {
                 Flux calibrator visibilities in a FITS file
             flagfile: val
                 Absolute path to AIPS flag file for flux calibrator
+            fcm: path
+                fcm file to update, unless already updated
             
         Output
             solns: path
@@ -40,14 +42,16 @@ process determine_flux_cal_solns {
     input:
         path cal_fits
         val flagfile
+        path fcm
 
     output:
         path "calibration_noxpol_${params.target}.tar.gz", emit: solns
         path "*_calibrated_uv.ms", emit: ms
         path "*ps", emit: plots
+        path "fcm_delayfix.txt", emit: fcm_delayfix
 
     script:
-        """       
+        """
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
@@ -58,6 +62,13 @@ process determine_flux_cal_solns {
         args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
             args="\$args --flagfile=$flagfile"
+        fi
+        # update fcm if not aready updated
+        if [ "$fcm" != "fcm_delayfix.txt" ]; then
+            cp $fcm fcm_delayfix.txt
+            args="\$args --updatefcmfile=fcm_delayfix.txt"
+        else
+            touch fcm_delayfix.txt
         fi
 
         if [ "$params.ozstar" == "true" ]; then
@@ -71,6 +82,7 @@ process determine_flux_cal_solns {
         touch calibration_noxpol_${params.target}.tar.gz
         touch stub_calibrated_uv.ms
         touch stub.ps
+        touch fcm_delayfix.txt
         """
 }
 
@@ -562,6 +574,7 @@ process determine_pol_cal_solns {
         args="\$args --reduce_df 1"
         args="\$args --plot"
         args="\$args --plotdir ."
+        args="\$args --pulsewidth=$params.pulsewidth_polcal"
         args="\$args --l_model $params.polcal_l_model"
         args="\$args --v_model $params.polcal_v_model"
 
