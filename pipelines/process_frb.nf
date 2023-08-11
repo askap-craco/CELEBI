@@ -54,6 +54,8 @@ process load_coarse_dynspec {
                 One of "X" or "Y" for the current polarisation being beamformed
             ant_idx: val
                 Zero-based index of the antenna being beamformed
+            fcm: path
+                fcm file to use
 
         Output
             data: path
@@ -67,6 +69,7 @@ process load_coarse_dynspec {
         val data
         each pol
         each ant_idx
+        path fcm
 
     output:
         path "${label}_ICS_${pol}*${ant_idx}.npy", emit: data
@@ -88,7 +91,7 @@ process load_coarse_dynspec {
         args="-t $data"
         args="\$args --ra $params.ra_frb"
         args="\$args -d$params.dec_frb"
-        args="\$args -f $params.fcm"
+        args="\$args -f $fcm"
         args="\$args -b 4"
         args="\$args --card 1"
         args="\$args -k"
@@ -105,7 +108,7 @@ process load_coarse_dynspec {
 
         mkdir delays
         args="-d $data"
-        args="\$args --parset $params.fcm"
+        args="\$args --parset $fcm"
         args="\$args --calcfile c1_f0/craftfrb.im"
         args="\$args -o ${label}_ICS"
         args="\$args --ics"
@@ -605,10 +608,11 @@ workflow process_frb {
     take:
         flux_cal_solns
         pol_cal_solns
+        fcm
 
     main:
         coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas)
+                                        antennas, fcm)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
         if ( new File(refined_candidate_path).exists()) {
             refined_candidate = Channel.fromPath(refined_candidate_path)
@@ -635,7 +639,7 @@ workflow process_frb {
             else {
                 (finder_fits, centre_bin_fits) = corr_finder(
                     "finder", params.data_frb, params.ra_frb, params.dec_frb, 
-                    binconfig.finder, binconfig.polyco, binconfig.int_time, "finder"
+                    binconfig.finder, binconfig.polyco, binconfig.int_time, "finder", fcm
                 )
             }
 
@@ -648,7 +652,8 @@ workflow process_frb {
                 if(!params.skiprfi) {
                     rfi_fits = corr_rfi(
                         "${params.label}_rfi", params.data_frb, params.ra_frb, 
-                        params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi"
+                        params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi",
+                        fcm
                     ).fits
                 }
             }
@@ -668,7 +673,7 @@ workflow process_frb {
             beam_centre = get_beam_centre()
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, beam_centre.ra, 
-                beam_centre.dec, empty_file, empty_file, empty_file, "field"
+                beam_centre.dec, empty_file, empty_file, empty_file, "field", fcm
             ).fits
         }
 
@@ -775,7 +780,7 @@ workflow process_frb {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV",
-                    params.nants_frb
+                    params.nants_frb, fcm
                 )
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,

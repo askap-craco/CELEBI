@@ -43,6 +43,7 @@ def _main():
     do_target = not args.calibrateonly and not args.image
     do_calibrate = not args.targetonly and not args.image
     do_plot = not args.skipplot and not args.image
+    do_fcmupdate = args.updatefcmfile != ""
 
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
@@ -85,6 +86,7 @@ def _main():
             flag_data(targetdata, args.tarflagfile, args.shadow)
 
     # Load and flag the calibrator data if needed
+    print("About to load a file from path", calpath)
     if do_calibrate:
         caldata = load_data(calpath, args.uvsrt)
         if args.flagfile != "":
@@ -109,6 +111,9 @@ def _main():
             args.refant,
             fringsnfname,
         )
+
+        if do_fcmupdate:
+            update_FCM(caldata, args.updatefcmfile)
 
     # Load FRING SN table into the target
     if do_target:
@@ -731,6 +736,12 @@ def get_args() -> argparse.Namespace:
         default=None,
         help="Skip imaging and use pre-existing image",
     )
+    parser.add_argument(
+        "--updatefcmfile", 
+        type=str,
+        default="", 
+        help="FCM file to update with results of residual delay. Will be edited in-place"
+    )
 
     return parser.parse_args()
 
@@ -884,6 +895,42 @@ def get_ref_freqs(caldata) -> "list[float]":
             )
     return reffreqs
 
+def update_FCM(
+    caldata, 
+    updatefcmfilename: str
+) -> None:
+    """ Look at the output of a FRING SN table and update delays in FCM file
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param updatefcmfilename: Name of the FCM file to update
+    :type updatefcmfilename: str
+    """
+    fcmlines = open(updatefcmfilename).readlines()
+    delaydict = vlbatasks.sntable2delaydict(caldata, snversion, 1, 2) #1 IF, 2 pols
+    fcmmap = {}
+    for line in fcmlines:
+        if "common.antenna" in line and "name" in line and not "aboriginal" in line:
+            fcmmap[line.split('.')[2]] = line.split()[-1].strip()
+    numdone = 0
+    for i, line in enumerate(fcmlines):
+        if "common.antenna" in line and "delay" in line and not "tos.epics.map" in line:
+            fcmantenna = line.split('.')[2]
+            if not fcmmap[fcmantenna] in delaydict.keys():
+                continue
+            if not line.strip()[-2:] == "ns":
+                print("Weird FCM delay entry", line, "aborting")
+                sys.exit()
+            delay = float(line.split()[-1].strip()[:-2])
+            delay -= delaydict[fcmmap[fcmantenna]]
+            fcmlines[i] = line.split('=')[0] + " = " + str(delay) + "ns\n"
+            numdone += 1
+    if not numdone == len(delaydict.keys()):
+        print("Warning - only updated {0} antennas while {1} were in the FRING delay table".format(numdone, len(delaydict.keys())))
+    output = open(updatefcmfilename, "w")
+    for line in fcmlines:
+        output.write(line)
+    output.close()
 
 def run_FRING(
     caldata,

@@ -1,9 +1,9 @@
 nextflow.enable.dsl=2
 
-include { process_flux_cal as fcal } from './process_flux_cal'
+include { process_flux_cal as fcal1; process_flux_cal as fcal2 } from './process_flux_cal'
 include { process_pol_cal as pcal } from './process_pol_cal'
 include { process_frb as frb } from './process_frb'
-include { create_empty_file } from './utils'
+include { create_empty_file as empty1; create_empty_file as empty2 } from './utils'
 
 // Defaults
 params.fluxflagfile = ""
@@ -21,17 +21,21 @@ params.nants = 2
 params.nants_fcal = params.nants
 
 workflow {
-    flux_cal_solns = fcal()
+    fcm_delayfix = fcal1(params.fcm).fcm_delayfix
+
+    if(fcm_delayfix != "") {
+        flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
+    }
 
     if(params.nopolcal) {
-        pol_cal_solns = create_empty_file("polcal.dat")
+        pol_cal_solns = empty1("polcal.dat")
     }
     else if (params.psoln != "") {
         pol_cal_solns = Channel.fromPath(params.psoln)
     }
     else {
         pol_cal_solns = pcal(
-            flux_cal_solns,
+            flux_cal_solns, fcm_delayfix
         )
     }
 
@@ -39,6 +43,7 @@ workflow {
         frb(
             flux_cal_solns,
             pol_cal_solns,
+            fcm_delayfix
         )
     }
 }

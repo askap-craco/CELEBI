@@ -155,12 +155,12 @@ process apply_offset {
     
     input:
         path offset
-	path doffset
+	    path doffset
         path askap_frb_pos
 
     output:
         path "${params.label}_final_position.txt", emit: final_position
-	path "${params.label}_hpmap.FITS", emit: hpmap
+	    path "${params.label}_hpmap.FITS", emit: hpmap
     
     script:
         """
@@ -168,7 +168,7 @@ process apply_offset {
             . $launchDir/../setup_proc
         fi   
 
-	python3 $localise_dir/apply_rotated_offset.py --frbname ${params.label} --frb $askap_frb_pos \
+	    python3 $localise_dir/apply_rotated_offset.py --frbname ${params.label} --frb $askap_frb_pos \
             --offset $offset --doffset $doffset --frbfits ${params.out_dir}/finder/${params.label}.fits \
             --hpfits  ${params.label}_hpmap.FITS > ${params.label}_final_position.txt        
 
@@ -176,7 +176,7 @@ process apply_offset {
     
     stub:
         """
-        touch test_final_position.txt
-	touch test_hpmap.FITS
+        touch ${params.label}_final_position.txt
+	    touch ${params.label}_hpmap.FITS
         """
 }

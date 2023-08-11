@@ -99,6 +99,7 @@ process do_ref_correlation {
         path inttime
         val startmjd
         tuple val(card), val(fpga)
+        path fcm
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -114,7 +115,7 @@ process do_ref_correlation {
         # create .bat0
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
-        args="-f $params.fcm"
+        args="-f $fcm"
         args="\$args -b 4"
         args="\$args -k"
         args="\$args --name=$label"
@@ -196,6 +197,8 @@ process do_correlation {
             refcorr: path
                 Optional reference correlation for fillDiFX. If not needed,
                 pass an empty file
+            fcm: path
+                fcm file to use
         
         Output
             correlated_data: path
@@ -218,6 +221,7 @@ process do_correlation {
         path inttime
         val startmjd
         tuple path(ref_corr), val(card), val(fpga)
+        path fcm
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -233,7 +237,7 @@ process do_correlation {
         # create .bat0
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
-        args="-f $params.fcm"
+        args="-f $fcm"
         args="\$args -b 4"
         args="\$args -k"
         args="\$args --name=$label"
@@ -498,6 +502,8 @@ workflow correlate {
                 File containing integration time in seconds
             mode: val
                 String describing specific mode (i.e. finder, field, rfi)
+            fcm: path
+                fcm to use
         
         Emit
             fits: path
@@ -512,6 +518,7 @@ workflow correlate {
         polyco
         inttime
         mode
+        fcm
 
     main:
         startmjd = get_start_mjd(data)
@@ -519,7 +526,7 @@ workflow correlate {
         // reference correlation
         ref_correlation = do_ref_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
-            ref_card_fpga
+            ref_card_fpga, fcm
         ).cx_fy
 
         // card_fpgas kicks off an instance of do_correlation for
@@ -530,7 +537,8 @@ workflow correlate {
             polyco.first(), 
             inttime.first(), 
             startmjd, 
-            ref_correlation.combine(card_fpgas)
+            ref_correlation.combine(card_fpgas),
+            fcm
         ).cx_fy
 
         all_correlations = ref_correlation.concat(correlated_data).collect()

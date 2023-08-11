@@ -16,6 +16,8 @@ workflow process_pol_cal {
         Take
             flux_cal_solns: path
                 Flux calibrator solutions tarball
+            fcm: path
+                fcm file to use in correlation
         
         Emit
             pol_cal_solns: val/path
@@ -26,6 +28,7 @@ workflow process_pol_cal {
 
     take:
         flux_cal_solns
+        fcm
 
     main:
         label = "${params.label}_polcal"
@@ -39,7 +42,7 @@ workflow process_pol_cal {
         else {
             fits = corr_pcal(
                 label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
-                empty_file, empty_file, empty_file, "polcal"
+                empty_file, empty_file, empty_file, "polcal", fcm
             ).fits
         }
 
@@ -72,7 +75,7 @@ workflow process_pol_cal {
             bform_pcal(
                 label, params.data_polcal, pos, flux_cal_solns, empty_file, 
                 params.dm_polcal, params.centre_freq_polcal, "-ds -IQUV",
-                params.nants_pcal
+                params.nants_pcal, fcm
             )
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   
