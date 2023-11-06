@@ -2,8 +2,25 @@ import time
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
 
 import numpy as np
-from scipy.interpolate import interp1d
 from joblib import Parallel, delayed
+
+
+########################################################################
+########################################################################
+# UPDATED 08/09/2023 - TYSON DIAL                                      #
+# Email: tdial@swin.edu.au                                             #
+#                                                                      #
+#                                                                      #
+# UPDATE NOTE:                                                         #
+# implemented vectorization, using numpy to apply deripple coeffs.     #
+# Also updated scipy.interp -> np.interp1                              #
+# Removed Scipy module                                                 #
+#                                                                      #
+#                                                                      #
+#                                                                      #
+#                                                                      #
+########################################################################
+########################################################################
 
 
 def _main():
@@ -33,7 +50,7 @@ def get_args() -> Namespace:
         "-c", "--coeffs", help="Deripple coefficients file"
     )
     parser.add_argument(
-        "--bw", type=float, help="Spectrum bandwidth in MHz", default=336
+        "--bw", type=int, help="Spectrum bandwidth in MHz", default=336
     )
     parser.add_argument(
         "--cpus", type=int, help="Number of cpus to parallelise across", default=1
@@ -42,7 +59,7 @@ def get_args() -> Namespace:
 
 
 def deripple(
-    FFFF: np.ndarray, coeffs_fname: str, fftLength: int, bw: float, cpus: int
+    FFFF: np.ndarray, coeffs_fname: str, fftLength: int, bw: int, cpus: int
 ) -> np.ndarray:
     """Deripple a fine spectrum.
 
@@ -53,13 +70,15 @@ def deripple(
     :param fftLength: Probably can be inferred from shape of FFFF
     :type fftLength: int
     :param bw: Bandwidth of spectrum in MHz
-    :type bw: float
+    :type bw: int
     :param cpus: Number of CPUs to parallelise across
     :type cpus: int
     :return: Derippled fine spectrum
     :rtype: :class:`np.ndarray`
     """
-    print("derippling....")
+
+    bw = int(bw) # MAKE SURE IT'S AN INTEGER
+    
     FFFF = FFFF[0, :, 0]
 
     # ASKAP Parameters
@@ -71,35 +90,31 @@ def deripple(
     coeffs = np.load(coeffs_fname, mmap_mode="r")
 
     print("Interpolating...")
-    interp = interp1d(6 * np.arange(len(coeffs)), coeffs)
+    interp_x = np.interp(np.arange(passbandLength+1),6*np.arange(coeffs.size),coeffs)
+
 
     print("Calculating deripple...")
-    deripple = np.ones(passbandLength + 1) / abs(
-        interp(np.arange(passbandLength + 1))
-    )
+    deripple = np.ones(passbandLength + 1) / np.abs(interp_x)
 
-    def do_deripple(chan, ii):
-        FFFF[ii + chan * passbandLength * 2] = (
-            FFFF[ii + chan * passbandLength * 2]
-            * deripple[passbandLength - ii]
-        )
-        FFFF[passbandLength + ii + chan * passbandLength * 2] = (
-            FFFF[passbandLength + ii + chan * passbandLength * 2]
-            * deripple[ii]
-        )        
+    #PRINT SOME INFOMATION
+    print("FFT LENGTH (oversamp): {:d}".format(fftLength))
+    print("PASS BAND LENGTH: {:d}".format(passbandLength))
+    print("BAND WIDTH (MHz): {:d}".format(bw))
+    
 
-    if cpus > 1:
-        Parallel(n_jobs=cpus, require="sharedmem")(
-            delayed(do_deripple)(chan, ii)
-            for ii in range(passbandLength) for chan in range(bw)
-        )
-    else: 
-        for chan in range(bw):
-            for ii in range(passbandLength):
-                do_deripple(chan, ii)
+    print("derippling....")
+    deripple = np.concatenate((deripple[:0:-1],deripple[:-1]),axis=0)
 
-    return FFFF
+    #reshape
+    FFFF = FFFF[:bw*passbandLength*2] #crop data if nessesary
+    FFFF = FFFF.reshape(bw,passbandLength*2)
+    
+    #apply deripple
+    FFFF *= deripple
 
+    print("derippling Done.")
+    #redo reshapping, make single fine spectrum
+    return FFFF.flatten()
 
 if __name__ == "__main__":
     _main()

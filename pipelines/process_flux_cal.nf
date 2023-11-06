@@ -37,9 +37,19 @@ workflow process_flux_cal {
         // }
         // else {
         empty_file = create_empty_file("binconfig")
+        if(params.binconfig_fluxcal == "") {
+          binconfigpath = empty_file
+          polycopath = empty_file
+          inttimepath = empty_file
+        }
+        else {
+          binconfigpath = Channel.fromPath(params.binconfig_fluxcal).first()
+          polycopath = Channel.fromPath(params.polyco_fluxcal).first()
+          inttimepath = Channel.fromPath(params.inttime_fluxcal).first()
+        }
         fits = corr_fcal(
             label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
-            empty_file, empty_file, empty_file, "fluxcal", fcm
+            binconfigpath, polycopath, inttimepath, "fluxcal", fcm
         ).fits
         // }
 

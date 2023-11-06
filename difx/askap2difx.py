@@ -164,7 +164,7 @@ def _main():
         if args.ref is not None:
             fill = "./run_fill_DiFX"
         else:
-            fill = "#skip fill_DiFX"
+            fill = "./run_tscrunch_DiFX"
 
         # Create a run script that will actually be executed by sbatch
         if args.gstar:
@@ -260,10 +260,11 @@ def _main():
             runscript = (
                 f"for b in {basename}.difx/*b0* ; do\n"
                  "  echo $b\n"
-                f"  tscrunchDiFX.py ../{args.ref}/*[0-9].difx/$(basename $b) ref_tscrunch.difx/$(basename $b) -i {basename}.input > tscrunch_log.txt\n"
-                 "  mjd=`tac tscrunch_log.txt | awk 'NF{print $NF; exit}'`\n"
+                #f"  tscrunchDiFX.py ../{args.ref}/*[0-9].difx/$(basename $b) ref_tscrunch.difx/$(basename $b) -i {basename}.input > tscrunch_log.txt\n"
+                # "  mjd=`tac tscrunch_log.txt | awk 'NF{print $NF; exit}'`\n"
+                f"  mjd=`tac ../{args.ref}/tscrunch_log.$(basename $b).txt | awk 'NF{{print $NF; exit}}'`\n"
                 f"  tscrunchDiFX.py $b {basename}_tscrunch.difx/$(basename $b) -i {basename}.input --mjd=$mjd > tscrunch_log2.txt\n"
-                f"  fillDiFX.py {basename}_tscrunch.difx/$(basename $b) ref_tscrunch.difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
+                f"  fillDiFX.py {basename}_tscrunch.difx/$(basename $b) ../{args.ref}/*[0-9].difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
                  "done\n"
                 f"mv {basename}.difx {basename}_old.difx\n"
                 f"mv {basename}_fill.difx {basename}.difx\n"
@@ -271,6 +272,19 @@ def _main():
             print(runscript)
             runfill.write(runscript)
         os.chmod("run_fill_DiFX", 0o775)
+    else:
+        with open("run_tscrunch_DiFX", "w") as runtscrunch:
+            runscript = (
+                f"for b in {basename}.difx/*b0* ; do\n"
+                 "  echo $b\n"
+                f"  tscrunchDiFX.py $b {basename}_tscrunch.difx/$(basename $b) -i {basename}.input > tscrunch_log.$(basename $b).txt\n"
+                 "done\n"
+                f"mv {basename}.difx {basename}_old.difx\n"
+                f"cp -r {basename}_tscrunch.difx {basename}.difx\n"
+            )
+            print(runscript)
+            runtscrunch.write(runscript)
+        os.chmod("run_tscrunch_DiFX", 0o775)
 
     # Print the line needed to run the stitching and then subsequently difx2fits
     print("Then run difx2fits")

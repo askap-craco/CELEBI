@@ -9,7 +9,7 @@ params.finderimagesize = 1024
 params.finderpixelsize = 1
 params.fieldimagesize = 3000
 params.polcalimagesize = 128
-
+params.minbeamfrac = 0.05
 params.refant = 3   // reference antenna - index corresponds to ak name
                     // i.e. refant = 3 corresponds to ak03
 
@@ -55,7 +55,8 @@ process determine_flux_cal_solns {
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
-        args="\$args -u 51"
+        aipsid="\$((RANDOM%8192))"
+        args="\$args -u \$aipsid"
         args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
         args="\$args -f 15"
@@ -152,8 +153,8 @@ process image_finder {
         args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
-        if [ "$params.flagfinder" != "" ] && [ "$params.flagfinder" != "null" ]; then
-            args="\$args --tarflagfile=$params.flagfinder"
+        if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
+            args="\$args --tarflagfile=$params.finderflagfile"
         fi
 
         ParselTongue $localise_dir/calibrateFRB.py \$args
@@ -320,6 +321,7 @@ process image_field {
         args="\$args --nmaxsources=$params.nfieldsources"
         args="\$args --src=$params.target"
         args="\$args --refant=$params.refant"
+        args="\$args --minbeamfrac=$params.minbeamfrac"
 
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == "null" ]; then

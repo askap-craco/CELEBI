@@ -18,6 +18,8 @@ beamform_dir = "$baseDir/../beamform/"
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
 
+params.bw = 336 /*Default value*/
+
 process create_calcfiles {
     /*
         Create the files that contain the delays required for 
@@ -313,6 +315,7 @@ process deripple {
         args="-f $spectrum"
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
+        args="\$args --bw $params.bw"
         args="\$args -c $coeffs"
         args="\$args --cpus 1"
 
@@ -367,7 +370,7 @@ process dedisperse {
         args="-f $spectrum"
         args="\$args --DM $dm"
         args="\$args --f0 $centre_freq"
-        args="\$args --bw 336"
+        args="\$args --bw $params.bw"
         args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed_${dm}.npy"
 
         echo "python3 $beamform_dir/dedisperse.py \$args"
@@ -494,7 +497,7 @@ process generate_dynspecs {
         args="\$args -y ${label}_X_t_${dm}.npy"
         args="\$args -o ${label}_!_@_${dm}.npy"
         args="\$args -f $centre_freq"
-        args="\$args --bw 336"
+        args="\$args --bw $params.bw"
         if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
             args="\$args -p $pol_cal_solns"
         fi

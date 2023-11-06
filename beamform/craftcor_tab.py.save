@@ -27,6 +27,7 @@ for i in range(36):
     ant_map[f"ak{i+1:02d}"] = i
 
 __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
+              "Hyerin Cho <hyerin.cho@cfa.harvard.edu>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
 
 
@@ -163,12 +164,10 @@ class AntennaSource:
 
         print("samp_start + nsamp <= self.nsamps")
         print(f"{sampoff} + {nsamp} <= {self.vfile.nsamps}")
-        print("corr.sideband is ", corr.sideband)
         rawd = self.vfile.read(sampoff, nsamp)
         np.save("TEMP_rawd.npy", rawd)
         del rawd
         rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
-        
 
         assert rawd.shape == (
             nsamp,
@@ -180,10 +179,8 @@ class AntennaSource:
             np.arange(nfine, dtype=float) - float(nfine) / 2.0
         ) * corr.fine_chanbw
 
-        # Leave the fine channel frequencies running the same direction regardless of sideband - we will convert the sideband sense prior to correction
-        freqs = -freqs
-        #if corr.sideband == -1:
-        #    freqs = -freqs
+        if corr.sideband == -1:
+            freqs = -freqs
 
         # Save and reload to improve memory efficiency
         np.save("TEMP_freqs.npy", freqs)
@@ -198,12 +195,7 @@ class AntennaSource:
             # rawd's shape: (nsamp, corr.ncoarse_chan)
             x1 = rawd[:, c].reshape(-1, corr.nfft)
 
-            # Conjugate the incoming data if needed to turn it into LSB
-            if corr.sideband == 1: # FIXME this is a change
-                x1 = np.conj(x1)
-
-            # Fringe rotation for Earth's rotation - use opposite LO sign for lower sideband data
-            #turn_fringe = -cfreq * geom_delays_us * corr.sideband #FIXME now everything is LSB this should be unnecessary
+            # Fringe rotation for Earth's rotation
             turn_fringe = cfreq * geom_delays_us
 
             phasor_fringe = np.exp(
@@ -215,13 +207,6 @@ class AntennaSource:
             # xfguard is xf1 with the ends trimmed off
             xf1 = np.fft.fft(x1, axis=1)
             xf1 = np.fft.fftshift(xf1, axes=1)
-            
-            # If it is upper sideband, need to conjugate and reverse the channel order to make it appear lower sideband
-            # FIXME: not needed if data is already turned into LSB in the time domain
-            #if corr.sideband == 1:
-            #    xf1 = np.conj(xf1)
-            #    xf1 = np.flip(xf1, axis=1)
-
             xfguard_f = xf1[
                 :, corr.nguard_chan: corr.nguard_chan + nfine:
             ]  # scale because oterhwise it overflows
@@ -243,6 +228,7 @@ class AntennaSource:
             # select the channels for this coarse channel
             fcstart = c * nfine
             fcend = (c + 1) * nfine
+
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
         Parallel(n_jobs=corr.values.cpus, require="sharedmem")(

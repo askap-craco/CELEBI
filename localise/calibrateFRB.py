@@ -67,7 +67,7 @@ def _main():
 
     bpfname = os.path.abspath(f"bandpasses_{xpol}_{args.src}.bp.txt")
     fringsnfname = os.path.abspath(f"delays_{xpol}_{args.src}.sn.txt")
-    selfcalsnfname = os.path.abspath(f"selfcal_{xpol}_{args.src}.sn.txt")
+    selfcalsnfname = os.path.abspath(f"selfcal_{xpol}_{args.src}.sn.txt") if not do_fcmupdate else ""
     xpolsnfname = os.path.abspath(f"xpolfring_{xpol}_{args.src}.sn.txt")
     bptableplotfname = os.path.abspath(f"bptable_{xpol}_{args.src}.ps")
     uncalxcorplotfname = os.path.abspath(f"uncalxcor_{xpol}_{args.src}.ps")
@@ -169,7 +169,7 @@ def _main():
         vlbatasks.loadtable(targetdata, bpfname, bpversion)
 
     # Run selfcal
-    if do_calibrate:
+    if do_calibrate and not do_fcmupdate:
         run_selfcal(
             caldata,
             args.sourcename,
@@ -181,7 +181,7 @@ def _main():
     # Load up the selfcal SN table
     if do_target:
         vlbatasks.loadtable(targetdata, selfcalsnfname, snversion)
-    if do_calibrate:
+    if do_calibrate and not do_fcmupdate:
         vlbatasks.loadtable(caldata, selfcalsnfname, snversion)
 
     # Calibrate
@@ -237,6 +237,7 @@ def _main():
 
     imsize = args.imagesize
     pxsize = args.pixelsize
+    minbeamfrac = args.minbeamfrac
     polarisations = args.pols.split(",")
 
     if args.dirtyonly:
@@ -264,7 +265,7 @@ def _main():
             "noisethreshold": 6.0,
             "lownoisethreshold": 4.0,
             "smoothfactor": 0.25,
-            "minbeamfrac": 0.05,
+            "minbeamfrac": minbeamfrac,
             "growiterations": 10,
         }
 
@@ -741,6 +742,9 @@ def get_args() -> argparse.Namespace:
         type=str,
         default="", 
         help="FCM file to update with results of residual delay. Will be edited in-place"
+    )
+    parser.add_argument(
+        "--minbeamfrac", type=float, default=0.05, help="tclean auto-multithresh parameter. Minimum beam fraction for pruning."
     )
 
     return parser.parse_args()

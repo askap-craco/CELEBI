@@ -26,6 +26,7 @@ params.DMstep = 0.01
 params.opt_DM_dt = 100
 
 params.opt_gate = false
+params.skip_ics = false
 
 params.pols = ['X', 'Y']
 polarisations = Channel
@@ -614,13 +615,18 @@ workflow process_frb {
         coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
                                         antennas, fcm)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-        if ( new File(refined_candidate_path).exists()) {
-            refined_candidate = Channel.fromPath(refined_candidate_path)
+        if (!params.skip_ics) {
+            if ( new File(refined_candidate_path).exists()) {
+                refined_candidate = Channel.fromPath(refined_candidate_path)
+            }
+            else {
+                refine_candidate(params.label, coarse_ds.data.collect(), 
+                                 coarse_ds.time.first(), params.snoopy)
+                refined_candidate = refine_candidate.out.cand
+            }
         }
         else {
-            refine_candidate(params.label, coarse_ds.data.collect(), 
-                             coarse_ds.time.first(), params.snoopy)
-            refined_candidate = refine_candidate.out.cand
+            refined_candidate = Channel.fromPath(params.snoopy)
         }
         binconfig = generate_binconfig(refined_candidate)
         empty_file = create_empty_file("file")

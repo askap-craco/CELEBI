@@ -129,7 +129,7 @@ process do_ref_correlation {
         args="\$args --dir=$baseDir/../difx"
         args="\$args --startmjd=$startmjd"
 
-        # High-band FRBs need --upersideband
+        # High-band FRBs need --uppersideband
         if [ "$params.uppersideband" == "true" ]; then
             args="\$args --uppersideband"
         fi
@@ -251,7 +251,7 @@ process do_correlation {
         args="\$args --dir=$baseDir/../difx"
         args="\$args --startmjd=$startmjd"
 
-        # High-band FRBs need --upersideband
+        # High-band FRBs need --uppersideband
         if [ "$params.uppersideband" == "true" ]; then
             args="\$args --uppersideband"
         fi
