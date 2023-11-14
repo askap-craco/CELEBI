@@ -1,7 +1,8 @@
 # import casa analysis scripts for converting component lists into a position and corresponding pixel
 import analysisUtils as au
 
-allinput = raw_input().split(",")
+#allinput = raw_input().split(",")
+allinput = input().split(",")
 target = allinput[0]
 nsources = int(allinput[1])
 cutoff = float(allinput[2])

@@ -55,13 +55,15 @@ process flag_proper {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi   
-
+        #if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        #fi   
+        ml apptainer
+        set -a
+        set -o allexport
 	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
 
-        python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt'
         """
     
     stub:
@@ -96,13 +98,15 @@ process flag_initial {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi   
-
+        #if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        #fi   
+        ml apptainer
+        set -a
+        set -o allexport
 	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
 
-        python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none'
         """
     
     stub:

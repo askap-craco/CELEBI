@@ -40,10 +40,16 @@ process get_start_mjd {
 
     script:
         """    
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-        python3 $localise_dir/get_start_mjd.py $data
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
+        ml apptainer
+        set -a
+        set -o allexport
+        # apptainer exec -B /fred/oz313/:/fred/oz313/ /fred/oz313/container-images/celebi_3rdNov.sif bash -c 'source /opt/setup_proc_container && python3 \$localise_dir/get_start_mjd.py \$data' 
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 /fred/oz313/src/CELEBI/pipelines/../localise//get_start_mjd.py $data' 
+ 
+        # python3 $localise_dir/get_start_mjd.py $data
         """
     
     stub:
@@ -108,12 +114,16 @@ process do_ref_correlation {
     script:
         """
         export CRAFTCATDIR="."  # necessary?
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
 
         # create .bat0
-        bat0.pl `find $data/*/*/*vcraft | head -1`
+        ml apptainer
+        set -a
+        set -o allexport
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && bat0.pl `find $data/*/*/*vcraft | head -1`'
+        # bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $fcm"
         args="\$args -b 4"
@@ -159,8 +169,8 @@ process do_ref_correlation {
         if [ "\$int_time" != "" ]; then
             args="\$args -i \$int_time"
         fi
-
-        python3 $localise_dir/processTimeStep.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
+         # python3 $localise_dir/processTimeStep.py \$args
         """
     
     stub:
@@ -230,12 +240,15 @@ process do_correlation {
     script:
         """
         export CRAFTCATDIR="."  # necessary?
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
+        ml apptainer
+        set -a
+        set -o allexport
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && bat0.pl `find $data/*/*/*vcraft | head -1`'
         # create .bat0
-        bat0.pl `find $data/*/*/*vcraft | head -1`
+        # bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $fcm"
         args="\$args -b 4"
@@ -285,7 +298,9 @@ process do_correlation {
         # Provide reference correlation
         args="\$args --ref=$ref_corr"
 
-        python3 $localise_dir/processTimeStep.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
+        # python3 $localise_dir/processTimeStep.py \$args
+
         """
     
     stub:
@@ -326,9 +341,16 @@ process difx_to_fits {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+
         for c in `seq 1 7`; do
             D2Ds=""
             if find c\$c*; then
@@ -344,19 +366,19 @@ process difx_to_fits {
                         bin4="\$(printf "%04d" \$b)"
                         difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
                         echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-                        echo "mv CRAFTFR.0.bin\${bin4}.source0000.FITS \
+                        echo "mv CRAFTFRB.0.bin\${bin4}.source0000.FITS \
                             CRAFT_CARD\${c}_BIN\${bin2}.FITS" >> runalldifx2fits
                     done
                 else
                     difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
                     echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-                    echo "mv CRAFTFR.0.bin0000.source0000.FITS \
+                    echo "mv CRAFTFRB.0.bin0000.source0000.FITS \
                         CRAFT_CARD\$c.FITS" >> runalldifx2fits
                 fi
             fi
         done
         chmod 775 runalldifx2fits
-        ./runalldifx2fits
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && ./runalldifx2fits'
 
         antlist=""
         for i in `seq -w 1 36`; do
@@ -366,6 +388,10 @@ process difx_to_fits {
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
+
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         aipsid="\$((RANDOM%8192))"
         if [ "$mode" != "finder" ]; then
@@ -378,14 +404,13 @@ process difx_to_fits {
             args="\$args CRAFT_CARD?.FITS"
 
             echo "loadfits.py \$args"
-            #loadfits.py \$args
 
-            if [ "$params.ozstar" == "true" ]; then
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-            fi
+            # if [ "$params.ozstar" == "true" ]; then
+            #    echo ". $launchDir/../setup_loadfits
+            # fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
-            ./doloadfits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
         else
             for i in `seq 0 7`; do
                 bin="\$(printf "%02d" \$i)"
@@ -399,16 +424,17 @@ process difx_to_fits {
 
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
-                if [ "$params.ozstar" == "true" ]; then
-                    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-                fi    
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                # if [ "$params.ozstar" == "true" ]; then
+                #    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                # fi    
+                # echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
-                ./doloadfits
+                apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
                 rm -f doloadfits
             done
         fi
+        rm -rf aips_dir
         """
     
     stub:
@@ -454,21 +480,28 @@ process subtract_rfi {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_parseltongue3
+        # fi
 
         # subtractions not empty: finder mode
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
         if [ `wc -c $subtractions | awk '{print \$1}'` != 0 ]; then
             fits="$target_fits"
             bin=\${fits:9:2}
             sleep \$bin     # stagger starts of parallel processes
             scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
 
-            uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits'
         else
-            uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits'
         fi
+        rm -rf aips_dir
         """
     
     stub:
@@ -522,7 +555,7 @@ workflow correlate {
 
     main:
         startmjd = get_start_mjd(data)
-
+        println(data)
         // reference correlation
         ref_correlation = do_ref_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 

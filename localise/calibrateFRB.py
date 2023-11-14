@@ -44,7 +44,6 @@ def _main():
     do_calibrate = not args.targetonly and not args.image
     do_plot = not args.skipplot and not args.image
     do_fcmupdate = args.updatefcmfile != ""
-
     AIPS.userno = args.userno
     xpolmodelfile = args.xpoldelaymodelfile
 
@@ -341,7 +340,7 @@ def _main():
             casaout.close()
             if not args.image:
                 os.system("chmod 775 imagescript.py")
-                os.system("casa --nologger -c imagescript.py")
+                os.system("python imagescript.py 2>/dev/null")
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
@@ -356,7 +355,7 @@ def _main():
                 )
                 casaout.close()
                 os.system("chmod 775 exportfits.py")
-                os.system("casa --nologger -c exportfits.py")
+                os.system("python exportfits.py 2>/dev/null")
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
@@ -374,7 +373,7 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    os.system("python imagescript.py 2>/dev/null")
                 elif args.image[-6:] == ".image":
                     casaimagename = args.image
                     fitsimagename = f"{args.image[:-6]}.fits"
@@ -388,7 +387,7 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    os.system("python imagescript.py 2>/dev/null")
                 elif args.image[-5:] == ".fits":
                     casaimagename = f"{args.image[:-5]}.image"
                     fitsimagename = args.image
@@ -402,12 +401,12 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    os.system("python imagescript.py 2>/dev/null")
 
                 # Identify point sources in image
                 print("Identifying point sources")
                 os.system(
-                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | casa --nologger -c {args.findsourcescript}"
+                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | python {args.findsourcescript}"
                 )
                 os.system(
                     f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
@@ -1296,6 +1295,7 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
     :type msfname: str
     """
     casaout = open("loadtarget.py", "w")
+    #casaout.write("from casatasks import casalog\ncasalog.filter('SEVERE')\ncasalog.post('SEVERE')\n")
     write_casa_cmd(
         casaout,
         "importuvfits",
@@ -1306,7 +1306,7 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
         },
     )
     casaout.close()
-    os.system("casa --nologger -c loadtarget.py")
+    os.system("python loadtarget.py")
 
 
 def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
@@ -1324,7 +1324,7 @@ def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
     def val2str(v):
         return f"'{v}'"
 
-    cmdstr = f"{cmd}("
+    cmdstr = f"from casatasks import {cmd}\n{cmd}("
     for key, val in vals.items():
         if isinstance(val, str):
             valstr = val2str(val)

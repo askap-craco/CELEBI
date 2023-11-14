@@ -63,8 +63,13 @@ def _main():
 
     # Launch/process final job
     if args.slurm:
-        print("Launching job!")
-        os.system("./launchjob")
+        #os.system("./launchjob")
+        os.system("./run.sh")
+        if args.ref is not None:
+            os.system("./run_fill_DiFX")
+        else:
+            os.system("./run_tscrunch_DiFX")
+        os.system("./runmergedifx")
     else:
         os.system("./run.sh")
         if args.ref is not None:
