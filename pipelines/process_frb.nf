@@ -702,18 +702,18 @@ workflow process_frb {
         }
 
         // Flagging
-        if(params.autoflag) {
+        if(!params.noflag) {
             field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
         
             if(new File(field_fits_flagged).exists()) {
-                    field_outfits = Channel.fromPath(field_fits_flagged)
+                field_outfits = Channel.fromPath(field_fits_flagged)
             }
             else {
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
             }
 
             if(params.fieldimage == "") {
-                    field_fits = field_outfits
+                field_fits = field_outfits
                         }
             else {
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
@@ -786,7 +786,7 @@ workflow process_frb {
             if(!params.opt_gate){
         		finalres = apply_offset(offset, doffset, askap_frb_pos)
                 final_position = finalres.final_position
-        		finalmap = finalres.hpmap
+        		// finalmap = finalres.hpmap
             }
         }
         else if(new File(offset_path).exists()) {
