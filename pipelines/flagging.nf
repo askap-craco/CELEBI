@@ -45,10 +45,7 @@ process flag_proper {
         #then
         #    . $launchDir/../setup_proc
         #fi   
-        ml apptainer
-        set -a
-        set -o allexport
-
+        
 	askap_band="low"
 
     	if [ \$(echo "$params.centre_freq_frb > 1500.0" |bc -l) -gt 0 ] 
@@ -64,10 +61,7 @@ process flag_proper {
         badchanfile="${flagging_dir}badchannels_askap_\${askap_band}_${src}.txt"
         echo "Bad channel file \${badchanfile}"
 
-        
-
-
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagging_dir}doflag.py infitsfile.fits outfitsfile.fits \${badchanfile} proper logfile.txt bad_ant_file.txt'
+        /fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py infitsfile.fits outfitsfile.fits \${badchanfile} proper logfile.txt bad_ant_file.txt
 
 	cp outfitsfile.fits ${outfitsfilepub}
         """
@@ -113,9 +107,7 @@ process flag_initial {
 	#    then
         #    . $launchDir/../setup_proc
         #fi   
-        ml apptainer
-        set -a
-        set -o allexport
+        
         askapband = low
             
         if [ $params.centre_freq_frb -gt 1500.0 ] 
@@ -130,8 +122,8 @@ process flag_initial {
 
         badchanfile = ${flagging_dir}badchannels_askap_${askapband}_${src}.txt
         echo "Bad channel file ${badchanfile}"
-
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagDir}/doflag.py ${infitsfile} ${outfitsfile}.fits ${badchanfile} initital logfile.txt none'
+	
+	/fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py ${infitsfile} ${outfitsfile}.fits ${badchanfile} initital logfile.txt none
         """
     
     stub:
