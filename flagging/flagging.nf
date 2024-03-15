@@ -58,12 +58,10 @@ process flag_proper {
         #if [ "$params.ozstar" == "true" ]; then
         #    . $launchDir/../setup_proc
         #fi   
-        ml apptainer
-        set -a
-        set -o allexport
+        
 	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
-
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt'
+	
+	module load gcc/12.2.0 && module load gsl/2.7 && module load python/3.10.8 && module load numpy/1.24.2-scipy-bundle-2023.02 && module load matplotlib/3.7.0 && python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt
         """
     
     stub:
@@ -101,12 +99,10 @@ process flag_initial {
         #if [ "$params.ozstar" == "true" ]; then
         #    . $launchDir/../setup_proc
         #fi   
-        ml apptainer
-        set -a
-        set -o allexport
+        
 	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
-
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none'
+	
+	module load gcc/12.2.0 && module load gsl/2.7 && module load python/3.10.8 && module load numpy/1.24.2-scipy-bundle-2023.02 && module load matplotlib/3.7.0 && python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none
         """
     
     stub:
