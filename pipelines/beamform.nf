@@ -59,7 +59,7 @@ process create_calcfiles {
         ml apptainer
         set -a
         set -o allexport
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && startmjd=`python3 $localise_dir/get_start_mjd.py $data`'
+        startmjd=`python3 $localise_dir/get_start_mjd.py $data`
 
         export CRAFTCATDIR="."
 
