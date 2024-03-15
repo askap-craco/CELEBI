@@ -441,11 +441,11 @@ def plot(args, stokes_fnames, cand):
     # plot full Stokes I time series at 1 ms time resolution
     plot_ts(stks[0], idx_1ms, f"{args.label}_I_{args.DM}.png")
 
-    chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_low.txt'
+    chanlist = '/fred/oz313/src/CELEBI/flagging/htrchanlist_low.txt'
     if(args.f > 1100.0):
-        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_mid.txt'
+        chanlist = '/fred/oz313/src/CELEBI/flagging/htrchanlist_mid.txt'
     if(args.f > 1500.0):
-        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_high.txt'
+        chanlist = '/fred/oz313/src/CELEBI/flagging/htrchanlist_high.txt'
     # Mask bad channels and calculate S/N
     plot_stokes_mask_chan(stks, idx_1ms, 10.0, 50.0, \
                     chanlist, \
