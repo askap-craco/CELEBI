@@ -155,7 +155,7 @@ process apply_offset {
         Output
             final_position: path
                 FRB final position with error as a txt file
-	    hpmap: path
+            hpmap: path
                 Healpix map in FITS format
     */
     publishDir "${params.out_dir}/position", mode: "copy"
@@ -167,7 +167,6 @@ process apply_offset {
 
     output:
         path "${params.label}_final_position.txt", emit: final_position
-	    path "${params.label}_hpmap.FITS", emit: hpmap
     
     script:
         """
@@ -179,10 +178,10 @@ process apply_offset {
         set -o allexport
         tmp_file=".TMP_\$BASHPID"
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/apply_rotated_offset.py --frbname ${params.label} --frb $askap_frb_pos \
-            --offset $offset --doffset $doffset --frbfits ${params.out_dir}/finder/${params.label}.fits \
-            --hpfits  ${params.label}_hpmap.FITS > ${params.label}_final_position.txt'        
-
+            --offset $offset --doffset $doffset --frbfits ${params.out_dir}/finder/${params.label}.fits  \
+             > ${params.label}_final_position.txt'
         """
+
     
     stub:
         """
