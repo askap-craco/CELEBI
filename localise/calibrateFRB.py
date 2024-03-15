@@ -7,6 +7,7 @@ import socket
 import sys
 
 import astropy.units as un
+from astropy.io import fits
 import numpy as np
 import vlbatasks
 from AIPS import AIPS
@@ -246,6 +247,7 @@ def _main():
         polarisations = ["I"]
 
     if args.imagecube:
+        print('IMAGECUBE')
         maskstr = "circle[[{0}pix,{0}pix], 10pix ]".format(imsize / 2)
         phasecenter = f"{args.phasecenter}"  # .encode()   Not sure why encode
         deftcleanvals = {  # Default values to be passed to tclean
@@ -257,19 +259,22 @@ def _main():
             "wprojplanes": -1,
             "pblimit": -1,
             "deconvolver": "multiscale",
-            "weighting": "natural",
+            "weighting": "briggs",
+            "robust": 0.5,
             # "mask": maskstr,
             "usemask": "auto-multithresh",
             "sidelobethreshold": 1.2,
-            "noisethreshold": 6.0,
+            "noisethreshold": 4.0,#6.0,
             "lownoisethreshold": 4.0,
             "smoothfactor": 0.25,
             "minbeamfrac": minbeamfrac,
             "growiterations": 10,
+            "stokes": "pseudoI",
         }
 
         # Do the cube
         for pol in polarisations:
+            print('DOING POL CUBE')
             tcleanvals = deftcleanvals.copy()
             casaout = open("imagescript.py", "w")
 
@@ -280,11 +285,12 @@ def _main():
                 outlierfields = write_outlier_file(
                     pol, args.noisecenter, args.imsize
                 )
-            else:
-                outlierfields = []
+                tcleanvals["outlierfile"] = outlierfields
+            #else:
+            #    outlierfields = ['']
 
-            tcleanvals["outlierfile"] = outlierfields
-
+            #tcleanvals["outlierfile"] = outlierfields
+            #print('test',outlierfields)
             # Determine values to be passed to tclean based on required
             # image type
             casacmd = "tclean"
@@ -340,7 +346,8 @@ def _main():
             casaout.close()
             if not args.image:
                 os.system("chmod 775 imagescript.py")
-                os.system("python imagescript.py 2>/dev/null")
+                os.system("python imagescript.py")
+                #os.system("casa -c --no-logger imagescript.py")
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
@@ -355,7 +362,8 @@ def _main():
                 )
                 casaout.close()
                 os.system("chmod 775 exportfits.py")
-                os.system("python exportfits.py 2>/dev/null")
+                os.system("python exportfits.py")
+                #os.system("casa -c --no-logger exportfits.py")
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
@@ -373,7 +381,8 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("python imagescript.py 2>/dev/null")
+                    os.system("python imagescript.py")
+                    #os.system("casa -c --no-logger imagescript.py")
                 elif args.image[-6:] == ".image":
                     casaimagename = args.image
                     fitsimagename = f"{args.image[:-6]}.fits"
@@ -387,7 +396,8 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("python imagescript.py 2>/dev/null")
+                    os.system("python imagescript.py")
+                    #os.system("casa -c --no-logger imagescript.py")
                 elif args.image[-5:] == ".fits":
                     casaimagename = f"{args.image[:-5]}.image"
                     fitsimagename = args.image
@@ -401,7 +411,8 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("python imagescript.py 2>/dev/null")
+                    os.system("python imagescript.py")
+                    #os.system("casa -c --no-logger imagescript.py")
 
                 # Identify point sources in image
                 print("Identifying point sources")
@@ -1294,6 +1305,12 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
     :param msfname: Destination measurement set name
     :type msfname: str
     """
+    #   ALMAfication of visibilities
+    print("ALMAfying visibilities...!!!!")
+    with fits.open(fitsfname, mode='update') as filehandle:
+        filehandle[0].header['INSTRUME'] = 'ALMA'
+        filehandle[0].header['TELESCOP'] = 'ALMA'
+
     casaout = open("loadtarget.py", "w")
     #casaout.write("from casatasks import casalog\ncasalog.filter('SEVERE')\ncasalog.post('SEVERE')\n")
     write_casa_cmd(
