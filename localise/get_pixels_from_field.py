@@ -1,6 +1,6 @@
 # import casa analysis scripts for converting component lists into a position and corresponding pixel
 import analysisUtils as au
-
+from casatools import image
 #allinput = raw_input().split(",")
 allinput = input().split(",")
 target = allinput[0]
@@ -24,6 +24,9 @@ def get_pixels_from_field(target, nsources, cutoff, posfile):
     """
 
     # open file, use casa task "findsources" to identify bright continuum sources
+    #ia.open(target)
+    #print(target)
+    ia = image()
     ia.open(target)
     clrec = ia.findsources(nmax=nsources, point=False, cutoff=cutoff)
     pos_hmsdms = ""##ra,dec\n"
