@@ -6,6 +6,7 @@
 nextflow.enable.dsl=2
 
 include { get_start_mjd } from './correlate'
+include { apply_pol_cal_solns } from './calibration'
 
 params.pols = ['X', 'Y']
 polarisations = Channel
@@ -19,6 +20,7 @@ params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 params.bw = 336 /*Default value*/
+
 
 process create_calcfiles {
     /*
@@ -473,10 +475,6 @@ process generate_dynspecs {
             pol_time_series: path
                 Two ~3 ns, dedispersed time series, one in each linear 
                 polarisation
-            ds_args: val
-                String containing arguments to be passed to dynspecs.py. Use
-                this to specify which Stokes parameters and data types (time
-                series or dynamic spectrum) to generate.
             centre_freq: val
                 Central frequency of spectra (MHz)
             dm: val
@@ -497,10 +495,8 @@ process generate_dynspecs {
     input:
         val label
         path pol_time_series
-        val ds_args
         val centre_freq
         val dm
-        path pol_cal_solns
 
     output:
         path "*.npy", emit: data
@@ -516,19 +512,53 @@ process generate_dynspecs {
         set -a
         set -o allexport
 
-        args="-x ${label}_Y_t_${dm}.npy"
-        args="\$args -y ${label}_X_t_${dm}.npy"
-        args="\$args -o ${label}_!_@_${dm}.npy"
-        args="\$args -f $centre_freq"
-        args="\$args --bw $params.bw"
-        if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
-            args="\$args -p $pol_cal_solns"
+        args="-x ${label}_X_t_${dm}.npy"
+        args="\$args -y ${label}_Y_t_${dm}.npy"
+        args="\$args --bline"
+        args="\$args --ofile ${label}_@_dynspec_${dm}.npy"
+
+        if [[ $label == "${params.label}_polcal" ]]; then
+            type="polcal"
+        else
+            type="frb"
+        fi
+        
+
+        if [ \$type == "polcal" ]; then 
+            args="\$args --pulsar"
+            args="\$args --MJD0 $params.polcal_MJD0"
+
+            # this feels illegal
+            MJD1=\$(echo \$(<$params.snoopy) | cut -d ' ' -f 21)
+            echo \$MJD1
+            args="\$args --MJD1 \$MJD1"
+
+            args="\$args --F0 $params.polcal_F0"
+            args="\$args --F1 $params.polcal_F1"
+            args="\$args --DM $dm"
+            args="\$args --cfreq $centre_freq"
+            args="\$args --bw $params.bw"
+            args="\$args --sigma $params.polcal_dynspec_sigma"
+            args="\$args --baseline $params.polcal_baseline"
+            args="\$args --tN $params.polcal_dynspec_tN"
+            args="\$args --guard $params.polcal_dynspec_guard"
+        
+        elif [ \$type == "frb" ]; then
+            args="\$args --sigma $params.frb_dynspec_sigma"
+            args="\$args --baseline $params.frb_baseline"
+            args="\$args --tN $params.frb_dynspec_tN"
+            args="\$args --guard $params.frb_dynspec_guard"
         fi
 
-        echo "python3 $beamform_dir/dynspecs.py \$args $ds_args"
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/dynspecs.py \$args $ds_args'
+        echo "python3 $beamform_dir/make_dynspec.py \$args"
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/make_dynspec.py \$args'
 
-        rm TEMP*
+
+        echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
+        echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+
         """
     
     stub:
@@ -577,16 +607,15 @@ workflow beamform {
                 Numpy files containing Stokes time series and dynamic spectra    
     */
     take:
-        label
-        data
-        pos
-        flux_cal_solns
-        pol_cal_solns
-        dm 
-        centre_freq
-        ds_args
-        nants
-        fcm
+        label               // FRB label
+        data                // data 
+        pos                 // frb position
+        flux_cal_solns      // flux cal solutions
+        pol_cal_solns       // pol cal solutions
+        dm                  // DM
+        centre_freq         // central frequency
+        nants               // number of antennas
+        fcm                 // fcm file
     
     main:
         // preliminaries
@@ -605,7 +634,14 @@ workflow beamform {
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
         xy = ifft.out.collect()
-        generate_dynspecs(label, xy, ds_args, centre_freq, dm, pol_cal_solns)
+
+        // if FRB, apply polcal solutions
+        if (label == "${params.label}") {
+            xy = apply_pol_cal_solns(label, xy, pol_cal_solns, centre_freq, dm).calib_data
+            label="${params.label}_calib"
+        }
+
+        generate_dynspecs(label, xy, centre_freq, dm)
     
     emit:
         dynspec_fnames = generate_dynspecs.out.dynspec_fnames
