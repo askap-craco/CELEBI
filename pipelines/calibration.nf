@@ -17,6 +17,9 @@ params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
 params.out_dir = "${params.publish_dir}/${params.label}"
 
+
+
+
 process determine_flux_cal_solns {
     /*
         Determine flux calibration solutions
@@ -272,18 +275,13 @@ process get_peak {
         peak_jmfit=\$(cat "peak_jmfit.txt")
 
         peak="\${peak_jmfit%.*}"
+        peakbin=\${peak:4:2}
 
         echo "\$peak determined to be peak bin"
         cp \$peak_jmfit ${params.label}.jmfit
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
-
-        if [[ \$peak == *"fbin_g"* ]]; then
-            cp -r *gated*calibrated_uv.ms ${params.label}_calibrated_uv.ms
-        else
-            peakbin=\${peak:4:2}
-            cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
-        fi
+        cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
         """    
 
     stub:
@@ -608,7 +606,7 @@ process determine_pol_cal_solns {
         path htr_data
 
     output:
-        path "${params.label}_polcal.dat", emit: pol_cal_solns
+        path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
         path "*.png", emit: plots
     
     script:
@@ -629,25 +627,100 @@ process determine_pol_cal_solns {
         args="-i ${params.label}_polcal_I_dynspec_${params.dm_polcal}.npy"
         args="\$args -q ${params.label}_polcal_Q_dynspec_${params.dm_polcal}.npy"
         args="\$args -u ${params.label}_polcal_U_dynspec_${params.dm_polcal}.npy"
-        args="\$args -v ${params.label}_polcal_V_dynspec_${params.dm_polcal}.npy"
-        args="\$args -p $params.period_polcal"
-        args="\$args -f $params.centre_freq_polcal"
-        args="\$args -b 336"
-        args="\$args -l ${params.label}_polcal"
-        args="\$args -o ${params.label}_polcal.dat"
-        args="\$args --reduce_df 1"
-        args="\$args --plot"
-        args="\$args --plotdir ."
-        args="\$args --pulsewidth=$params.pulsewidth_polcal"
+        args="\$args -v ${params.label}_polcal_V_dynspec_${params.dm_polcal}.npy"        
         args="\$args --l_model $params.polcal_l_model"
         args="\$args --v_model $params.polcal_v_model"
+        args="\$args --priors $params.polcal_priors"
+
+        args="\$args --peak_w $params.polcal_peak_w"
+        args="\$args --rms_w $params.polcal_rms_w"
+        args="\$args --tN $params.polcal_tN"
+        args="\$args --fN $params.polcal_fN"
+        args="\$args --RFIguard $params.polcal_guard"
+        
+        args="\$args --pa0 $params.polcal_pa0"
+        args="\$args --f0 $params.polcal_f0"
+        args="\$args --cfreq $params.centre_freq_polcal"
+        args="\$args --bw $params.bw"
+
+        args="\$args --cpus $params.polcal_cpus"
+        args="\$args --live $params.polcal_live"
+
+        if [ '$params.polcal_ellipse' == 'true' ]; then
+            args="\$args --elipse"
+        fi
+
+        args="\$args --ofile ${params.label}_polcal_solutions.txt"
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/polcal.py \$args'
+        
+        cp polcal_sampler/polcal_corner.png .
         """
     
     stub:
         """
-        touch ${params.label}_polcal.dat
+        touch ${params.label}_polcal_solutions.txt
         touch stub.png
         """
+}
+
+
+process apply_pol_cal_solns {
+    /*
+        
+        Apply polcal solutions to FRB data
+        
+        Input:
+            htr_path: path
+                path to X and Y polarisation data for FRB
+            polcal_solns: path
+                full file path to polcal solutions
+
+        Output:
+            New X and Y data products with full polcal solutions applied
+
+
+    */
+
+    publishDir "${params.out_dir}/htr", mode: "copy"
+
+    input: 
+        val label
+        path pol_time_series
+        path pol_cal_solns
+        val cfreq
+        val dm
+
+    output:
+        path "*_calib_*.npy", emit: calib_data
+
+    script:
+        """
+        ml apptainer
+        set -a
+        set -o allexport
+
+
+        args="-x ${label}_X_t_${dm}.npy"
+        args="\$args -y ${label}_Y_t_${dm}.npy"
+        args="\$args --soln $pol_cal_solns"
+        args="\$args --cfreq $cfreq"
+        args="\$args --bw $params.bw"
+
+        args="\$args --xout ${label}_calib_X_t_${dm}.npy"
+        args="\$args --yout ${label}_calib_Y_t_${dm}.npy"
+
+        if [ '$params.polcal_fast' == 'true' ]; then
+            args="\$args --fast"
+        fi
+
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/apply_polcal.py \$args'
+
+        """
+    
+    stub:
+        """
+        touch stub_calib_.npy
+        """
+
 }
