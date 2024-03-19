@@ -702,18 +702,18 @@ workflow process_frb {
         }
 
         // Flagging
-        if(!params.noflag) {
+        if(params.autoflag) {
             field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
         
             if(new File(field_fits_flagged).exists()) {
-                field_outfits = Channel.fromPath(field_fits_flagged)
+                    field_outfits = Channel.fromPath(field_fits_flagged)
             }
             else {
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
             }
 
             if(params.fieldimage == "") {
-                field_fits = field_outfits
+                    field_fits = field_outfits
                         }
             else {
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
@@ -803,7 +803,7 @@ workflow process_frb {
             // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV",
+                    pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                     params.nants_frb, fcm
                 )
                 plot(
