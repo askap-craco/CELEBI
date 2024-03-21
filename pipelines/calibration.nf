@@ -85,11 +85,8 @@ process determine_flux_cal_solns {
             args="\$args --skipplot"
         fi
 
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_parseltongue3
-        # fi
         apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
-        rm -rf aips_dir 
+        rm -rf \$aips_dir 
         """
     
     stub:
@@ -183,7 +180,7 @@ process image_finder {
             echo \$f
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
         done
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """
         
     stub:
@@ -377,10 +374,6 @@ process image_field {
             args="\$args --image=$params.fieldimage"
         fi
 
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_parseltongue3
-        # fi
-
         apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
         i=1
         for f in `ls *jmfit`; do
@@ -388,7 +381,7 @@ process image_field {
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
             i=\$((i+1))
         done
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """    
     
     stub:
@@ -481,7 +474,7 @@ process image_polcal {
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
             i=\$((i+1))
         done
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """
 
     stub:
@@ -571,7 +564,7 @@ process image_htrgate {
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
 
         done
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """
         
     stub:

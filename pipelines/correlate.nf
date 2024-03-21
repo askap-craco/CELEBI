@@ -375,6 +375,7 @@ process difx_to_fits {
         done
         chmod 775 runalldifx2fits
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && ./runalldifx2fits'
+        rm -rf \$aips_dir
 
         antlist=""
         for i in `seq -w 1 36`; do
@@ -430,7 +431,7 @@ process difx_to_fits {
                 rm -f doloadfits
             done
         fi
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """
     
     stub:
@@ -497,7 +498,7 @@ process subtract_rfi {
         else
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits'
         fi
-        rm -rf aips_dir
+        rm -rf \$aips_dir
         """
     
     stub:
