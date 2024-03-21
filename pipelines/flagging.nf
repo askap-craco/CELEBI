@@ -4,7 +4,7 @@
 	They are named as 'badchannels_askap_(low/mid/high)_(cal/field).txt'
 */
 
-flagging_dir = "$baseDir/../flagging/"
+flagging_dir = "$projectDir/../flagging/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process flag_proper {

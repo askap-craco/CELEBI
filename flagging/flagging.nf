@@ -2,7 +2,7 @@
 //	Processes for automated flagging
 //
 
-flagging_dir = "$baseDir/../flagging/"
+flagging_dir = "$projectDir/../flagging"
 
 //  Before calibration:
 //

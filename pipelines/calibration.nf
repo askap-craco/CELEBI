@@ -2,8 +2,8 @@
     Processes for calibration and imaging
 */
 
-localise_dir = "$baseDir/../localise/"
-beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$projectDir/../localise"
+beamform_dir = "$projectDir/../beamform"
 
 params.finderimagesize = 1024
 params.finderpixelsize = 1

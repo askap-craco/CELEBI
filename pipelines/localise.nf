@@ -1,4 +1,4 @@
-localise_dir = "$baseDir/../localise/"
+localise_dir = "$projectDir/../localise"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process generate_binconfig {

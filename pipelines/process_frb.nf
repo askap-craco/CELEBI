@@ -32,8 +32,8 @@ polarisations = Channel
 params.nants_frb = params.nants
 antennas = Channel
     .of(0..params.nants_frb-1)
-beamform_dir = "$baseDir/../beamform/"
-localise_dir = "$baseDir/../localise/"
+beamform_dir = "$projectDir/../beamform/"
+localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process load_coarse_dynspec {
@@ -223,7 +223,7 @@ output:
         dec_beam_deg=`grep BEAM_DEC \$header | cut -d " " -f 2`
         
         #export ant_pattern
-        radec_beam=\$( apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python /fred/oz313/src/CELEBI/pipelines/../localise//get_beam_radec.py \$ra_beam_deg \$dec_beam_deg' ) 
+        radec_beam=\$( apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg' ) 
         echo \$radec_beam
         # radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
         ra=`echo \$radec_beam | cut -d " " -f 1 | tr h : | tr m : | tr s 0`

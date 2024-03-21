@@ -13,8 +13,8 @@ polarisations = Channel
 
 params.hwfile = "N/A"
 
-localise_dir = "$baseDir/../localise/"
-beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$projectDir/../localise"
+beamform_dir = "$projectDir/../beamform"
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
 
@@ -80,7 +80,7 @@ process create_calcfiles {
         args="\$args --name=$label"
         args="\$args -o ."
         args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$baseDir/../difx"
+        args="\$args --dir=$projectDir/../difx"
         args="\$args --calconly"
         args="\$args --startmjd \$startmjd"
 

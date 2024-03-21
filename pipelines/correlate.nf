@@ -11,7 +11,7 @@ card_fpgas = cards.combine(fpgas)
     .filter{ !(it[0] == params.cards.min() & it[1] == params.fpgas.min()) }
 ref_card_fpga = cards.min().combine(fpgas.min())
 
-localise_dir = "$baseDir/../localise/"
+localise_dir = "$projectDir/../localise"
 
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
@@ -46,10 +46,8 @@ process get_start_mjd {
         ml apptainer
         set -a
         set -o allexport
-        # apptainer exec -B /fred/oz313/:/fred/oz313/ /fred/oz313/container-images/celebi_3rdNov.sif bash -c 'source /opt/setup_proc_container && python3 \$localise_dir/get_start_mjd.py \$data' 
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 /fred/oz313/src/CELEBI/pipelines/../localise//get_start_mjd.py $data' 
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_start_mjd.py $data' 
  
-        # python3 $localise_dir/get_start_mjd.py $data
         """
     
     stub:
@@ -136,7 +134,7 @@ process do_ref_correlation {
         args="\$args --card $card"
         freqlabel="c${card}_f${fpga}"
         args="\$args --freqlabel \$freqlabel"
-        args="\$args --dir=$baseDir/../difx"
+        args="\$args --dir=$projectDir/../difx"
         args="\$args --startmjd=$startmjd"
 
         # High-band FRBs need --uppersideband
@@ -170,7 +168,6 @@ process do_ref_correlation {
             args="\$args -i \$int_time"
         fi
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
-         # python3 $localise_dir/processTimeStep.py \$args
         """
     
     stub:
@@ -261,7 +258,7 @@ process do_correlation {
         args="\$args --card $card"
         freqlabel="c${card}_f${fpga}"
         args="\$args --freqlabel \$freqlabel"
-        args="\$args --dir=$baseDir/../difx"
+        args="\$args --dir=$projectDir/../difx"
         args="\$args --startmjd=$startmjd"
 
         # High-band FRBs need --uppersideband
@@ -299,7 +296,6 @@ process do_correlation {
         args="\$args --ref=$ref_corr"
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
-        # python3 $localise_dir/processTimeStep.py \$args
 
         """
     
