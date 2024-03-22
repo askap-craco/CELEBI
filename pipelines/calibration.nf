@@ -167,7 +167,7 @@ process image_finder {
         args="\$args --src=$params.target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz313/src/CELEBI/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
         if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
@@ -351,7 +351,7 @@ process image_field {
         args="\$args -u \$aipsid"
         args="\$args --imagesize=$params.fieldimagesize"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz313/src/CELEBI/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --nmaxsources=$params.nfieldsources"
         args="\$args --src=$params.target"
         args="\$args --refant=$params.refant"
@@ -459,7 +459,7 @@ process image_polcal {
         fi
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz313/src/CELEBI/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
 
         # if [ "$params.ozstar" == "true" ]; then
         #    . $launchDir/../setup_parseltongue3
@@ -554,7 +554,7 @@ process image_htrgate {
         args="\$args --src=$params.target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz313/src/CELEBI/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
         apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
