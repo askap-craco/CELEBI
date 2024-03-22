@@ -305,6 +305,7 @@ process plot {
         args="\$args -y ${label}*Y_t*npy"
         args="\$args -t $time"
         args="\$args -c $cand"
+        args="\$args --chanlists $projectDir/../flagging"
 
         mkdir crops
 
