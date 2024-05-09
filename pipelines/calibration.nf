@@ -2,8 +2,8 @@
     Processes for calibration and imaging
 */
 
-localise_dir = "$baseDir/../localise/"
-beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$projectDir/../localise"
+beamform_dir = "$projectDir/../beamform"
 
 params.finderimagesize = 1024
 params.finderpixelsize = 1
@@ -16,6 +16,9 @@ params.refant = 3   // reference antenna - index corresponds to ak name
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
 params.out_dir = "${params.publish_dir}/${params.label}"
+
+
+
 
 process determine_flux_cal_solns {
     /*
@@ -39,6 +42,8 @@ process determine_flux_cal_solns {
     */
     publishDir "${params.out_dir}/fluxcal", mode: "copy"
 
+    label 'aips'
+
     input:
         path cal_fits
         val flagfile
@@ -52,6 +57,13 @@ process determine_flux_cal_solns {
 
     script:
         """
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
@@ -71,11 +83,12 @@ process determine_flux_cal_solns {
         else
             touch fcm_delayfix.txt
         fi
-
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
+        if [ "$params.nopossm" == "true" ]; then
+            args="\$args --skipplot"
         fi
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
+        rm -rf \$aips_dir 
         """
     
     stub:
@@ -113,6 +126,8 @@ process image_finder {
     publishDir "${params.out_dir}/finder", mode: "copy"
     maxForks 1
 
+    label 'aips'
+
     input:
         each path(target_fits)
         path cal_solns
@@ -125,9 +140,15 @@ process image_finder {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_parseltongue3
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         tar -xzvf $cal_solns
         target_fits=$target_fits
@@ -135,7 +156,7 @@ process image_finder {
 
         args="--targetonly"
         args="\$args -t $target_fits"
-        args="\$args -r 3"
+        args="\$args -r $params.refant"
         args="\$args -i"
         args="\$args -j"
         args="\$args --cleanmfs"
@@ -150,20 +171,20 @@ process image_finder {
         args="\$args --src=$params.target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
         if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
             args="\$args --tarflagfile=$params.finderflagfile"
         fi
 
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args' 
 
         for f in `ls fbin\${bin}*jmfit`; do
             echo \$f
-            python3 $localise_dir/get_region_str.py \$f FRB \
-                >> fbin\${bin}_sources.reg
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
         done
+        rm -rf \$aips_dir
         """
         
     stub:
@@ -203,6 +224,10 @@ process get_peak {
                 Calibrated visibility measurement set of peak bin    
     */
     publishDir "${params.out_dir}/finder", mode: "copy"
+    
+    container "file://$params.container"
+
+    label 'python'
 
     input:
         path jmfit
@@ -218,10 +243,6 @@ process get_peak {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
         # Remove empty .jmfit and .reg files
         find *jmfit -type f -empty -print -delete
         find *reg -type f -empty -print -delete
@@ -229,20 +250,36 @@ process get_peak {
         #filter out jmfit files that have a large beam size
         BMINs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$1}'`
         BMAXs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$2}'`
-        beamBMIN=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$4}'`
-        beamBMAX=`grep --no-filename "Fit:" fbin00.jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$5}'`
+        beamBMIN=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$4}'`
+        beamBMAX=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$5}'`
 
-        largebeam_ind=\$(python3 $localise_dir/argBeamExceed.py "\$(echo \$BMINs)" "\$(echo \$BMAXs)" "\$(echo \$beamBMIN)" "\$(echo \$beamBMAX)" "\$(ls *jmfit)")
-        echo "\$largebeam_ind are files to be removed"
+        source /opt/setup_proc_container 
+        python3 $localise_dir/argBeamExceed.py \
+                "\$(echo \$BMINs)" \
+                "\$(echo \$BMAXs)" \
+                "\$(echo \$beamBMIN)" \
+                "\$(echo \$beamBMAX)" \
+                "\$(ls *jmfit)" \
+                >> largebeam_ind.txt
 
-        for file in \$largebeam_ind
+        echo "files to be removed:"
+        cat largebeam_ind.txt
+
+        for file in \$(cat "largebeam_ind.txt")
         do
             mv \${file} \${file}REJECT
         done
 
         # parse jmfits for S/N then find index of maximum
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
-        peak_jmfit=\$(python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)")
+
+        python3 $localise_dir/argmax.py \
+                "\$(echo \$SNs)" \
+                "\$(ls *jmfit)" \
+                >>peak_jmfit.txt
+
+        peak_jmfit=\$(cat "peak_jmfit.txt")
+
         peak="\${peak_jmfit%.*}"
         peakbin=\${peak:4:2}
 
@@ -293,6 +330,8 @@ process image_field {
     */
     publishDir "${params.out_dir}/field", mode: "copy"
 
+    label 'aips'
+
     input:
         path target_fits
         path cal_solns
@@ -308,6 +347,12 @@ process image_field {
     script:
         """
         tar -xzvf $cal_solns
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         args="--imagename=field"
         args="\$args -j"
@@ -317,7 +362,7 @@ process image_field {
         args="\$args -u \$aipsid"
         args="\$args --imagesize=$params.fieldimagesize"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --nmaxsources=$params.nfieldsources"
         args="\$args --src=$params.target"
         args="\$args --refant=$params.refant"
@@ -340,16 +385,14 @@ process image_field {
             args="\$args --image=$params.fieldimage"
         fi
 
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
             i=\$((i+1))
         done
+        rm -rf \$aips_dir
         """    
     
     stub:
@@ -386,6 +429,8 @@ process image_polcal {
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
 
+    label 'aips'
+
     input:
         path target_fits
         path cal_solns
@@ -400,6 +445,12 @@ process image_polcal {
     script:
         """
         tar -xzvf $cal_solns
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         args="--targetonly"
         args="\$args -t $target_fits"
@@ -421,18 +472,22 @@ process image_polcal {
         fi
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
 
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_parseltongue3
+        #
+        # fi
+
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
+
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
             i=\$((i+1))
         done
+        rm -rf \$aips_dir
         """
 
     stub:
@@ -469,6 +524,8 @@ process image_htrgate {
     */
     publishDir "${params.out_dir}/htrgate", mode: "copy"
     maxForks 1
+    
+    label 'aips'
 
     input:
         each path(target_fits)
@@ -482,9 +539,15 @@ process image_htrgate {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_parseltongue3
+        # fi
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         tar -xzvf $cal_solns
         target_fits=$target_fits
@@ -506,16 +569,17 @@ process image_htrgate {
         args="\$args --src=$params.target"
         args="\$args --nmaxsources=1"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=/fred/oz002/askap/craft/craco/processing/testing/get_pixels_from_field2.py"
+        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
 
         for f in `ls *jmfit`; do
             echo \$f
-            python3 $localise_dir/get_region_str.py \$f FRB \
-                >> fbin\${bin}_sources.reg
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
+
         done
+        rm -rf \$aips_dir
         """
         
     stub:
@@ -546,46 +610,117 @@ process determine_pol_cal_solns {
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
     
+    
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         path htr_data
 
     output:
-        path "${params.label}_polcal.dat", emit: pol_cal_solns
+        path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
         path "*.png", emit: plots
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-            module load scipy/1.6.0-python-3.7.4
-            module load astropy/4.0.1-python-3.7.4
-        fi
-        args="-i ${params.label}_polcal_I_dynspec_${params.dm_polcal}.npy"
-        args="\$args -q ${params.label}_polcal_Q_dynspec_${params.dm_polcal}.npy"
-        args="\$args -u ${params.label}_polcal_U_dynspec_${params.dm_polcal}.npy"
-        args="\$args -v ${params.label}_polcal_V_dynspec_${params.dm_polcal}.npy"
-        args="\$args -p $params.period_polcal"
-        args="\$args -f $params.centre_freq_polcal"
-        args="\$args -b 336"
-        args="\$args -l ${params.label}_polcal"
-        args="\$args -o ${params.label}_polcal.dat"
-        args="\$args --reduce_df 1"
-        args="\$args --plot"
-        args="\$args --plotdir ."
-        args="\$args --pulsewidth=$params.pulsewidth_polcal"
-        args="\$args --l_model $params.polcal_l_model"
-        args="\$args --v_model $params.polcal_v_model"
 
-        python3 $beamform_dir/polcal.py \$args
+        elipse=''
+        if [ '$params.polcal_ellipse' == 'true' ]; then
+            elipse="--elipse"
+        fi
+
+        source /opt/setup_proc_container 
+
+        python3 $beamform_dir/polcal.py \
+                -i ${params.label}_polcal_I_dynspec_${params.dm_polcal}.npy \
+                -q ${params.label}_polcal_Q_dynspec_${params.dm_polcal}.npy \
+                -u ${params.label}_polcal_U_dynspec_${params.dm_polcal}.npy \
+                -v ${params.label}_polcal_V_dynspec_${params.dm_polcal}.npy \
+                --l_model $params.polcal_l_model \
+                --v_model $params.polcal_v_model \
+                --priors $params.polcal_priors \
+                --peak_w $params.polcal_peak_w \
+                --rms_w $params.polcal_rms_w \
+                --tN $params.polcal_tN \
+                --fN $params.polcal_fN \
+                --RFIguard $params.polcal_guard \
+                --pa0 $params.polcal_pa0 \
+                --f0 $params.polcal_f0 \
+                --cfreq $params.centre_freq_polcal \
+                --bw $params.bw \
+                --cpus $params.polcal_cpus \
+                --live $params.polcal_live \
+                --ofile ${params.label}_polcal_solutions.txt \
+                \$elipse 
+        
+        cp polcal_sampler/polcal_corner.png .
         """
     
     stub:
         """
-        touch ${params.label}_polcal.dat
+        touch ${params.label}_polcal_solutions.txt
         touch stub.png
         """
+}
+
+
+process apply_pol_cal_solns {
+    /*
+        
+        Apply polcal solutions to FRB data
+        
+        Input:
+            htr_path: path
+                path to X and Y polarisation data for FRB
+            polcal_solns: path
+                full file path to polcal solutions
+
+        Output:
+            New X and Y data products with full polcal solutions applied
+
+
+    */
+
+    publishDir "${params.out_dir}/htr", mode: "copy"
+    
+    container "file://$params.container"
+
+    label 'python'
+
+    input: 
+        val label
+        path pol_time_series
+        path pol_cal_solns
+        val cfreq
+        val dm
+
+    output:
+        path "*_calib_*.npy", emit: calib_data
+
+    script:
+        """
+        source /opt/setup_proc_container
+
+        fast=' '
+        if [ '$params.polcal_fast' == 'true' ]; then
+            fast="--fast"
+        fi
+
+        python3 $beamform_dir/apply_polcal.py \
+                -x ${label}_X_t_${dm}.npy \
+                -y ${label}_Y_t_${dm}.npy \
+                --soln $pol_cal_solns \
+                --cfreq $cfreq \
+                --bw $params.bw \
+                --xout ${label}_calib_X_t_${dm}.npy \
+                --yout ${label}_calib_Y_t_${dm}.npy \
+                \$fast
+        """
+    
+    stub:
+        """
+        touch stub_calib_.npy
+        """
+
 }
