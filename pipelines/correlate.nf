@@ -11,7 +11,7 @@ card_fpgas = cards.combine(fpgas)
     .filter{ !(it[0] == params.cards.min() & it[1] == params.fpgas.min()) }
 ref_card_fpga = cards.min().combine(fpgas.min())
 
-localise_dir = "$baseDir/../localise/"
+localise_dir = "$projectDir/../localise"
 
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
@@ -32,6 +32,9 @@ process get_start_mjd {
             stdout
                 The earliest start time found in the data headers in MJD
     */
+
+    container "file://$params.container"
+
     input:
         val data
     
@@ -39,10 +42,8 @@ process get_start_mjd {
         stdout
 
     script:
-        """    
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        """
+        source /opt/setup_proc_container
         python3 $localise_dir/get_start_mjd.py $data
         """
     
@@ -89,6 +90,11 @@ process do_ref_correlation {
                 exist even if the process has ended (e.g. by being killed) 
                 without completing.
     */
+
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         val label
         val data
@@ -107,60 +113,60 @@ process do_ref_correlation {
 
     script:
         """
+        # module list
         export CRAFTCATDIR="."  # necessary?
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
-        # create .bat0
+        source /opt/setup_proc_container 
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
-        args="-f $fcm"
-        args="\$args -b 4"
-        args="\$args -k"
-        args="\$args --name=$label"
-        args="\$args -o ."
-        args="\$args -t $data"
-        args="\$args --ra $ra"
-        args="\$args -d$dec"
-        args="\$args --card $card"
         freqlabel="c${card}_f${fpga}"
-        args="\$args --freqlabel \$freqlabel"
-        args="\$args --dir=$baseDir/../difx"
-        args="\$args --startmjd=$startmjd"
-
-        # High-band FRBs need --uppersideband
-        if [ "$params.uppersideband" == "true" ]; then
-            args="\$args --uppersideband"
-        fi
-
-        # if running on ozstar, use the slurm queue, otherwise run locally 
-        # across 16 cpus
-        if [ "$params.ozstar" == "true" ]; then
-            args="\$args --slurm"
-        else
-            args="\$args --ts 16"
-        fi
-
         if [ -d \$freqlabel ]; then
             rm -r \$freqlabel
         fi
         mkdir \$freqlabel
-        cp craftfrb.polyco \$freqlabel
-        cp .bat0 \$freqlabel
+        cp craftfrb.polyco \$freqlabel/.
+        cp .bat0 \$freqlabel/.
+
+        ### Set up some optional args
+        # High-band FRBs need --uppersideband
+        uppersideband=""
+        if [ "$params.uppersideband" == "true" ]; then
+            uppersideband="--uppersideband"
+        fi
+
+        # Alwasy use 16 cores as if we run "locally" 
+        ozstar="--ts 16"
 
         # Only use binconfig if it's not empty
+        binconfig=""
         if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
-            args="\$args -p craftfrb.binconfig"
+            binconfig="-p craftfrb.binconfig"
         fi
 
         # Only include inttime if non-zero
         int_time=`cat $inttime`
         if [ "\$int_time" != "" ]; then
-            args="\$args -i \$int_time"
+            int_time="-i \$int_time"
+        else
+            int_time=""
         fi
 
-        python3 $localise_dir/processTimeStep.py \$args
+        python3 $localise_dir/processTimeStep.py \
+                -f $fcm \
+                -b 4 \
+                -k \
+                --name=$label \
+                -o . \
+                -t $data \
+                --ra=$ra \
+                --dec=$dec \
+                --card $card \
+                --freqlabel \$freqlabel \
+                --dir=$projectDir/../difx \
+                --startmjd=$startmjd \
+                \$uppersideband \
+                \$ozstar \
+                \$binconfig \
+                \$int_time
         """
     
     stub:
@@ -169,6 +175,7 @@ process do_ref_correlation {
         touch c${card}_f${fpga}/stubD2D.input
         """
 }
+
 process do_correlation {
     /*
         Correlate the data using DiFX
@@ -211,6 +218,9 @@ process do_correlation {
                 exist even if the process has ended (e.g. by being killed) 
                 without completing.
     */
+
+    container "file://$params.container"
+
     input:
         val label
         val data
@@ -229,40 +239,8 @@ process do_correlation {
 
     script:
         """
-        export CRAFTCATDIR="."  # necessary?
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
-        # create .bat0
-        bat0.pl `find $data/*/*/*vcraft | head -1`
-
-        args="-f $fcm"
-        args="\$args -b 4"
-        args="\$args -k"
-        args="\$args --name=$label"
-        args="\$args -o ."
-        args="\$args -t $data"
-        args="\$args --ra $ra"
-        args="\$args -d$dec"
-        args="\$args --card $card"
-        freqlabel="c${card}_f${fpga}"
-        args="\$args --freqlabel \$freqlabel"
-        args="\$args --dir=$baseDir/../difx"
-        args="\$args --startmjd=$startmjd"
-
-        # High-band FRBs need --uppersideband
-        if [ "$params.uppersideband" == "true" ]; then
-            args="\$args --uppersideband"
-        fi
-
-        # if running on ozstar, use the slurm queue, otherwise run locally 
-        # across 16 cpus
-        if [ "$params.ozstar" == "true" ]; then
-            args="\$args --slurm"
-        else
-            args="\$args --ts 16"
-        fi
+        source /opt/setup_proc_container 
+        bat0.pl `find $data/*/*/*vcraft | head -1`'
 
         if [ -d \$freqlabel ]; then
             rm -r \$freqlabel
@@ -270,22 +248,56 @@ process do_correlation {
         mkdir \$freqlabel
         cp craftfrb.polyco \$freqlabel
         cp .bat0 \$freqlabel
+        
+        ## setup optional arguments
+        uppersideband=""
+        # High-band FRBs need --uppersideband
+        if [ "$params.uppersideband" == "true" ]; then
+            uppersideband="--uppersideband"
+        fi
+
+        # if running on ozstar, use the slurm queue, otherwise run locally 
+        # across 16 cpus
+        if [ "$params.ozstar" == "true" ]; then
+            ozstar="--slurm"
+        else
+            ozstar="--ts 16"
+        fi
 
         # Only use binconfig if it's not empty
+        binconfig=""
         if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
-            args="\$args -p craftfrb.binconfig"
+            binconfig="-p craftfrb.binconfig"
         fi
 
         # Only include inttime if non-zero
         int_time=`cat $inttime`
         if [ "\$int_time" != "" ]; then
-            args="\$args -i \$int_time"
+            int_time="\$args -i \$int_time"
+        else
+            int_time=""
         fi
 
-        # Provide reference correlation
-        args="\$args --ref=$ref_corr"
+        source /opt/setup_proc_container
 
-        python3 $localise_dir/processTimeStep.py \$args
+        python3 $localise_dir/processTimeStep.py 
+                -f $fcm \
+                -b 4 \
+                -k \
+                --name=$label \
+                -o . \
+                -t $data \
+                --ra $ra \
+                --dec=$dec \
+                --card $card \
+                --freqlabel c${card}_f${fpga} \
+                --dir=$projectDir/../difx \
+                --startmjd=$startmjd \
+                --ref=$ref_corr \
+                \$uppsersideband \
+                \$ozstar \
+                \$binconfig \
+                \$int_time
         """
     
     stub:
@@ -326,9 +338,13 @@ process difx_to_fits {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+
         for c in `seq 1 7`; do
             D2Ds=""
             if find c\$c*; then
@@ -344,19 +360,20 @@ process difx_to_fits {
                         bin4="\$(printf "%04d" \$b)"
                         difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
                         echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-                        echo "mv CRAFTFR.0.bin\${bin4}.source0000.FITS \
+                        echo "mv CRAFTFRB.0.bin\${bin4}.source0000.FITS \
                             CRAFT_CARD\${c}_BIN\${bin2}.FITS" >> runalldifx2fits
                     done
                 else
                     difx2fitscmd="difx2fits -v -v -u -B ! \$D2Ds"
                     echo "\$difx2fitscmd \"\\\$@\"" | tr ! 0 >> runalldifx2fits
-                    echo "mv CRAFTFR.0.bin0000.source0000.FITS \
+                    echo "mv CRAFTFRB.0.bin0000.source0000.FITS \
                         CRAFT_CARD\$c.FITS" >> runalldifx2fits
                 fi
             fi
         done
         chmod 775 runalldifx2fits
-        ./runalldifx2fits
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && ./runalldifx2fits'
+        rm -rf \$aips_dir
 
         antlist=""
         for i in `seq -w 1 36`; do
@@ -366,6 +383,10 @@ process difx_to_fits {
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
+
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         aipsid="\$((RANDOM%8192))"
         if [ "$mode" != "finder" ]; then
@@ -378,14 +399,13 @@ process difx_to_fits {
             args="\$args CRAFT_CARD?.FITS"
 
             echo "loadfits.py \$args"
-            #loadfits.py \$args
 
-            if [ "$params.ozstar" == "true" ]; then
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-            fi
+            # if [ "$params.ozstar" == "true" ]; then
+            #    echo ". $launchDir/../setup_loadfits
+            # fi
             echo "loadfits.py \$args" >> doloadfits
             chmod 775 doloadfits
-            ./doloadfits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
         else
             for i in `seq 0 7`; do
                 bin="\$(printf "%02d" \$i)"
@@ -399,16 +419,17 @@ process difx_to_fits {
 
                 echo "loadfits.py \$args"
                 #loadfits.py \$args
-                if [ "$params.ozstar" == "true" ]; then
-                    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-                fi    
-                echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                # if [ "$params.ozstar" == "true" ]; then
+                #    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
+                # fi    
+                # echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
                 echo "loadfits.py \$args" >> doloadfits
                 chmod 775 doloadfits
-                ./doloadfits
+                apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
                 rm -f doloadfits
             done
         fi
+        rm -rf \$aips_dir
         """
     
     stub:
@@ -454,21 +475,25 @@ process subtract_rfi {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_parseltongue3
-        fi
 
         # subtractions not empty: finder mode
+        ml apptainer
+        set -a
+        set -o allexport
+        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
+        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
+        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
         if [ `wc -c $subtractions | awk '{print \$1}'` != 0 ]; then
             fits="$target_fits"
             bin=\${fits:9:2}
             sleep \$bin     # stagger starts of parallel processes
             scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
 
-            uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits'
         else
-            uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits'
         fi
+        rm -rf \$aips_dir
         """
     
     stub:
@@ -522,7 +547,7 @@ workflow correlate {
 
     main:
         startmjd = get_start_mjd(data)
-
+        println(data)
         // reference correlation
         ref_correlation = do_ref_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
