@@ -13,9 +13,7 @@ include { flag_proper as flagdat } from './flagging'
 params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
-
 params.image_all_bins = false
-
 params.ICS_DMrange = 100
 params.ICS_DMstep = 0.1
 
@@ -34,9 +32,8 @@ polarisations = Channel
 params.nants_frb = params.nants
 antennas = Channel
     .of(0..params.nants_frb-1)
-
-beamform_dir = "$baseDir/../beamform/"
-localise_dir = "$baseDir/../localise/"
+beamform_dir = "$projectDir/../beamform/"
+localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process load_coarse_dynspec {
@@ -65,6 +62,10 @@ process load_coarse_dynspec {
                 Time axis in MJD
     */
 
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         val label
         val data
@@ -78,73 +79,66 @@ process load_coarse_dynspec {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
-        # create calcfiles for antenna delay
-        startmjd=`python3 $localise_dir/get_start_mjd.py $data`
-
         export CRAFTCATDIR="."
+        source /opt/setup_proc_container 
+        startmjd=`python3 $localise_dir/get_start_mjd.py $data` 
 
-        # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
-        # written
-        args="-t $data"
-        args="\$args --ra $params.ra_frb"
-        args="\$args -d$params.dec_frb"
-        args="\$args -f $fcm"
-        args="\$args -b 4"
-        args="\$args --card 1"
-        args="\$args -k"
-        args="\$args --name=210117_ICS"
-        args="\$args -o ."
-        args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$localise_dir/../difx"
-        args="\$args --calconly"
-        args="\$args --startmjd \$startmjd"
+        # Run processTimeStep.py with the --calconly flag to stop once calcfile is written
+        python3 $localise_dir/processTimeStep.py \
+                -t $data \
+                --ra $params.ra_frb \
+                --dec=$params.dec_frb \
+                -f $fcm \
+                -b 4 \
+                --card 1 \
+                -k \
+                --name=210117_ICS \
+                -o . \
+                --freqlabel c1_f0 \
+                --dir=$localise_dir/../difx \
+                --calconly \
+                --startmjd \$startmjd
 
-        echo "python3 $localise_dir/processTimeStep.py \$args"
-        python3 $localise_dir/processTimeStep.py \$args
-
-
-        mkdir delays
-        args="-d $data"
-        args="\$args --parset $fcm"
-        args="\$args --calcfile c1_f0/craftfrb.im"
-        args="\$args -o ${label}_ICS"
-        args="\$args --ics"
-        args="\$args --cpus=8"
-        args="\$args --pol=$pol"
-        args="\$args --an=$ant_idx"
-
-        echo "python3 $beamform_dir/craftcor_tab.py \$args"
-        python3 $beamform_dir/craftcor_tab.py \$args
+        mkdir delays    
+        python3 $beamform_dir/craftcor_tab.py
+                -d $data \
+                --parset $fcm \
+                --calcfile c1_f0/craftfrb.im \
+                -o ${label}_ICS \
+                --ics \
+                --cpus=8 \
+                --pol=$pol \
+                --an=$ant_idx
         """
-    
+
     stub:
-        """
-        touch ${label}_ICS_${pol}_${ant_idx}.npy
-        touch t_mjd.npy
-        """
+    """
+    touch ${label}_ICS_${pol}_${ant_idx}.npy
+    touch t_mjd.npy
+    """
 }
 
 process refine_candidate {
     /*
-        Sum incoherent dynamic spectra, search for FRB, and refine snoopy
-        candidate
-    
-        Input
-            label: val
-                FRB name and context of process instance as a string (no
-                spaces)
-            ics_dynspecs: path
-                All the incoherent dynamic spectra
-            t_mjd: path
-                ICS dynamic spectra time axis in MJD
-            snoopy: path
-                Initial detection snoopy candidate
-    */
+       Sum incoherent dynamic spectra, search for FRB, and refine snoopy
+       candidate
+
+       Input
+        label: val
+            FRB name and context of process instance as a string (no
+            spaces)
+        ics_dynspecs: path
+            All the incoherent dynamic spectra
+        t_mjd: path
+            ICS dynamic spectra time axis in MJD
+        snoopy: path
+            Initial detection snoopy candidate
+     */
     publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+
+    container "file://$params.container"
+
+    label 'python'
 
     input:
         val label
@@ -159,24 +153,22 @@ process refine_candidate {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
+    
+        source /opt/setup_proc_container
+        
         python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
 
-        args="--ds ${label}_ICS.npy"
-        args="\$args -s $snoopy"
-        args="\$args -t $t_mjd"
-        args="\$args -f $params.centre_freq_frb"
-        args="\$args --DMrange=$params.ICS_DMrange"
-        args="\$args --DMstep=$params.ICS_DMstep"
-        args="\$args -o ${label}.cand"
-
         python3 $localise_dir/search_ics.py \$args
+                --ds ${label}_ICS.npy \
+                -s $snoopy \
+                -t $t_mjd \
+                -f $params.centre_freq_frb \
+                --DMrange=$params.ICS_DMrange \
+                --DMstep=$params.ICS_DMstep \
+                -o ${label}.cand
         """
 
-    stub:
+        stub:
         """
         touch ${label}_ICS.npy
         touch ${label}.cand
@@ -186,23 +178,26 @@ process refine_candidate {
 
 process get_beam_centre {
     /*
-        Parse VCRAFT headers to get the beam centre
+    Parse VCRAFT headers to get the beam centre
 
-        Output
-            ra: env
-                Beam centre right ascension (hms)
-            dec: env
-                Beam centre declination (dms)
-    */
+    Output
+        ra: env
+            Beam centre right ascension (hms)
+        dec: env
+            Beam centre declination (dms)
+     */
+
+    container "file://$params.container"
+
+    label 'python'
+
     output:
         env ra, emit: ra
         env dec, emit: dec
-    
+
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        source /opt/setup_proc_container
 
         # find a header file
         ant_pattern="${params.data_frb}/ak*"
@@ -217,7 +212,11 @@ process get_beam_centre {
         ra_beam_deg=`grep BEAM_RA \$header | cut -d " " -f 2`
         dec_beam_deg=`grep BEAM_DEC \$header | cut -d " " -f 2`
 
-        radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
+        #export ant_pattern
+        radec_beam=\$(python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg)
+        echo \$radec_beam
+
+        # radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
         ra=`echo \$radec_beam | cut -d " " -f 1 | tr h : | tr m : | tr s 0`
         dec=`echo \$radec_beam | cut -d " " -f 2 | tr d : | tr m : | tr s 0`
         """
@@ -261,6 +260,10 @@ process plot {
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
 
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         val label
         path fnames_file
@@ -279,25 +282,20 @@ process plot {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
-        args="-s $fnames_file"
-        args="\$args -f $centre_freq"
-        args="\$args -l $label"
-        args="\$args -d $dm"
-        args="\$args -x ${label}*X_t*npy"
-        args="\$args -y ${label}*Y_t*npy"
-        args="\$args -t $time"
-        args="\$args -c $cand"
+        source /opt/setup_proc_container
 
         mkdir crops
 
         python3 $beamform_dir/plot.py \$args
+                -s $fnames_file \
+                -f $centre_freq \
+                -l $label \
+                -d $dm \
+                -x ${label}*X_t*npy \
+                -y ${label}*Y_t*npy \
+                -t $time \
+                -c $cand \
+                --chanlists $projectDir/../flagging
         """
     
     stub:
@@ -349,6 +347,7 @@ process npy_to_archive {
             module load anaconda3/5.1.0
             source activate $launchDir/envs/psrchive
         fi
+        #OBSOLETE PROCESS - NOT CALLED ANYWHERE.
 
         #convert_addpol
         #fill_header
@@ -384,6 +383,10 @@ process find_DM_opt {
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
 
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         path crops
         val dm
@@ -394,24 +397,16 @@ process find_DM_opt {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
-
-        args="-x $crops/${params.label}_${dm}_X.npy"
-        args="\$args -y $crops/${params.label}_${dm}_Y.npy"
-        args="\$args -d $params.minDM"
-        args="\$args -D $params.maxDM"
-        args="\$args -s $params.DMstep"
-        args="\$args --DM0 $dm"
-        args="\$args --f0 $params.centre_freq_frb"
-        args="\$args --dt $params.opt_DM_dt"
-
-        dmopt=`python3 $beamform_dir/opt_DM.py \$args`
+        source /opt/setup_proc_container
+        python3 $beamform_dir/opt_DM.py \
+                -x $crops/${params.label}_${dm}_X.npy \
+                -y $crops/${params.label}_${dm}_Y.npy \
+                -d $params.minDM \
+                -D $params.maxDM \
+                -s $params.DMstep \
+                --DM0 $dm \
+                --f0 $params.centre_freq_frb \
+                --dt $params.opt_DM_dt 
         """
     
     stub:
@@ -472,6 +467,11 @@ process mjd_prof {
                 Two-column space separated file containing MJD and 50us profile
                 respectively
     */
+
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         path crop_50us
         path crop_start
@@ -481,13 +481,7 @@ process mjd_prof {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-        fi
-
+        source /opt/setup_proc_container
         python3 $beamform_dir/mjd_prof.py $params.data_frb $crop_50us $crop_start
         """
 
@@ -546,6 +540,11 @@ process htr_to_binconfig {
             htr gate binconfig: path
                 Binconfig containing matched filter for high time res gate
     */
+
+    container "file://$params.container"
+
+    label 'python'
+
     input:
         path prof
         path polyco
@@ -556,14 +555,7 @@ process htr_to_binconfig {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
-
+        source /opt/setup_proc_container
         python3 $beamform_dir/htr2binconfig.py $prof $polyco
         """
     
@@ -613,7 +605,7 @@ workflow process_frb {
 
     main:
         coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas, fcm)
+                                        antennas,fcm )
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
         if (!params.skip_ics) {
             if ( new File(refined_candidate_path).exists()) {
@@ -705,7 +697,7 @@ workflow process_frb {
         // Calibrate (i.e. image finder and field)
         frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
         offset_path = "${params.out_dir}/position/offset0.dat"
-	    doffset_path = "${params.out_dir}/position/offsetfit.txt"
+        doffset_path = "${params.out_dir}/position/offsetfit.txt"
         frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
         if(new File(frb_jmfit_path).exists()) {
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
@@ -753,22 +745,22 @@ workflow process_frb {
 
             if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
                 offset = Channel.fromPath(offset_path)
-		        doffset = Channel.fromPath(doffset_path)
+                doffset = Channel.fromPath(doffset_path)
             }
             else {
                 field_sources = image_field(
                     field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
                 ).jmfit
-		
-        		offres = find_offset(field_sources)
+        
+                offres = find_offset(field_sources)
                 offset = offres.offset
                 doffset = offres.doffset
             }
 
             if(!params.opt_gate){
-        		finalres = apply_offset(offset, doffset, askap_frb_pos)
+                finalres = apply_offset(offset, doffset, askap_frb_pos)
                 final_position = finalres.final_position
-        		finalmap = finalres.hpmap
+                // finalmap = finalres.hpmap
             }
         }
         else if(new File(offset_path).exists()) {
@@ -785,7 +777,7 @@ workflow process_frb {
             // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV",
+                    pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                     params.nants_frb, fcm
                 )
                 plot(
