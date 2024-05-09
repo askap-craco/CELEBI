@@ -2,13 +2,11 @@
 
 [CELEBI](https://arxiv.org/abs/2301.13484) is an automated data processing pipeline for producing sub-arcsecond precision localisations and high-time resolution polarimetric measurements of fast radio bursts (FRBs) from voltages obtained with the Australian Square Kilometre Array Pathfinder (ASKAP).
 
-CELEBI operates on the VCRAFT data format, and is designed to be run on a supercomputer. Once the dependencies have been installed, you should set up a config file based on the [template](configs/template.config) for the data you are processing, create a work directory for processing to be performed in, and then run [main.nf](pipelines/main.nf):
+CELEBI operates on the VCRAFT data format, and is designed to be run on a supercomputer. Once the dependencies have been installed, you should set up a config file based on the [template](configs/template.config) for the data you are processing, and then run [main.nf](pipelines/main.nf):
 ```
-nextflow /path/to/CELEBI/pipelines/main.nf -c FRBXXXXX.config -w work/FRBXXXXX > FRBXXXXX.out
+nextflow /path/to/CELEBI/pipelines/main.nf -c [config file]
 ```
-It is recommended that you do this from a separate processing directory as shown, and make use of the `-with-report` and `-w` Nextflow configuration options.
-
-At the moment, the --calibrate flag and --noflag flag ate non-optional, despite what you'll read below, so these should be added too.
+It is recommended that you do this from a separate processing directory, and make use of the `-with-report` and `-w` Nextflow configuration options.
 
 ## Options
 Running CELEBI without any additional flags will run everything up until completion of correlation. To perform flux calibration, imaging, and localisation, add `--calibrate`. To perform polarisation calibration and beamforming after this, add `--beamform`. Both of these flags can be provided together to run the entire pipeline in one go.
