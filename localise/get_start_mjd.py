@@ -24,4 +24,4 @@ for filename in hdrfiles:
     new_startmjd = thisMJD - nsamps/(samprate*86400)
     startmjd = new_startmjd if new_startmjd < startmjd else startmjd
 
-print(startmjd)
+print(startmjd, end='')

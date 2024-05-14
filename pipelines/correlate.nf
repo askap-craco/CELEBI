@@ -162,7 +162,7 @@ process do_ref_correlation {
                 --card $card \
                 --freqlabel \$freqlabel \
                 --dir=$projectDir/../difx \
-                --startmjd=$startmjd \
+                --startmjd=${startmjd} \
                 \$uppersideband \
                 \$ozstar \
                 \$binconfig \
