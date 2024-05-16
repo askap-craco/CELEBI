@@ -240,7 +240,15 @@ process do_correlation {
     script:
         """
         source /opt/setup_proc_container 
-        bat0.pl `find $data/*/*/*vcraft | head -1`'
+
+        freqlabel="c${card}_f${fpga}"
+
+        ln -s ${data} data
+        
+        # data directory relative to where the askap2difx runs (which is in the freqlabel dir)
+        export CRAFTCATDIR=`../data/`
+
+        bat0.pl `find data/*/*/*vcraft | head -1`
 
         if [ -d \$freqlabel ]; then
             rm -r \$freqlabel
@@ -256,13 +264,8 @@ process do_correlation {
             uppersideband="--uppersideband"
         fi
 
-        # if running on ozstar, use the slurm queue, otherwise run locally 
-        # across 16 cpus
-        if [ "$params.ozstar" == "true" ]; then
-            ozstar="--slurm"
-        else
-            ozstar="--ts 16"
-        fi
+        # use all the available cores
+        ozstar="--ts ${task.cpus}"
 
         # Only use binconfig if it's not empty
         binconfig=""
@@ -278,15 +281,13 @@ process do_correlation {
             int_time=""
         fi
 
-        source /opt/setup_proc_container
-
         python3 $localise_dir/processTimeStep.py \
                 -f $fcm \
                 -b 4 \
                 -k \
                 --name=$label \
                 -o . \
-                -t $data \
+                --timestep data/ \
                 --ra=$ra \
                 --dec=$dec \
                 --card $card \
@@ -560,7 +561,7 @@ workflow correlate {
             label, data, ra, dec, 
             binconfig.first(), 
             polyco.first(), 
-            inttime.first(), 
+            inttime,  // .first(),
             startmjd, 
             ref_correlation.combine(card_fpgas),
             fcm
