@@ -524,6 +524,7 @@ def write_run(nant: int) -> None:
     output.write("rm -f craft.difxlog\n")
     output.write("mv log craft.difxlog\n")
     output.close()
+    os.chmod("run.sh", 0o755)
 
 
 def get_askap2difx_cmd(
