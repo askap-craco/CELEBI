@@ -133,8 +133,8 @@ process do_ref_correlation {
             uppersideband="--uppersideband"
         fi
 
-        # Alwasy use 16 cores as if we run "locally" 
-        ozstar="--ts 16"
+        
+        ozstar="--ts ${task.cpus}"
 
         # Only use binconfig if it's not empty
         binconfig=""
@@ -244,9 +244,9 @@ process do_correlation {
         freqlabel="c${card}_f${fpga}"
 
         ln -s ${data} data
-        
+
         # data directory relative to where the askap2difx runs (which is in the freqlabel dir)
-        export CRAFTCATDIR=`../data/`
+        export CRAFTCATDIR='../data/'
 
         bat0.pl `find data/*/*/*vcraft | head -1`
 
