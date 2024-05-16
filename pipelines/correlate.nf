@@ -280,14 +280,14 @@ process do_correlation {
 
         source /opt/setup_proc_container
 
-        python3 $localise_dir/processTimeStep.py 
+        python3 $localise_dir/processTimeStep.py \
                 -f $fcm \
                 -b 4 \
                 -k \
                 --name=$label \
                 -o . \
                 -t $data \
-                --ra $ra \
+                --ra=$ra \
                 --dec=$dec \
                 --card $card \
                 --freqlabel c${card}_f${fpga} \
