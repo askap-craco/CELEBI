@@ -113,7 +113,6 @@ process do_ref_correlation {
 
     script:
         """
-        # module list
         export CRAFTCATDIR="."  # necessary?
         source /opt/setup_proc_container 
         bat0.pl `find $data/*/*/*vcraft | head -1`
@@ -156,7 +155,7 @@ process do_ref_correlation {
                 -k \
                 --name=$label \
                 -o . \
-                -t $data \
+                --timestep $data \
                 --ra=$ra \
                 --dec=$dec \
                 --card $card \
@@ -239,23 +238,18 @@ process do_correlation {
 
     script:
         """
+        export CRAFTCATDIR="."  # necessary?
         source /opt/setup_proc_container 
+        bat0.pl `find $data/*/*/*vcraft | head -1`
 
         freqlabel="c${card}_f${fpga}"
-
-        ln -s ${data} data
-
-        # data directory relative to where the askap2difx runs (which is in the freqlabel dir)
-        export CRAFTCATDIR='../data/'
-
-        bat0.pl `find data/*/*/*vcraft | head -1`
-
         if [ -d \$freqlabel ]; then
             rm -r \$freqlabel
         fi
         mkdir \$freqlabel
-        cp craftfrb.polyco \$freqlabel
-        cp .bat0 \$freqlabel
+        cp craftfrb.polyco \$freqlabel/.
+        cp .bat0 \$freqlabel/.
+
         
         ## setup optional arguments
         uppersideband=""
@@ -287,11 +281,11 @@ process do_correlation {
                 -k \
                 --name=$label \
                 -o . \
-                --timestep data/ \
+                --timestep $data \
                 --ra=$ra \
                 --dec=$dec \
                 --card $card \
-                --freqlabel c${card}_f${fpga} \
+                --freqlabel \$freqlabel \
                 --dir=$projectDir/../difx \
                 --startmjd=$startmjd \
                 --ref=$ref_corr \
