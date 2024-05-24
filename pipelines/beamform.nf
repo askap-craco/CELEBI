@@ -6,6 +6,7 @@
 nextflow.enable.dsl=2
 
 include { get_start_mjd } from './correlate'
+include { apply_pol_cal_solns } from './calibration'
 
 params.pols = ['X', 'Y']
 polarisations = Channel
@@ -13,12 +14,13 @@ polarisations = Channel
 
 params.hwfile = "N/A"
 
-localise_dir = "$baseDir/../localise/"
-beamform_dir = "$baseDir/../beamform/"
+localise_dir = "$projectDir/../localise"
+beamform_dir = "$projectDir/../beamform"
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 params.bw = 336 /*Default value*/
+
 
 process create_calcfiles {
     /*
@@ -53,10 +55,12 @@ process create_calcfiles {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
+        #if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
         startmjd=`python3 $localise_dir/get_start_mjd.py $data`
 
         export CRAFTCATDIR="."
@@ -78,12 +82,12 @@ process create_calcfiles {
         args="\$args --name=$label"
         args="\$args -o ."
         args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$baseDir/../difx"
+        args="\$args --dir=$projectDir/../difx"
         args="\$args --calconly"
         args="\$args --startmjd \$startmjd"
 
         echo "python3 $localise_dir/processTimeStep.py \$args"
-        python3 $localise_dir/processTimeStep.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/processTimeStep.py \$args'
         """    
     
     stub:
@@ -141,13 +145,15 @@ process do_beamform {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
+        #if [ "$params.ozstar" == "true" ]; then
             #. $launchDir/../setup_beamform
-            . $launchDir/../setup_proc
-        fi
+        #    . $launchDir/../setup_proc
+        #fi
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
-
+        ml apptainer
+        set -a
+        set -o allexport
         args="-d $data"
         args="\$args --parset $fcm"
         args="\$args --calcfile $imfile"
@@ -168,7 +174,7 @@ process do_beamform {
             args="\$args --hwfile $params.hwfile"
         fi
 
-        python3 $beamform_dir/craftcor_tab.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/craftcor_tab.py \$args'
         rm TEMP*
 
         export FFTLEN=`cat fftlen`
@@ -209,17 +215,20 @@ process sum_antennas {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
+        #if [ "$params.ozstar" == "true" ]; then
             #. $launchDir/../setup_beamform
-            . $launchDir/../setup_proc
-        fi
+        #    . $launchDir/../setup_proc
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
         args="--f_dir ."
         args="\$args -f ${label}_frb"
         args="\$args -p $pol"
         args="\$args -o ${label}_frb_sum_${pol}_f.npy"
 
         echo "python3 $beamform_dir/sum.py \$args"
-        python3 $beamform_dir/sum.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/sum.py \$args'
         """
     
     stub:
@@ -249,16 +258,19 @@ process generate_deripple {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load scipy/1.6.0-python-3.7.4
-            export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
-        fi
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load scipy/1.6.0-python-3.7.4
+        #    export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat'
 
-        python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
         """
     
     stub:
@@ -302,16 +314,18 @@ process deripple {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load scipy/1.6.0-python-3.7.4
-            module load joblib/0.11
-            export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
-        fi
-
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load scipy/1.6.0-python-3.7.4
+        #    module load joblib/0.11
+        #    export PYTHONPATH=\$PYTHONPATH:/fred/oz002/askap/craft/craco/python/lib/python3.7/site-packages/
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
         args="-f $spectrum"
         args="\$args -l \$FFTLEN"
         args="\$args -o ${label}_frb_sum_${pol}_f_derippled.npy"
@@ -319,7 +333,7 @@ process deripple {
         args="\$args -c $coeffs"
         args="\$args --cpus 1"
 
-        python3 $beamform_dir/deripple.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/deripple.py \$args'
         """
     
     stub:
@@ -363,10 +377,13 @@ process dedisperse {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
+        #if [ "$params.ozstar" == "true" ]; then
             #. $launchDir/../setup_beamform
-            . $launchDir/../setup_proc
-        fi
+        #    . $launchDir/../setup_proc
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
         args="-f $spectrum"
         args="\$args --DM $dm"
         args="\$args --f0 $centre_freq"
@@ -374,7 +391,7 @@ process dedisperse {
         args="\$args -o ${label}_frb_sum_${pol}_f_dedispersed_${dm}.npy"
 
         echo "python3 $beamform_dir/dedisperse.py \$args"
-        python3 $beamform_dir/dedisperse.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/dedisperse.py \$args'
         """
     
     stub:
@@ -410,19 +427,23 @@ process ifft {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load ipp/2018.2.199
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load gsl/2.5
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load scipy/1.4.1-python-3.7.4
-        fi
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load ipp/2018.2.199
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load gsl/2.5
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load scipy/1.4.1-python-3.7.4
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
+
         args="-f $spectrum"
         args="\$args -o ${label}_${pol}_t_${dm}.npy"
 
-        python3 $beamform_dir/ifft.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/ifft.py \$args'
 
         # Copy the output into the publish_dir manually so Nextflow doesn't go over its
         # memory allocation
@@ -454,10 +475,6 @@ process generate_dynspecs {
             pol_time_series: path
                 Two ~3 ns, dedispersed time series, one in each linear 
                 polarisation
-            ds_args: val
-                String containing arguments to be passed to dynspecs.py. Use
-                this to specify which Stokes parameters and data types (time
-                series or dynamic spectrum) to generate.
             centre_freq: val
                 Central frequency of spectra (MHz)
             dm: val
@@ -478,10 +495,8 @@ process generate_dynspecs {
     input:
         val label
         path pol_time_series
-        val ds_args
         val centre_freq
         val dm
-        path pol_cal_solns
 
     output:
         path "*.npy", emit: data
@@ -489,23 +504,61 @@ process generate_dynspecs {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
+        #if [ "$params.ozstar" == "true" ]; then
             #. $launchDir/../setup_beamform
-            . $launchDir/../setup_proc
+        #    . $launchDir/../setup_proc
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
+
+        args="-x ${label}_X_t_${dm}.npy"
+        args="\$args -y ${label}_Y_t_${dm}.npy"
+        args="\$args --bline"
+        args="\$args --ofile ${label}_@_dynspec_${dm}.npy"
+
+        if [[ $label == "${params.label}_polcal" ]]; then
+            type="polcal"
+        else
+            type="frb"
         fi
-        args="-x ${label}_Y_t_${dm}.npy"
-        args="\$args -y ${label}_X_t_${dm}.npy"
-        args="\$args -o ${label}_!_@_${dm}.npy"
-        args="\$args -f $centre_freq"
-        args="\$args --bw $params.bw"
-        if [ `wc -c $pol_cal_solns | awk '{print \$1}'` != 0 ]; then
-            args="\$args -p $pol_cal_solns"
+        
+
+        if [ \$type == "polcal" ]; then 
+            args="\$args --pulsar"
+            args="\$args --MJD0 $params.polcal_MJD0"
+
+            # this feels illegal
+            MJD1=\$(echo \$(<$params.snoopy) | cut -d ' ' -f 21)
+            echo \$MJD1
+            args="\$args --MJD1 \$MJD1"
+
+            args="\$args --F0 $params.polcal_F0"
+            args="\$args --F1 $params.polcal_F1"
+            args="\$args --DM $dm"
+            args="\$args --cfreq $centre_freq"
+            args="\$args --bw $params.bw"
+            args="\$args --sigma $params.polcal_dynspec_sigma"
+            args="\$args --baseline $params.polcal_baseline"
+            args="\$args --tN $params.polcal_dynspec_tN"
+            args="\$args --guard $params.polcal_dynspec_guard"
+        
+        elif [ \$type == "frb" ]; then
+            args="\$args --sigma $params.frb_dynspec_sigma"
+            args="\$args --baseline $params.frb_baseline"
+            args="\$args --tN $params.frb_dynspec_tN"
+            args="\$args --guard $params.frb_dynspec_guard"
         fi
 
-        echo "python3 $beamform_dir/dynspecs.py \$args $ds_args"
-        python3 $beamform_dir/dynspecs.py \$args $ds_args
+        echo "python3 $beamform_dir/make_dynspec.py \$args"
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/make_dynspec.py \$args'
 
-        rm TEMP*
+
+        echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
+        echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+
         """
     
     stub:
@@ -554,16 +607,15 @@ workflow beamform {
                 Numpy files containing Stokes time series and dynamic spectra    
     */
     take:
-        label
-        data
-        pos
-        flux_cal_solns
-        pol_cal_solns
-        dm 
-        centre_freq
-        ds_args
-        nants
-        fcm
+        label               // FRB label
+        data                // data 
+        pos                 // frb position
+        flux_cal_solns      // flux cal solutions
+        pol_cal_solns       // pol cal solutions
+        dm                  // DM
+        centre_freq         // central frequency
+        nants               // number of antennas
+        fcm                 // fcm file
     
     main:
         // preliminaries
@@ -582,7 +634,14 @@ workflow beamform {
         dedisperse(label, dm, centre_freq, deripple.out)
         ifft(label, dedisperse.out, dm)
         xy = ifft.out.collect()
-        generate_dynspecs(label, xy, ds_args, centre_freq, dm, pol_cal_solns)
+
+        // if FRB, apply polcal solutions
+        if (label == "${params.label}") {
+            xy = apply_pol_cal_solns(label, xy, pol_cal_solns, centre_freq, dm).calib_data
+            label="${params.label}_calib"
+        }
+
+        generate_dynspecs(label, xy, centre_freq, dm)
     
     emit:
         dynspec_fnames = generate_dynspecs.out.dynspec_fnames

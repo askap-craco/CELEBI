@@ -13,9 +13,7 @@ include { flag_proper as flagdat } from './flagging'
 params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
-
 params.image_all_bins = false
-
 params.ICS_DMrange = 100
 params.ICS_DMstep = 0.1
 
@@ -34,9 +32,8 @@ polarisations = Channel
 params.nants_frb = params.nants
 antennas = Channel
     .of(0..params.nants_frb-1)
-
-beamform_dir = "$baseDir/../beamform/"
-localise_dir = "$baseDir/../localise/"
+beamform_dir = "$projectDir/../beamform/"
+localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process load_coarse_dynspec {
@@ -78,135 +75,143 @@ process load_coarse_dynspec {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
-
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
         # create calcfiles for antenna delay
-        startmjd=`python3 $localise_dir/get_start_mjd.py $data`
+        # startmjd=`python3 $localise_dir/get_start_mjd.py $data`
+        ml apptainer
+        set -a
+        set -o allexport
+	export CRAFTCATDIR="."
 
-        export CRAFTCATDIR="."
+# Run processTimeStep.py with the --calconly flag to stop once calcfile is 
+# written
+	args="-t $data"
+	args="\$args --ra $params.ra_frb"
+	args="\$args -d$params.dec_frb"
+	args="\$args -f $fcm"
+	args="\$args -b 4"
+	args="\$args --card 1"
+	args="\$args -k"
+	args="\$args --name=210117_ICS"
+	args="\$args -o ."
+	args="\$args --freqlabel c1_f0"
+	args="\$args --dir=$localise_dir/../difx"
+	args="\$args --calconly"
+	# args="\$args --startmjd \$startmjd"
 
-        # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
-        # written
-        args="-t $data"
-        args="\$args --ra $params.ra_frb"
-        args="\$args -d$params.dec_frb"
-        args="\$args -f $fcm"
-        args="\$args -b 4"
-        args="\$args --card 1"
-        args="\$args -k"
-        args="\$args --name=210117_ICS"
-        args="\$args -o ."
-        args="\$args --freqlabel c1_f0"
-        args="\$args --dir=$localise_dir/../difx"
-        args="\$args --calconly"
-        args="\$args --startmjd \$startmjd"
+	echo "python3 $localise_dir/processTimeStep.py \$args"
+	# python3 $localise_dir/processTimeStep.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && startmjd=`python3 $localise_dir/get_start_mjd.py $data` && python3 $localise_dir/processTimeStep.py \$args --startmjd \$startmjd'
 
-        echo "python3 $localise_dir/processTimeStep.py \$args"
-        python3 $localise_dir/processTimeStep.py \$args
-
-
-        mkdir delays
+	mkdir delays
         args="-d $data"
-        args="\$args --parset $fcm"
-        args="\$args --calcfile c1_f0/craftfrb.im"
-        args="\$args -o ${label}_ICS"
-        args="\$args --ics"
-        args="\$args --cpus=8"
-        args="\$args --pol=$pol"
-        args="\$args --an=$ant_idx"
+	args="\$args --parset $fcm"
+	args="\$args --calcfile c1_f0/craftfrb.im"
+	args="\$args -o ${label}_ICS"
+	args="\$args --ics"
+	args="\$args --cpus=8"
+	args="\$args --pol=$pol"
+	args="\$args --an=$ant_idx"
 
-        echo "python3 $beamform_dir/craftcor_tab.py \$args"
-        python3 $beamform_dir/craftcor_tab.py \$args
-        """
-    
-    stub:
-        """
-        touch ${label}_ICS_${pol}_${ant_idx}.npy
-        touch t_mjd.npy
-        """
+	echo "python3 $beamform_dir/craftcor_tab.py \$args"
+	# python3 $beamform_dir/craftcor_tab.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/craftcor_tab.py \$args'
+	exit
+	"""
+
+	stub:
+	"""
+	touch ${label}_ICS_${pol}_${ant_idx}.npy
+	touch t_mjd.npy
+	"""
 }
 
 process refine_candidate {
-    /*
-        Sum incoherent dynamic spectra, search for FRB, and refine snoopy
-        candidate
-    
-        Input
-            label: val
-                FRB name and context of process instance as a string (no
-                spaces)
-            ics_dynspecs: path
-                All the incoherent dynamic spectra
-            t_mjd: path
-                ICS dynamic spectra time axis in MJD
-            snoopy: path
-                Initial detection snoopy candidate
-    */
-    publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
+	/*
+	   Sum incoherent dynamic spectra, search for FRB, and refine snoopy
+	   candidate
 
-    input:
-        val label
-        path ics_dynspecs
-        path t_mjd
-        path snoopy
+	   Input
+label: val
+FRB name and context of process instance as a string (no
+spaces)
+ics_dynspecs: path
+All the incoherent dynamic spectra
+t_mjd: path
+ICS dynamic spectra time axis in MJD
+snoopy: path
+Initial detection snoopy candidate
+	 */
+	publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
-    output:
-        path "${label}_ICS.npy", emit: sum_ics
-        path "${label}.cand", emit: cand
-        path "*png", emit: plots
+		input:
+		val label
+		path ics_dynspecs
+		path t_mjd
+		path snoopy
 
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+		output:
+		path "${label}_ICS.npy", emit: sum_ics
+		path "${label}.cand", emit: cand
+		path "*png", emit: plots
 
-        python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
+		script:
+		"""
+		# if [ "$params.ozstar" == "true" ]; then
+		#	. $launchDir/../setup_proc
+		#		fi
+                		ml apptainer
+                		set -a
+                		set -o allexport
+                		apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy'
+			        # python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
 
-        args="--ds ${label}_ICS.npy"
-        args="\$args -s $snoopy"
-        args="\$args -t $t_mjd"
-        args="\$args -f $params.centre_freq_frb"
-        args="\$args --DMrange=$params.ICS_DMrange"
-        args="\$args --DMstep=$params.ICS_DMstep"
-        args="\$args -o ${label}.cand"
+				args="--ds ${label}_ICS.npy"
+				args="\$args -s $snoopy"
+				args="\$args -t $t_mjd"
+				args="\$args -f $params.centre_freq_frb"
+				args="\$args --DMrange=$params.ICS_DMrange"
+				args="\$args --DMstep=$params.ICS_DMstep"
+				args="\$args -o ${label}.cand"
+				apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/search_ics.py \$args'
+				# python3 $localise_dir/search_ics.py \$args
+				"""
 
-        python3 $localise_dir/search_ics.py \$args
-        """
-
-    stub:
-        """
-        touch ${label}_ICS.npy
-        touch ${label}.cand
-        touch stub.png
-        """
+				stub:
+				"""
+				touch ${label}_ICS.npy
+				touch ${label}.cand
+				touch stub.png
+				"""
 }
 
 process get_beam_centre {
-    /*
-        Parse VCRAFT headers to get the beam centre
+	/*
+	   Parse VCRAFT headers to get the beam centre
 
-        Output
-            ra: env
-                Beam centre right ascension (hms)
-            dec: env
-                Beam centre declination (dms)
-    */
-    output:
-        env ra, emit: ra
-        env dec, emit: dec
-    
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+	   Output
+ra: env
+Beam centre right ascension (hms)
+dec: env
+Beam centre declination (dms)
+	 */
+output:
+	env ra, emit: ra
+		env dec, emit: dec
 
-        # find a header file
-        ant_pattern="${params.data_frb}/ak*"
-        ants=( \$ant_pattern )
+		script:
+		"""
+		ml apptainer
+		echo "TEST BEAMCTRE"
+		set -a
+		set -o allexport
+		apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'echo \$APPTAINER_CONTAINER && source /opt/setup_proc_container'
+# find a header file
+		ant_pattern="${params.data_frb}/ak*"
+#echo \$ant_pattern
+		ants=( \$ant_pattern )
         first_ant=`echo \$ants`
         beam_pattern="\$first_ant/beam*"
         beams=( \$beam_pattern )
@@ -216,8 +221,11 @@ process get_beam_centre {
         # beam centre in degrees
         ra_beam_deg=`grep BEAM_RA \$header | cut -d " " -f 2`
         dec_beam_deg=`grep BEAM_DEC \$header | cut -d " " -f 2`
-
-        radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
+        
+        #export ant_pattern
+        radec_beam=\$( apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg' ) 
+        echo \$radec_beam
+        # radec_beam=`python $localise_dir/get_beam_radec.py \$ra_beam_deg \$dec_beam_deg`
         ra=`echo \$radec_beam | cut -d " " -f 1 | tr h : | tr m : | tr s 0`
         dec=`echo \$radec_beam | cut -d " " -f 2 | tr d : | tr m : | tr s 0`
         """
@@ -279,13 +287,16 @@ process plot {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load matplotlib/3.2.1-python-3.7.4
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport 
         args="-s $fnames_file"
         args="\$args -f $centre_freq"
         args="\$args -l $label"
@@ -294,10 +305,11 @@ process plot {
         args="\$args -y ${label}*Y_t*npy"
         args="\$args -t $time"
         args="\$args -c $cand"
+        args="\$args --chanlists $projectDir/../flagging"
 
         mkdir crops
 
-        python3 $beamform_dir/plot.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/plot.py \$args'
         """
     
     stub:
@@ -349,6 +361,7 @@ process npy_to_archive {
             module load anaconda3/5.1.0
             source activate $launchDir/envs/psrchive
         fi
+        #OBSOLETE PROCESS - NOT CALLED ANYWHERE.
 
         #convert_addpol
         #fill_header
@@ -394,14 +407,16 @@ process find_DM_opt {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
-
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load matplotlib/3.2.1-python-3.7.4
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport
         args="-x $crops/${params.label}_${dm}_X.npy"
         args="\$args -y $crops/${params.label}_${dm}_Y.npy"
         args="\$args -d $params.minDM"
@@ -411,7 +426,8 @@ process find_DM_opt {
         args="\$args --f0 $params.centre_freq_frb"
         args="\$args --dt $params.opt_DM_dt"
 
-        dmopt=`python3 $beamform_dir/opt_DM.py \$args`
+        #dmopt=`python3 $beamform_dir/opt_DM.py \$args`
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/opt_DM.py \$args'
         """
     
     stub:
@@ -481,14 +497,16 @@ process mjd_prof {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-        fi
-
-        python3 $beamform_dir/mjd_prof.py $params.data_frb $crop_50us $crop_start
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #fi
+        ml apptainer
+        set -a
+        set -o allexport 
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/mjd_prof.py $params.data_frb $crop_50us $crop_start'
         """
 
     stub:
@@ -556,15 +574,15 @@ process htr_to_binconfig {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            module load gcc/9.2.0
-            module load openmpi/4.0.2
-            module load python/3.7.4
-            module load numpy/1.18.2-python-3.7.4
-            module load matplotlib/3.2.1-python-3.7.4
-        fi
-
-        python3 $beamform_dir/htr2binconfig.py $prof $polyco
+        #if [ "$params.ozstar" == "true" ]; then
+        #    module load gcc/9.2.0
+        #    module load openmpi/4.0.2
+        #    module load python/3.7.4
+        #    module load numpy/1.18.2-python-3.7.4
+        #    module load matplotlib/3.2.1-python-3.7.4
+        #fi
+        ml apptainer
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/htr2binconfig.py $prof $polyco'
         """
     
     stub:
@@ -613,7 +631,8 @@ workflow process_frb {
 
     main:
         coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas, fcm)
+                                        antennas,fcm
+)
         refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
         if (!params.skip_ics) {
             if ( new File(refined_candidate_path).exists()) {
@@ -768,7 +787,7 @@ workflow process_frb {
             if(!params.opt_gate){
         		finalres = apply_offset(offset, doffset, askap_frb_pos)
                 final_position = finalres.final_position
-        		finalmap = finalres.hpmap
+        		// finalmap = finalres.hpmap
             }
         }
         else if(new File(offset_path).exists()) {
@@ -785,7 +804,7 @@ workflow process_frb {
             // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                    pol_cal_solns, params.dm_frb, params.centre_freq_frb, "-ds -t -XYIQUV",
+                    pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                     params.nants_frb, fcm
                 )
                 plot(

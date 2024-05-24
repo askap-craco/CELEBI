@@ -10,7 +10,7 @@ if(len(sys.argv)<7):
     print("Arguments are - <input_fits> <output_fits> <badchan_file> <flagmode> <log_file> <badant_file>")
     sys.exit()
 
-ankdir    = "/fred/oz002/askap/craft/craco/ankflag_craft/"
+ankdir    = "/fred/oz313/src/ankflag_craft/"
 
 infits		= sys.argv[1]
 outfits		= sys.argv[2]

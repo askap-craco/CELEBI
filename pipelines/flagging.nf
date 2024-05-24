@@ -4,7 +4,7 @@
 	They are named as 'badchannels_askap_(low/mid/high)_(cal/field).txt'
 */
 
-flagging_dir = "$baseDir/../flagging/"
+flagging_dir = "$projectDir/../flagging/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process flag_proper {
@@ -41,12 +41,12 @@ process flag_proper {
 
     script:
         """	
-        if [ $params.ozstar == "true" ] 
-        then
-            . $launchDir/../setup_proc
-        fi   
-
-	    askap_band="low"
+        #if [ $params.ozstar == "true" ] 
+        #then
+        #    . $launchDir/../setup_proc
+        #fi   
+        
+	askap_band="low"
 
     	if [ \$(echo "$params.centre_freq_frb > 1500.0" |bc -l) -gt 0 ] 
     	then
@@ -61,9 +61,9 @@ process flag_proper {
         badchanfile="${flagging_dir}badchannels_askap_\${askap_band}_${src}.txt"
         echo "Bad channel file \${badchanfile}"
 
-        python3 ${flagging_dir}doflag.py infitsfile.fits outfitsfile.fits \${badchanfile} proper logfile.txt bad_ant_file.txt
+        /fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py infitsfile.fits outfitsfile.fits \${badchanfile} proper logfile.txt bad_ant_file.txt
 
-	    cp outfitsfile.fits ${outfitsfilepub}
+	cp outfitsfile.fits ${outfitsfilepub}
         """
     
     stub:
@@ -103,11 +103,11 @@ process flag_initial {
     
     script:
         """
-        if [ $params.ozstar == "true" ] 
-	    then
-            . $launchDir/../setup_proc
-        fi   
-
+        #if [ $params.ozstar == "true" ] 
+	#    then
+        #    . $launchDir/../setup_proc
+        #fi   
+        
         askapband = low
             
         if [ $params.centre_freq_frb -gt 1500.0 ] 
@@ -122,8 +122,8 @@ process flag_initial {
 
         badchanfile = ${flagging_dir}badchannels_askap_${askapband}_${src}.txt
         echo "Bad channel file ${badchanfile}"
-
-        python3 ${flagDir}/doflag.py ${infitsfile} ${outfitsfile}.fits ${badchanfile} initital logfile.txt none
+	
+	/fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py ${infitsfile} ${outfitsfile}.fits ${badchanfile} initital logfile.txt none
         """
     
     stub:

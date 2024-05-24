@@ -22,7 +22,10 @@ params.nants_fcal = params.nants
 
 workflow {
     fcm_delayfix = fcal1(params.fcm).fcm_delayfix
-
+    //fcm_delayfix = fcal1("/fred/oz313/data/frb210912/fcm.txt.32063").fcm_delayfix
+    //println "TESTING"
+    println fcm_delayfix
+    println params.fcm
     if(fcm_delayfix != "") {
         flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
     }

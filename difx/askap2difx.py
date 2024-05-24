@@ -4,6 +4,7 @@ import math
 import glob
 import os
 import sys
+import socket
 
 from astropy.time import Time
 
@@ -144,6 +145,7 @@ def _main():
 
     # Create the machines and threads file and a corresponding run script, or the slurm batch job, as appropriate
     if args.slurm:
+        """
         currentdir = os.getcwd()
         currentuser = getpass.getuser()
         numprocesses = args.npol * len(datafilelist[0]) + 5
@@ -230,24 +232,33 @@ def _main():
         for i in range(numprocessingnodes):
             threadsout.write(f"{difxThreads}\n")
         threadsout.close()
-    else:
+        """
+    #else:
         # We just want Ndatastream processes, plus a head node, plus one computational node
-        numprocesses = args.npol * len(datafilelist[0]) + 2
-
+        numprocesses = args.npol * len(datafilelist[0]) + 5 #args.npol * len(datafilelist[0]) + 2
+        print(numprocesses)
         # Write the machines file (all running on localhost)
         machinesout = open("machines", "w")
-        for i in range(numprocesses):
-            machinesout.write("localhost\n")
+        for i in range(int(numprocesses)):
+            #machinesout.write("localhost\n")
+            machinesout.write("%s\n"%socket.gethostname())
         machinesout.close()
-
-        # Write the threads file
-        threadsout = open("craftfrb.threads", "w")
-        threadsout.write("NUMBER OF CORES:    1\n")
-        threadsout.write(f"{difxThreads}\n")
+        numprocessingnodes = numprocesses - (
+            args.npol * len(datafilelist[0]) + 1
+        )
+        threadsout = open(f"{basename}.threads", "w")
+        threadsout.write(f"NUMBER OF CORES:    {numprocessingnodes}\n")
+        for i in range(numprocessingnodes):
+            threadsout.write(f"{difxThreads}\n")
         threadsout.close()
+        # Write the threads file
+        # threadsout = open("%s.threads"%basename, "w")
+        # threadsout.write(f"NUMBER OF CORES:    {numprocessingnodes}\n")
+        # threadsout.write(f"{difxThreads}\n")
+        # threadsout.close()
 
         # Create a little run file for running the observations
-        write_run(numprocesses)
+        write_run(numprocesses, basename)
 
         print("# First run the correlation:")
         runline = "./run.sh\n"
@@ -1063,7 +1074,7 @@ def write_sbatch(fname: str, params: dict, cmds: "list[str]") -> None:
     batchout.close()
 
 
-def write_run(numprocesses: int) -> None:
+def write_run(numprocesses: int, basename: str) -> None:
     """Write a script to run the observations.
 
     This is used in preference to startdifx because startdifx uses
@@ -1079,8 +1090,9 @@ def write_run(numprocesses: int) -> None:
     runout.write("errormon2 6 &\n")
     runout.write("export ERRORMONPID=$!\n")
     runout.write(
-        f"mpirun -machinefile machines -np {numprocesses} mpifxcorr craftfrb.input\n"
+        f"mpirun --oversubscribe -machinefile machines -np {numprocesses} mpifxcorr {basename}.input --nocommandthread\n"
     )
+    #runout.write(f"mpifxcorr -np1 {basename}.input --nocommandthread\n") 
     runout.write("kill $ERRORMONPID\n")
     runout.write("rm -f craftfrb.difxlog\n")
     runout.write("mv log craftfrb.difxlog\n")

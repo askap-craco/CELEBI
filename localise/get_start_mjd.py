@@ -1,6 +1,7 @@
 import glob
 import sys
 
+
 data_path = sys.argv[1]
 hdrfiles = glob.glob(f'{data_path}/ak*/*/*hdr')
 
@@ -20,7 +21,6 @@ for filename in hdrfiles:
                 nsamps = int(line.split()[1])
             if line.split()[0] == 'TRIGGER_MJD':
                 thisMJD = float(line.split()[1])
-            
     new_startmjd = thisMJD - nsamps/(samprate*86400)
     startmjd = new_startmjd if new_startmjd < startmjd else startmjd
 

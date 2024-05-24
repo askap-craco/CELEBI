@@ -19,11 +19,11 @@ def _main():
 
     correlateseconds = 20
     if args.bits == 4:
-        correlateseconds = 6
+        correlateseconds = 8 # was 6
     elif args.bits == 8:
-        correlateseconds = 4
+        correlateseconds = 6 # Was 4
     elif args.bits == 16:
-        correlateseconds = 3
+        correlateseconds = 5 # Was 3
 
     vcraftfiles = find_vcraft(args.fileglob)
 

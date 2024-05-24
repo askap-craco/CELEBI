@@ -19,6 +19,7 @@ def _main():
         cand = list(map(float, cand_file.readlines()[1].split(" ")))
     
     plot(args, fnames, cand)
+    plot_masked(args, fnames, cand)
 
 
 def get_args():
@@ -49,6 +50,9 @@ def get_args():
     parser.add_argument(
         "-t", type=str, help="Time axis in MJD (1 ms steps)"
     )
+    parser.add_argument(
+        "--chanlists", type=str, help="Path where channel list files are located"
+    )
 
     return parser.parse_args()
 
@@ -78,7 +82,7 @@ def reduce(a, n, axis=0):
             a = a.transpose()
         a_red = []
         for i in range(int(a.shape[0] / n)):
-            a_red.append(np.sum(a[i * n : (i + 1) * n], axis=0))
+            a_red.append(np.nansum(a[i * n : (i + 1) * n], axis=0))
 
         a_red = np.array(a_red) / np.sqrt(n)
 
@@ -118,15 +122,15 @@ def plot_IQUV_dts(
             print(f"  {j}, {dt}")
             if i == 0:  # Stokes I, identify peak
                 ds_red = reduce(ds, dt, axis=1)
-                ts_red = np.sum(ds_red, axis=0)
+                ts_red = np.nansum(ds_red, axis=0)
                 if abs_peak is None:
-                    first_peak = np.argmax(ts_red)#[init_range])+init_range.start
+                    first_peak = np.nanargmax(ts_red)#[init_range])+init_range.start
                     abs_peak = (first_peak * dt,
                                 first_peak * dt+dt+1)
             
                 peaks.append(
                     abs_peak[0] // dt + 
-                    np.argmax(ts_red[abs_peak[0]//dt:abs_peak[1]//dt])
+                    np.nanargmax(ts_red[abs_peak[0]//dt:abs_peak[1]//dt])
                 )
 
                 windows.append(slice(
@@ -140,15 +144,18 @@ def plot_IQUV_dts(
                     :,
                     max(0, peak - time_range) : min(ds_red.shape[1], peak + time_range)
                 ]
-                plot_ts = np.sum(plot_ds, axis=0)
+                plot_ts = np.nansum(plot_ds, axis=0)
 
             else:   # Q, U, V
                 peak = peaks[k]
                 window = windows[k]
                 plot_ds = reduce(ds[:, window], dt, axis=1)
-                plot_ts = np.sum(plot_ds, axis=0)
-
+                plot_ts = np.nansum(plot_ds, axis=0)
+            
             print(f"  peak = {peak}")
+            
+            #print("DS shape",plot_ds.shape)
+            #print("Time range ",time_range)
 
             t = np.linspace(
                 -time_range * dt / 1e3, time_range * dt / 1e3, plot_ts.shape[0]
@@ -247,7 +254,7 @@ def crop(stks, peak, dt, labels, time_range, prefix, c=None):
 
 
 def plot_ts(ds, idx_1ms, fname):
-    ts = np.sum(ds, axis=0)
+    ts = np.nansum(ds, axis=0)
     ts = reduce(ts, 1000)
     plt.figure(figsize=(10, 5))
     plt.plot(ts)
@@ -441,16 +448,103 @@ def plot(args, stokes_fnames, cand):
     # plot full Stokes I time series at 1 ms time resolution
     plot_ts(stks[0], idx_1ms, f"{args.label}_I_{args.DM}.png")
 
-    chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_low.txt'
+
+
+def plot_masked(args, stokes_fnames, cand):
+    stks = [np.load(f) for f in stokes_fnames]
+	
+    # start crops at expected MJD of FRB - identify index to use
+    facs = [1, 3, 10, 30, 100, 300, 1000] # reduction factors --> dt in us
+
+    t_mjd = np.load(args.t)
+    mjd_cand = cand[-2]
+    idx_1ms = np.argmin(np.abs(t_mjd - mjd_cand))
+	
+	#	Generate list of bad channels
+    chanlist = args.chanlists + '/htrchanlist_low.txt'
     if(args.f > 1100.0):
-        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_mid.txt'
+        chanlist = args.chanlists + '/htrchanlist_mid.txt'
     if(args.f > 1500.0):
-        chanlist = '/fred/oz002/askap/craft/craco/CELEBI/flagging/htrchanlist_high.txt'
+        chanlist = args.chanlists + '/htrchanlist_high.txt'
     # Mask bad channels and calculate S/N
     plot_stokes_mask_chan(stks, idx_1ms, 10.0, 50.0, \
                     chanlist, \
                     f"{args.label}_channel_mask.txt", \
                     f"{args.label}_I_{args.DM}_masked.png")
+
+    chanmask	=	np.loadtxt(f"{args.label}_channel_mask.txt")
+    badchans	=	np.where(chanmask==0)
+
+    for stkind in range(0,len(stks)):
+        #print("Shape ",stks[stkind].shape)
+        for bc in badchans:
+            stks[stkind][bc]	=	np.nan*np.ones(np.shape(stks[stkind][bc]),dtype=float)
+        #print("Shape ",stks[stkind].shape)
+        np.save("masked_"+stokes_fnames[stkind], stks[stkind])
+		
+    # IQUV over four timescales
+    peak = plot_IQUV_dts(
+        stks, 
+        args.f,
+        idx_1ms,
+        facs=facs,
+        labels=["I", "Q", "U", "V"], 
+        fname=f"{args.label}_IQUV_{args.DM}_masked.png"
+    )
+
+    # Full series at 1 ms
+    c_full = crop(
+        stks,
+        peak,
+        1000,
+        ["I", "Q", "U", "V"],
+        None,    # Full range
+        f"crops/{args.label}_{args.DM}_1ms_masked_"
+    )
+
+    # +- 50 ms at 50 us
+    c_100ms_50us = crop(
+        stks,
+        peak,
+        50,
+        ["I", "Q", "U", "V"],
+        100*1000,
+        f"crops/{args.label}_{args.DM}_50us_masked_"
+    )
+    with open("50us_crop_start_s_masked.txt", "w") as f:
+        f.write(f"{c_100ms_50us.start*50e-6}")
+
+    # +- 10 ms at 1 us
+    c_20ms_1us = crop(
+        stks,
+        peak,
+        1,
+        ["I", "Q", "U", "V"],
+        20*1000,
+        f"crops/{args.label}_{args.DM}_1us_masked_"
+    )
+
+    # Crop 1D XY time series into +- 5 ms at 3 ns
+    X = np.load(args.x, mmap_mode="r")
+    Y = np.load(args.y, mmap_mode="r")
+    c_1D = slice(
+        (c_20ms_1us.start+5000)*336,
+        (c_20ms_1us.stop-5000)*336,
+        1
+    )
+    crop(
+        [X, Y],
+        peak*336,
+        1,
+        ["X", "Y"],
+        None,
+        f"crops/{args.label}_{args.DM}_masked_",
+        c=c_1D
+    )
+
+    # plot full Stokes I time series at 1 ms time resolution
+    plot_ts(stks[0], idx_1ms, f"{args.label}_I_{args.DM}_masked.png")
+
 
 
 if __name__ == "__main__":

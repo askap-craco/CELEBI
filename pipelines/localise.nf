@@ -1,4 +1,4 @@
-localise_dir = "$baseDir/../localise/"
+localise_dir = "$projectDir/../localise"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
 process generate_binconfig {
@@ -39,11 +39,14 @@ process generate_binconfig {
 
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
+        ml apptainer
+        set -a
+        set -o allexport
         tmp_file=".TMP_\$BASHPID"
-        python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file'
 
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
@@ -96,16 +99,20 @@ process find_offset {
     script:
         """
         if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
+            # . $launchDir/../setup_proc
             [ -d  "~/.astropy/cache" ] && rm -r ~/.astropy/cache
-        fi        
+        fi
+        ml apptainer
+        set -a
+        set -o allexport
+        
         args="-o ${params.label}_RACS.dat"
         args="\$args -a ${params.label}_ASKAP.dat"
         args="\$args -n ${params.label}_names.dat"
         args="\$args -r ${params.label}_RACS_sources.reg"
 	args="\$args -j ${params.label}_jmfits.dat"
 
-        python3 $localise_dir/RACS_lookup.py \$args field*jmfit
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/RACS_lookup.py \$args field*jmfit'
 
         args="--askappos ${params.label}_ASKAP.dat"
         args="\$args --askapnames ${params.label}_names.dat"
@@ -114,13 +121,13 @@ process find_offset {
         args="\$args --racs ${params.label}_RACS.dat"
         args="\$args --frbtitletext ${params.label}"
 
-        python3 $localise_dir/src_offsets_rotated.py \$args
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/src_offsets_rotated.py \$args && python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit.txt && python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat'
 	
-	python3 $localise_dir/weighted_multi_image_fit_updated.py \
-            askap2racs_rotated_offsets.dat > offsetfit.txt
+	# python3 $localise_dir/weighted_multi_image_fit_updated.py \
+        #    askap2racs_rotated_offsets.dat > offsetfit.txt
 
-        python3 $localise_dir/weighted_multi_image_fit_updated.py \
-            askap2racs_offsets_unc.dat
+        #python3 $localise_dir/weighted_multi_image_fit_updated.py \
+        #    askap2racs_offsets_unc.dat
 
         """
     
@@ -148,7 +155,7 @@ process apply_offset {
         Output
             final_position: path
                 FRB final position with error as a txt file
-	    hpmap: path
+            hpmap: path
                 Healpix map in FITS format
     */
     publishDir "${params.out_dir}/position", mode: "copy"
@@ -160,19 +167,21 @@ process apply_offset {
 
     output:
         path "${params.label}_final_position.txt", emit: final_position
-	    path "${params.label}_hpmap.FITS", emit: hpmap
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi   
-
-	    python3 $localise_dir/apply_rotated_offset.py --frbname ${params.label} --frb $askap_frb_pos \
-            --offset $offset --doffset $doffset --frbfits ${params.out_dir}/finder/${params.label}.fits \
-            --hpfits  ${params.label}_hpmap.FITS > ${params.label}_final_position.txt        
-
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi   
+        ml apptainer
+        set -a
+        set -o allexport
+        tmp_file=".TMP_\$BASHPID"
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/apply_rotated_offset.py --frbname ${params.label} --frb $askap_frb_pos \
+            --offset $offset --doffset $doffset --frbfits ${params.out_dir}/finder/${params.label}.fits  \
+             > ${params.label}_final_position.txt'
         """
+
     
     stub:
         """
