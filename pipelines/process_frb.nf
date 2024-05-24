@@ -91,7 +91,7 @@ process load_coarse_dynspec {
 	args="\$args --ra $params.ra_frb"
 	args="\$args -d$params.dec_frb"
 	args="\$args -f $fcm"
-	args="\$args -b 4"
+	args="\$args -b $params.nbits"
 	args="\$args --card 1"
 	args="\$args -k"
 	args="\$args --name=210117_ICS"

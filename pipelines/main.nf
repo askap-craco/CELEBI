@@ -17,6 +17,7 @@ params.nopolcal = false     // some FRBs have no good pol cal
 params.target = "FRB${params.label}"
 params.out_dir = "${params.publish_dir}/${params.label}"
 params.psoln = ""
+params.nbits = 4
 params.nants = 2
 params.nants_fcal = params.nants
 

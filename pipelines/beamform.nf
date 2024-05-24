@@ -76,7 +76,7 @@ process create_calcfiles {
         args="\$args --ra \$ra"
         args="\$args -d\$dec"
         args="\$args -f $fcm"
-        args="\$args -b 4"
+        args="\$args -b $params.nbits"
         args="\$args --card 1"
         args="\$args -k"
         args="\$args --name=$label"
