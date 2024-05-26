@@ -26,6 +26,10 @@ parser.add_argument("--frbname", help="FRB name string")
 parser.add_argument("--frb", help="Pre-offset FRB JMFIT stats file")
 parser.add_argument("--offset", help="Offset file")
 parser.add_argument("--doffset", help="Detailed offset file")
+parser.add_argument("--framerauncertainty", default=0.0, type=float,
+                    help="Uncertainty in the reference frame in RA in arcseconds")
+parser.add_argument("--framedecuncertainty", default=0.0, type=float,
+                    help="Uncertainty in the reference frame in Dec in arcseconds")
 parser.add_argument("--frbfits", help="FITS image containing the FRB")
 parser.add_argument("--hpfits", help="Healpix FITS map for FRB position")
 
@@ -205,8 +209,8 @@ final_pos = sc(
     frb_pos.dec + offset_dec*un.arcsecond
 )
 
-final_err_ra = (FRB.ra_err ** 2 + offset_ra_err ** 2) ** 0.5
-final_err_dec = (FRB.dec_err ** 2 + offset_dec_err ** 2) ** 0.5
+final_err_ra = (FRB.ra_err ** 2 + offset_ra_err ** 2 + args.framerauncertainty**2) ** 0.5
+final_err_dec = (FRB.dec_err ** 2 + offset_dec_err ** 2 + args.framedecuncertainty**2) ** 0.5
 
 
 print("FINAL FRB POSITION (in the Old System)")
@@ -241,14 +245,16 @@ minsigma  = float(splitline[8])*SYSTEMATIC_SCALE_FACTOR
 
 raoffset  = majoffset*np.sin(posangle) + minoffset*np.cos(posangle)
 decoffset = majoffset*np.cos(posangle) - minoffset*np.sin(posangle)
+framemajuncertainty = 1000*np.sqrt((args.framerauncertainty*np.cos(posangle))**2 + (args.framedecuncertainty*np.sin(posangle))**2)
+frameminuncertainty = 1000*np.sqrt((args.framerauncertainty*np.sin(posangle))**2 + (args.framedecuncertainty*np.cos(posangle))**2)
 frbresult.updateRA(frbresult.rarad + raoffset*np.pi/(180*60*60*1000))
 frbresult.updateDec(frbresult.decrad + decoffset*np.pi/(180*60*60*1000))
 deltapa = posangle - np.pi*frbresult.fitpa / 180.0
 frbstatmaj_unc = np.sqrt((frbresult.fitmaj*np.cos(deltapa))**2 + (frbresult.fitmin*np.sin(deltapa))**2) / (2.350 * frbresult.snr)
 frbstatmin_unc = np.sqrt((frbresult.fitmaj*np.sin(deltapa))**2 + (frbresult.fitmin*np.cos(deltapa))**2) / (2.350 * frbresult.snr)
 
-totalmaj_unc = np.sqrt(frbstatmaj_unc**2 + majsigma**2)
-totalmin_unc = np.sqrt(frbstatmin_unc**2 + minsigma**2)
+totalmaj_unc = np.sqrt(frbstatmaj_unc**2 + majsigma**2 + framemajuncertainty**2)
+totalmin_unc = np.sqrt(frbstatmin_unc**2 + minsigma**2 + frameminuncertainty**2)
 
 raerror   = np.sqrt((totalmaj_unc*np.sin(posangle))**2 + (totalmin_unc*np.cos(posangle))**2)
 decerror  = np.sqrt((totalmaj_unc*np.cos(posangle))**2 + (totalmin_unc*np.sin(posangle))**2)
@@ -258,6 +264,10 @@ print("Offsets along the beam direction\n")
 print("Offsets       -- MAJOR = %.2f arcsec, MINOR = %.2f arcsec, PA = %.2f deg"%(majoffset/1000.0, minoffset/1000.0, posangle*180.0/np.pi))
 print("Uncertainties -- MAJOR = %.2f arcsec, MINOR = %.2f arcsec"%(majsigma/1000.0,minsigma/1000.0))
 print("\nRA, Dec offset is {0:.3f} arcsec, {1:.3f} arcsec".format(raoffset/1000.0, decoffset/1000.0))
+
+print("\n*********************************************\n")
+print("Systematic frame uncertainty at this location\n")
+print("Uncertainties -- MAJOR = %.2f arcsec, MINOR = %.2f arcsec"%(framemajuncertainty/1000.0,frameminuncertainty/1000.0))
 
 print("\n*********************************************\n")
 print("FINAL FRB POSITION for offsets along beam direction\n")

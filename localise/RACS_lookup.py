@@ -1,6 +1,10 @@
+import os
+import pandas as pd
+import numpy as np
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from astropy.coordinates import SkyCoord as sc
+from astropy.table import Table
 from astroquery.utils.tap.core import TapPlus
 
 
@@ -9,10 +13,14 @@ def _main():
         description="Lookup source position in RACS",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument("-l", "--localracspath", default="", 
+                        help="Use this local RACS catalog instead of CASDA")
+    parser.add_argument("--racsrasystematic", type=int, default=0.0, 
+                        help="Add this value in quadrature to the final RA uncertainty")
+    parser.add_argument("--racsdecsystematic", type=int, default=0.0,
+                        help="Add this value in quadrature to the final Dec uncertainty")
     parser.add_argument("-o", required=True, help="Output RACS positions file")
-    parser.add_argument(
-        "-a", required=True, help="Output ASKAP positions file"
-    )
+    parser.add_argument("-a", required=True, help="Output ASKAP positions file")
     parser.add_argument("-n", required=True, help="Output names file")
     parser.add_argument("-r", required=True, help="Output region file")
     parser.add_argument("-j", required=True, help="Output file with list of jmfits")
@@ -21,9 +29,6 @@ def _main():
 
     print(args.files)
 
-    print("Opening casdatap")
-    casdatap = TapPlus(url="https://casda.csiro.au/casda_vo_tools/tap")
-    print("casdatap open")
     askap_file = open(args.a, "a")
     pos_file = open(args.o, "a")
     name_file = open(args.n, "a")
@@ -32,6 +37,18 @@ def _main():
 
     names = []
 
+    if args.localracspath != "":
+        print("Reading local catalogue at ", args.localracspath)
+        if not os.path.exists(args.localracspath):
+            print("This path does not exist! Aborting.")
+            sys.exit()
+        cat = pd.read_csv(args.localracspath)
+        print("Local catalog read successfully")
+    else:
+        print("Opening casdatap")
+        casdatap = TapPlus(url="https://casda.csiro.au/casda_vo_tools/tap")
+        print("casdatap open")
+
     for f in args.files:
         print(f)
         coord = Coord(f)
@@ -39,7 +56,10 @@ def _main():
         if coord.sn < 7:
             continue
 
-        t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
+        if args.localracspath != "":
+            t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, cat)
+        else:
+            t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
 
         print(t1)
 
@@ -146,6 +166,35 @@ def RACS_lookup2(ra_hms, dec_dms, casdatap):
     )
     return job2.get_results()
 
+def RACS_lookup_local(ra_hms, dec_dms, cat, radius=0.0014):
+    """
+    Query the RACS local catalog based on the given coordinates and radius.
+
+    Parameters:
+    ra (float): Right Ascension in degrees.
+    dec (float): Declination in degrees.
+    radius (float, optional): Search radius in degrees. Default is 5 arcsec.
+    catpath (str, optional): Path to the catalog file. Default is an empty string.
+
+    Returns:
+    astropy.Table: Subset of the catalog containing sources within the specified radius.
+    """
+    ra = sc(ra_hms, dec_dms, unit="hour,deg").ra.deg
+    dec = sc(ra_hms, dec_dms, unit="hour,deg").dec.deg
+    
+    cat_ra, cat_dec = np.array(cat['ra']), np.array(cat['dec'])
+    
+    phi1 = ra * np.pi / 180
+    theta1 = dec * np.pi / 180
+    phi2 = cat_ra * np.pi / 180
+    theta2 = cat_dec * np.pi / 180
+    
+    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(phi1-phi2)
+    
+    sep = np.arccos(cos_sep_radian) * 180 / np.pi
+    select_bool = sep < radius
+    
+    return Table.from_pandas(cat.iloc[select_bool])
 
 
 def writestr(ra_hms, ra_err, dec_dms, dec_err):
