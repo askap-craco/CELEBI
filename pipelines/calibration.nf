@@ -7,7 +7,19 @@ beamform_dir = "$projectDir/../beamform"
 
 params.finderimagesize = 1024
 params.finderpixelsize = 1
-params.fieldimagesize = 3000
+params.fieldimagesize = 5000
+// new - adding in field pixel size
+// params.fieldpixelsize = 1.5
+if ( params.centre_freq_frb < 1000 ) {
+	params.fieldpixelsize = 2.5
+}
+else if ( params.centre_freq_frb < 1200 ) {
+	params.fieldpixelsize = 2
+}
+else {
+	params.fieldpixelsize = 1.5
+}
+
 params.polcalimagesize = 128
 params.minbeamfrac = 0.05
 params.refant = 3   // reference antenna - index corresponds to ak name
@@ -332,6 +344,7 @@ process image_field {
         path "*_calibrated_uv.ms", emit: ms, optional: true
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
+        path "cutouts", emit: cutouts
 
     script:
         """
@@ -361,11 +374,10 @@ process image_field {
         if [ "$params.fieldimage" == "null" ]; then
             args="\$args --targetonly"
             args="\$args -t $target_fits"
-            args="\$args -r 3"
             args="\$args --cleanmfs"
             args="\$args -a 16"
             args="\$args --skipplot"
-            args="\$args --pixelsize=4"
+            args="\$args --pixelsize=$params.fieldpixelsize"
             args="\$args --tarflagfile=$flagfile"
             if [ "$flagfile" != "" ]; then
                 args="\$args --tarflagfile=$flagfile"
@@ -381,6 +393,7 @@ process image_field {
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
             i=\$((i+1))
         done
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/makefieldcutouts.py'
         rm -rf \$aips_dir
         """    
     
