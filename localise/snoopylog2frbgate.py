@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import math
 
 fakepulsarperiod = 10  # seconds
 
@@ -330,6 +331,8 @@ def calc_gate_bins(
     gateendphase = (
         86400.0 * (gateendmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod
+    gatestartphase -= math.floor(gatestartphase)
+    gateendphase -= math.floor(gateendphase)
 
     binedges = [gatestartphase, gateendphase]
     weights = [0.0, 1.0]
