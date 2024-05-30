@@ -22,28 +22,31 @@ params.nants_fcal = params.nants
 
 workflow {
     fcm_delayfix = fcal1(params.fcm).fcm_delayfix
+    println "TESTING"
+    println fcm_delayfix
+    println params.fcm
+    // if(fcm_delayfix != "") {
+    //     flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
+    // }
+    // // else there is no fcm_delayfix and frb will fail
 
-    if(fcm_delayfix != "") {
-        flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
-    }
+    // if(params.nopolcal) {
+    //     pol_cal_solns = empty1("polcal.dat")
+    // }
+    // else if (params.psoln != "") {
+    //     pol_cal_solns = Channel.fromPath(params.psoln)
+    // }
+    // else {
+    //     pol_cal_solns = pcal(
+    //         flux_cal_solns, fcm_delayfix
+    //     )
+    // }
 
-    if(params.nopolcal) {
-        pol_cal_solns = empty1("polcal.dat")
-    }
-    else if (params.psoln != "") {
-        pol_cal_solns = Channel.fromPath(params.psoln)
-    }
-    else {
-        pol_cal_solns = pcal(
-            flux_cal_solns, fcm_delayfix
-        )
-    }
-
-    if(!params.nofrb) {
-        frb(
-            flux_cal_solns,
-            pol_cal_solns,
-            fcm_delayfix
-        )
-    }
+    // if(!params.nofrb) {
+    //     frb(
+    //         flux_cal_solns,
+    //         pol_cal_solns,
+    //         fcm_delayfix
+    //     )
+    // }
 }

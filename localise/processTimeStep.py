@@ -35,7 +35,7 @@ def _main():
     if not os.path.exists(freqlabel):
         os.mkdir(freqlabel)
     os.chdir(freqlabel)
-    os.system(f"cp {fcm} fcm.txt")
+    subprocess.call(f"cp {fcm} fcm.txt", shell=True)
 
     v2oargs = create_v2oargs(args, polyco, datadir, beamdirs)
     v2ocmd = f"python3 {args.dir}/vcraft2obs.py {v2oargs}"
@@ -55,7 +55,7 @@ def _main():
 
     # if .bat0 does not exist in upper directory, copy back
     if not os.path.exists("../../.bat0") and os.path.exists(".bat0"):
-        os.system("cp .bat0 ../..")
+        subprocess.call("cp .bat0 ../..", shell=True)
 
     # If we only need to calculate the interferometer model, quit now
     if args.calconly:
@@ -64,27 +64,27 @@ def _main():
     # Launch/process final job
     if args.slurm:
         print("Launching job!")
-        os.system("./launchjob")
+        subprocess.call("./launchjob", shell=True)
     else:
-        os.system("./run.sh")
+        subprocess.call("./run.sh", shell=True)
         if args.ref is not None:
-            os.system("./run_fill_DiFX")
+            subprocess.call("./run_fill_DiFX", shell=True)
         else:
-            os.system("./run_tscrunch_DiFX")
-        os.system("./runmergedifx")
+            subprocess.call("./run_tscrunch_DiFX", shell=True)
+        subprocess.call("./runmergedifx", shell=True)
         if args.correctfpgadelays:
-            os.system("findOffsets.py")
-            os.system("./run.sh")
+            subprocess.call("findOffsets.py", shell=True)
+            subprocess.call("./run.sh", shell=True)
             if args.ref is not None:
-                os.system("./run_fill_DiFX")
+                subprocess.call("./run_fill_DiFX", shell=True)
             else:
-                os.system("./run_tscrunch_DiFX")
-            os.system("rm -rf craftfrbD2D*")
-            os.system("./runmergedifx")
+                subprocess.call("./run_tscrunch_DiFX", shell=True)
+            subprocess.call("rm -rf craftfrbD2D*", shell=True)
+            subprocess.call("./runmergedifx", shell=True)
 
     print("Done with job")
     os.chdir("../")
-    os.system("pkill difxlog")
+    subprocess.call("pkill difxlog", shell=True)
     sys.exit()
 
 
@@ -424,7 +424,7 @@ def create_v2oargs(
             os.path.exists(f"{homedir}.eops.new")
             and os.path.getsize(f"{homedir}.eops.new") > 0
         ):
-            os.system(f"mv -f {homedir}.eops.new {homedir}.eops")
+            subprocess.call(f"mv -f {homedir}.eops.new {homedir}.eops".split())
     if args.calconly:
         v2oargs += " --calconly"
     if args.uppersideband:
@@ -484,7 +484,7 @@ def find_eop(topdir: str) -> None:
                         break
             if mjd is not None:
                 print(f"getEOP.py -l {mjd} > {topEOP}")
-                ret = os.system(f"getEOP.py -l {mjd} > {topEOP}")
+                ret = subprocess.run(f"getEOP.py -l {mjd} > {topEOP}", shell=True).returncode
                 if ret != 0:
                     print(
                         "WARNING: getEOP.py call not successful. Your eop.txt "
@@ -497,7 +497,7 @@ def find_eop(topdir: str) -> None:
 
         print("Copying EOP from top dir")
         print(f"cp {topEOP} eop.txt")
-        os.system(f"cp {topEOP} eop.txt")
+        subprocess.run(f"cp {topEOP} eop.txt", shell=True)
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ workflow process_flux_cal {
 
     main:
         label = "${params.label}_fluxcal"
-
+        println(fcm)
         // Correlation
         fluxcal_fits_path = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
         // if(new File(fluxcal_fits_path).exists()) {
@@ -43,16 +43,16 @@ workflow process_flux_cal {
           inttimepath = empty_file
         }
         else {
-          binconfigpath = Channel.fromPath(params.binconfig_fluxcal).first()
-          polycopath = Channel.fromPath(params.polyco_fluxcal).first()
-          inttimepath = Channel.fromPath(params.inttime_fluxcal).first()
+          binconfigpath = Channel.fromPath(params.binconfig_fluxcal) //.first()
+          polycopath = Channel.fromPath(params.polyco_fluxcal) //.first()
+          inttimepath = Channel.fromPath(params.inttime_fluxcal) //.first()
         }
         fits = corr_fcal(
             label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
             binconfigpath, polycopath, inttimepath, "fluxcal", fcm
         ).fits
         // }
-
+        fits.view()
         // Flagging
         if(!params.noflag) {
             fluxcal_fits_flagged = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"

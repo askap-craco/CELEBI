@@ -90,11 +90,6 @@ process do_ref_correlation {
                 exist even if the process has ended (e.g. by being killed) 
                 without completing.
     */
-
-    container "file://$params.container"
-
-    label 'python'
-
     input:
         val label
         val data
@@ -114,6 +109,127 @@ process do_ref_correlation {
     script:
         """
         export CRAFTCATDIR="."  # necessary?
+        # if [ "$params.ozstar" == "true" ]; then
+        #    . $launchDir/../setup_proc
+        # fi
+
+        # create .bat0
+        ml apptainer
+        set -a
+        set -o allexport
+        set -xu
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && bat0.pl `find $data/*/*/*vcraft | head -1`'
+        # bat0.pl `find $data/*/*/*vcraft | head -1`
+
+        args="-f $fcm"
+        args="\$args -b 4"
+        args="\$args -k"
+        args="\$args --name=$label"
+        args="\$args -o ."
+        args="\$args -t $data"
+        args="\$args --ra=$ra"
+        args="\$args --dec=$dec"
+        args="\$args --card $card"
+        freqlabel="c${card}_f${fpga}"
+        args="\$args --freqlabel \$freqlabel"
+        args="\$args --dir=$projectDir/../difx"
+        args="\$args --startmjd=$startmjd"
+
+        # High-band FRBs need --uppersideband
+        if [ "$params.uppersideband" == "true" ]; then
+            args="\$args --uppersideband"
+        fi
+
+        args="\$args --ts 16"
+
+        if [ -d \$freqlabel ]; then
+            rm -r \$freqlabel
+        fi
+        mkdir \$freqlabel
+        cp craftfrb.polyco \$freqlabel
+        cp .bat0 \$freqlabel
+
+        # Only use binconfig if it's not empty
+        if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
+            args="\$args -p craftfrb.binconfig"
+        fi
+
+        # Only include inttime if non-zero
+        int_time=`cat $inttime`
+        if [ "\$int_time" != "" ]; then
+            args="\$args -i \$int_time"
+        fi
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && set -xu && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
+        """
+    
+    stub:
+        """
+        mkdir c${card}_f${fpga}
+        touch c${card}_f${fpga}/stubD2D.input
+        """
+}
+
+process do_ref_correlation_new {
+    /*
+        Correlate the data using DiFX
+
+        Input            
+            label: val
+                FRB name and context of process instance as a string (no 
+                spaces)
+            data: val
+                Absolute path to data base directory (the dir. with the ak* 
+                directories)
+            ra: val
+                Right ascension to correlate around, as hh:mm:ss
+            dec: val
+                Declination to correlate around, as dd:mm:ss
+            binconfig: path
+                File specifying how to bin the correlated data
+            polyco: path
+                TODO: describe polyco
+            inttime: val
+                Integration time in seconds
+            startmjd: environment variable
+                The earliest start time found in the data headers
+            card, fpga: tuple(val, val)
+                Specific card-fpga pair to be correlated by this instance
+        
+        Output
+            correlated_data: path
+                A directory "c{card}_f{fpga}" containing the correlated data
+            D2D: path
+                A file within the correlated_data directory that only exists if 
+                the correlation has completed. This is used as an output to 
+                ensure that Nextflow correctly determines if this process has 
+                completed or not, since the correlated_data directory will 
+                exist even if the process has ended (e.g. by being killed) 
+                without completing.
+    */
+
+    container "file://$params.container"
+
+    label 'python'
+
+    input:
+        val label
+        val data
+        val ra
+        val dec
+        path binconfig, stageAs: "craftfrb.binconfig"
+        path polyco, stageAs: "craftfrb.polyco"
+        path inttime
+        val startmjd
+        tuple val(card), val(fpga)
+        path fcm
+
+    output:
+        path "c${card}_f${fpga}", emit: cx_fy
+        path "c${card}_f${fpga}/*D2D.input", emit: d2d
+
+    script:
+        """
+        export CRAFTCATDIR="."
         source /opt/setup_proc_container 
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
@@ -126,13 +242,13 @@ process do_ref_correlation {
         cp .bat0 \$freqlabel/.
 
         ### Set up some optional args
-        # High-band FRBs need --uppersideband
         uppersideband=""
+        # High-band FRBs need --uppersideband
         if [ "$params.uppersideband" == "true" ]; then
             uppersideband="--uppersideband"
         fi
 
-        
+        # use all the available cores
         ozstar="--ts ${task.cpus}"
 
         # Only use binconfig if it's not empty
@@ -220,6 +336,8 @@ process do_correlation {
 
     container "file://$params.container"
 
+    label 'python'
+
     input:
         val label
         val data
@@ -238,7 +356,7 @@ process do_correlation {
 
     script:
         """
-        export CRAFTCATDIR="."  # necessary?
+        export CRAFTCATDIR="."
         source /opt/setup_proc_container 
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
@@ -289,7 +407,7 @@ process do_correlation {
                 --dir=$projectDir/../difx \
                 --startmjd=$startmjd \
                 --ref=$ref_corr \
-                \$uppsersideband \
+                \$uppersideband \
                 \$ozstar \
                 \$binconfig \
                 \$int_time
