@@ -4,8 +4,16 @@ import math
 import glob
 import os
 import sys
+import subprocess
 
 from astropy.time import Time
+
+
+def run(cmd):
+    ret = subprocess.run(cmd, shell=True).returncode
+    if ret != 0:
+        print("ERR:FAILED COMMAND:{cmd}")
+        sys.exit(ret)
 
 
 def _main():
@@ -66,23 +74,14 @@ def _main():
     keyout.close()
 
     # Run it through sched
-    ret = os.system("./runsched.sh")
-    if ret != 0:
-        print("Warning, Sched failed")
-        sys.exit(1)
+    run("./runsched.sh")
 
     # Replace Mark5B with VDIF in vex file
-    ret = os.system("sed -i 's/MARK5B/VDIF/g' craftfrb.vex")
-    if ret != 0:
-        exit(1)
+    run("sed -i 's/MARK5B/VDIF/g' craftfrb.vex")
 
     # Run getEOP and save the results
     if not os.path.exists("eop.txt"):
-        ret = os.system(
-            "getEOP.py -l " + str(int(float(obs["startmjd"]))) + " > eop.txt"
-        )
-        if ret != 0:
-            sys.exit(ret)
+        run("getEOP.py -l " + str(int(float(obs["startmjd"]))) + " > eop.txt")
     else:
         print(
             "Using existing EOP data - remove eop.txt if you want to get new data!"
@@ -115,143 +114,43 @@ def _main():
     if args.nchan is not None:
         runline += f" --nchan={args.nchan}"
     print("Running: " + runline)
-    ret = os.system(runline)
-    if ret != 0:
-        sys.exit(1)
+    run(runline)
 
     # Update the vex file to say "CODIF" rather than "VDIF"
-    ret = os.system(f"sed -i -e 's/VDIF5032/CODIFD{framesize}/g' craftfrb.vex")
-    if ret != 0:
-        sys.exit(1)
+    run(f"sed -i -e 's/VDIF5032/CODIFD{framesize}/g' craftfrb.vex")
 
     # Run vex2difx
-    ret = os.system("vex2difx craftfrb.v2d > vex2difxlog.txt")
-    if ret != 0:
-        print("vex2difx failed!")
-        sys.exit(1)
+    run("vex2difx craftfrb.v2d > vex2difxlog.txt")
 
     # Run difxcalc to generate the interferometer model
-    ret = os.system(f"\\rm -f {basename}.im")
-    if ret != 0:
-        sys.exit(1)
-    ret = os.system(f"difxcalc {basename}.calc")
-    if ret != 0:
-        sys.exit(1)
+    run(f"\\rm -f {basename}.im")
+    run(f"difxcalc {basename}.calc")
 
     if args.calconly:
         print(".calc and .im created - stopping now.")
         sys.exit()
 
-    # Create the machines and threads file and a corresponding run script, or the slurm batch job, as appropriate
-    if args.slurm:
-        currentdir = os.getcwd()
-        currentuser = getpass.getuser()
-        numprocesses = args.npol * len(datafilelist[0]) + 5
-        print(("Approx number of processes", numprocesses))
-        numprocessingnodes = numprocesses - (
-            args.npol * len(datafilelist[0]) + 1
-        )
+    # We just want Ndatastream processes, plus a head node, plus one computational node
+    numprocesses = args.npol * len(datafilelist[0]) + 2
 
-        # Create a launchjob script that will handle the logging, etc
-        launchout = open("launchjob", "w")
-        launchout.write("#!/usr/bin/bash\n\n")
-        #launchout.write("sbatch -W runparallel\n")
-        launchout.write("bash runparallel\n")
-        launchout.close()
-        os.chmod("launchjob", 0o775)
-        print("./launchjob")
+    # Write the machines file (all running on localhost)
+    machinesout = open("machines", "w")
+    for i in range(numprocesses):
+        machinesout.write("localhost\n")
+    machinesout.close()
 
-        if args.ref is not None:
-            fill = "./run_fill_DiFX"
-        else:
-            fill = "./run_tscrunch_DiFX"
+    # Write the threads file
+    threadsout = open("craftfrb.threads", "w")
+    threadsout.write("NUMBER OF CORES:    1\n")
+    threadsout.write(f"{difxThreads}\n")
+    threadsout.close()
 
-        # Create a run script that will actually be executed by sbatch
-        if args.gstar:
-            # NOTE: use either 192 or 384 for 16 or 32 node request
-            if args.large:
-                numnodes = 32
-                ntasks = 384
-            else:
-                numnodes = 16
-                ntasks = 192
+    # Create a little run file for running the observations
+    write_run(numprocesses)
 
-            numprocesses = int(
-                2 ** (math.floor(math.log(numprocesses, 2)) + 1)
-            )
-            print(("Rounded to next highest power of 2:", numprocesses))
-
-            sbatchparams = {
-                "job-name": f"difx_{basename}",
-                "output": f"{basename}.mpilog",
-                "nodes": numnodes,
-                "ntasks": ntasks,
-                "time": "10:00",
-                "mem": "46g",
-            }
-
-            sbatchcmds = [
-                f". /home/{currentuser}/setup_difx.gstar",
-                "export DIFX_MESSAGE_GROUP=`hostname -i`",
-                "export DIFX_BINARY_GROUP=`hostname -i`",
-                "date",
-                f"difxlog {basename} {currentdir}/{basename}.difxlog &",
-                f"srun -N{numnodes} -n{numprocesses:d} -c2 mpifxcorr {basename}.input --nocommandthread\n",
-                fill,
-                "./runmergedifx",
-            ]
-
-        else:
-            sbatchparams = {
-                "job-name": f"difx_{basename}",
-                "output": f"{basename}.mpilog",
-                "ntasks": 32 * args.numskylakenodes,
-                "time": "16:00",
-                "cpus-per-task": 1,
-                "mem-per-cpu": 4000,
-            }
-
-            sbatchcmds = [
-                #f". /home/{currentuser}/setup_difx",
-                "export DIFX_MESSAGE_GROUP=`hostname -i`",
-                "export DIFX_BINARY_GROUP=`hostname -i`",
-                "date",
-                f"difxlog {basename} {currentdir}/{basename}.difxlog 4 &",
-                f"srun -n{numprocesses} --overcommit mpifxcorr {basename}.input --nocommandthread",
-                fill,
-                "./runmergedifx",
-            ]
-
-        write_sbatch("runparallel", sbatchparams, sbatchcmds)
-
-        # Write the threads file
-        threadsout = open(f"{basename}.threads", "w")
-        threadsout.write(f"NUMBER OF CORES:    {numprocessingnodes}\n")
-        for i in range(numprocessingnodes):
-            threadsout.write(f"{difxThreads}\n")
-        threadsout.close()
-    else:
-        # We just want Ndatastream processes, plus a head node, plus one computational node
-        numprocesses = args.npol * len(datafilelist[0]) + 2
-
-        # Write the machines file (all running on localhost)
-        machinesout = open("machines", "w")
-        for i in range(numprocesses):
-            machinesout.write("localhost\n")
-        machinesout.close()
-
-        # Write the threads file
-        threadsout = open("craftfrb.threads", "w")
-        threadsout.write("NUMBER OF CORES:    1\n")
-        threadsout.write(f"{difxThreads}\n")
-        threadsout.close()
-
-        # Create a little run file for running the observations
-        write_run(numprocesses)
-
-        print("# First run the correlation:")
-        runline = "./run.sh\n"
-        print(runline)
+    print("# First run the correlation:")
+    runline = "./run.sh\n"
+    print(runline)
 
     # fillDiFX to ensure correlations work even when the bin goes off
     # the edge of the voltage dump
