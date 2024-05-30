@@ -4,6 +4,8 @@ import glob
 import math
 import os
 import sys
+import subprocess 
+
 from joblib import Parallel, delayed
 
 # Global constants
@@ -11,6 +13,12 @@ NCODIFPARALLEL = 8  # Number of vcraft conversions to do at a time
 VCRAFTTIME = "02:00"  # Time to request for vcraft conversion
 VCRAFTMEM = 200  # Memory to request per cpu for vcraft conversion
 
+
+def run(cmd):
+    ret = subprocess.run(cmd, shell=True).returncode
+    if ret != 0:
+        print("ERR:FAILED COMMAND:{cmd}")
+        sys.exit(ret)
 
 def _main():
     args = get_args()
@@ -104,9 +112,7 @@ def _main():
 
     if args.ts > 0:
         print("Waiting on CRAFTConverter to finish")
-        ret = os.system(f"tsp -S {args.ts}")
-        if ret != 0:
-            sys.exit(ret)
+        run(f"tsp -S {args.ts}")
 
     # Convert vcraft files
     convertlines = []
@@ -121,9 +127,7 @@ def _main():
                     convertlines.append(runline)
                 else:
                     print(runline)
-                    ret = os.system(runline)
-                    if ret != 0:
-                        sys.exit(ret)
+                    run(runline)
 
     antnames = [f.split("/")[-1].split("_")[0] for f in vcraftfiles[0]]
     antlist = ",".join(antnames)
@@ -138,9 +142,7 @@ def _main():
 
     if args.ts > 0:
         print("Waiting on CRAFTConverter to finish")
-        ret = os.system("tsp -w")
-        if ret != 0:
-            sys.exit(ret)
+        run("tsp -w")
 
     # Print out the askap2difx command line to run
     # (ultimately, could just run here)
@@ -414,9 +416,7 @@ def get_convert_vcraft_cmd(
     :rtype: str
     """
     if not os.path.exists(".bat0"):
-        ret = os.system("bat0.pl %s" % (vcraft))
-        if ret != 0:
-            sys.exit(ret)
+        run(f"bat0.pl {vcraft}")
 
     antname = vcraft.split("/")[-1].split("_")[0]
     if antname == "":
@@ -460,7 +460,7 @@ def write_convert_vcraft_script(
         # TODO: change this using home directory!
         #output.write(f". /home/{currentuser}/setup_difx\n")
         output.close()
-        os.system("chmod 775 convertcodif.%d" % (i + 1))
+        os.chmod("convertcodif.%d" % (i + 1), 0o755)
 
         script_fnames += ["convertcodif.%d" % (i + 1)]
 
@@ -494,8 +494,8 @@ def convert_vcraft_slurm(ncodifparallel: int) -> None:
     output.close()
 
     # Run that sbatch script
-    #os.system("sbatch --wait runcraftconversionbatch.sh")
-    os.system("bash runcraftconversionbatch.sh")
+    #run("sbatch --wait runcraftconversionbatch.sh")
+    run("bash runcraftconversionbatch.sh")
 
 
 def write_run(nant: int) -> None:
