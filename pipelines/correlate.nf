@@ -32,9 +32,6 @@ process get_start_mjd {
             stdout
                 The earliest start time found in the data headers in MJD
     */
-
-    container "file://$params.container"
-
     input:
         val data
     
@@ -42,8 +39,10 @@ process get_start_mjd {
         stdout
 
     script:
-        """
-        source /opt/setup_proc_container
+        """    
+        if [ "$params.ozstar" == "true" ]; then
+            . $launchDir/../setup_proc
+        fi
         python3 $localise_dir/get_start_mjd.py $data
         """
     
@@ -90,6 +89,9 @@ process do_ref_correlation {
                 exist even if the process has ended (e.g. by being killed) 
                 without completing.
     */
+
+    label 'python'
+
     input:
         val label
         val data
@@ -109,17 +111,11 @@ process do_ref_correlation {
     script:
         """
         export CRAFTCATDIR="."  # necessary?
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_proc
-        # fi
+
+        source /opt/setup_proc_container
 
         # create .bat0
-        ml apptainer
-        set -a
-        set -o allexport
-        set -xu
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && bat0.pl `find $data/*/*/*vcraft | head -1`'
-        # bat0.pl `find $data/*/*/*vcraft | head -1`
+        bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $fcm"
         args="\$args -b 4"
@@ -334,10 +330,8 @@ process do_correlation {
                 without completing.
     */
 
-    container "file://$params.container"
-
     label 'python'
-
+    
     input:
         val label
         val data
@@ -361,6 +355,7 @@ process do_correlation {
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
         freqlabel="c${card}_f${fpga}"
+
         if [ -d \$freqlabel ]; then
             rm -r \$freqlabel
         fi
@@ -437,7 +432,8 @@ process difx_to_fits {
             fits: path
                 A single FITS file containing data across all cards processed
     */
-    publishDir "${params.out_dir}/loadfits/${mode}", mode: "copy"
+
+    label "python"
 
     input:
         val label
@@ -451,12 +447,13 @@ process difx_to_fits {
 
     script:
         """
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+        source /opt/setup_proc_container
+        
+        set -x 
+        
+        # if [ "$params.ozstar" == "true" ]; then
+        #     . $launchDir/../setup_proc
+        # fi
 
         for c in `seq 1 7`; do
             D2Ds=""
@@ -485,8 +482,7 @@ process difx_to_fits {
             fi
         done
         chmod 775 runalldifx2fits
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && ./runalldifx2fits'
-        rm -rf \$aips_dir
+        ./runalldifx2fits
 
         antlist=""
         for i in `seq -w 1 36`; do
@@ -496,10 +492,6 @@ process difx_to_fits {
 
         label=$label
         label=\${label:0:12}    # Truncate label to fit in AIPS
-
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         aipsid="\$((RANDOM%8192))"
         if [ "$mode" != "finder" ]; then
@@ -512,13 +504,7 @@ process difx_to_fits {
             args="\$args CRAFT_CARD?.FITS"
 
             echo "loadfits.py \$args"
-
-            # if [ "$params.ozstar" == "true" ]; then
-            #    echo ". $launchDir/../setup_loadfits
-            # fi
-            echo "loadfits.py \$args" >> doloadfits
-            chmod 775 doloadfits
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
+            loadfits.py \$args
         else
             for i in `seq 0 7`; do
                 bin="\$(printf "%02d" \$i)"
@@ -531,18 +517,9 @@ process difx_to_fits {
                 args="\$args CRAFT_CARD?_BIN\${bin}.FITS"
 
                 echo "loadfits.py \$args"
-                #loadfits.py \$args
-                # if [ "$params.ozstar" == "true" ]; then
-                #    echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-                # fi    
-                # echo ". $launchDir/../setup_parseltongue3" | tr ! 0 >> doloadfits
-                echo "loadfits.py \$args" >> doloadfits
-                chmod 775 doloadfits
-                apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
-                rm -f doloadfits
+                loadfits.py \$args
             done
         fi
-        rm -rf \$aips_dir
         """
     
     stub:
