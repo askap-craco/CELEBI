@@ -432,6 +432,7 @@ process difx_to_fits {
             fits: path
                 A single FITS file containing data across all cards processed
     */
+    publishDir "${params.out_dir}/loadfits/${mode}", mode: "copy"
 
     label "python"
 
@@ -445,10 +446,18 @@ process difx_to_fits {
         path "${label}*.fits", emit: fits
         path "finderbin04.fits", emit: centre, optional: true
 
+    // Create a temp directory for aips that is read/writeable
+    beforeScript 'echo "BEFORE";cp -r /fred/oz313/aips-clean-datadirs AIPS_TEMP'
+
+    // mount this directory
+    containerOptions '-B ./AIPS_TEMP/DA00:/usr/local/aips/DA00 -B ./AIPS_TEMP/DATA:/usr/local/aips/DATA'
+
+    // clean up the temp dirs
+    afterScript 'echo "AFTER"' //"rm -r AIPS_TEMP"
+
     script:
         """
         source /opt/setup_proc_container
-        
         set -x 
         
         # if [ "$params.ozstar" == "true" ]; then
@@ -637,7 +646,7 @@ workflow correlate {
 
     main:
         startmjd = get_start_mjd(data)
-        println(data)
+
         // reference correlation
         ref_correlation = do_ref_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
