@@ -1090,7 +1090,8 @@ def write_run(numprocesses: int, basename: str) -> None:
     runout.write("errormon2 6 &\n")
     runout.write("export ERRORMONPID=$!\n")
     runout.write(
-        f"mpirun --oversubscribe -machinefile machines -np {numprocesses} mpifxcorr {basename}.input --nocommandthread\n"
+        #f"mpirun --oversubscribe -machinefile machines -np {numprocesses} mpifxcorr {basename}.input --nocommandthread\n"
+        f"mpirun --oversubscribe -mca btl self -np {numprocesses} mpifxcorr {basename}.input --nocommandthread\n"
     )
     #runout.write(f"mpifxcorr -np1 {basename}.input --nocommandthread\n") 
     runout.write("kill $ERRORMONPID\n")

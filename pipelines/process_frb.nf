@@ -91,7 +91,7 @@ process load_coarse_dynspec {
 	args="\$args --ra $params.ra_frb"
 	args="\$args -d$params.dec_frb"
 	args="\$args -f $fcm"
-	args="\$args -b 4"
+	args="\$args -b $params.nbits"
 	args="\$args --card 1"
 	args="\$args -k"
 	args="\$args --name=210117_ICS"
@@ -288,8 +288,8 @@ process plot {
     script:
         """
         # if [ "$params.ozstar" == "true" ]; then
-        #    module load gcc/9.2.0
-        #    module load openmpi/4.0.2
+            #    module load gcc/9.2.0
+            #    module load openmpi/4.0.2
         #    module load python/3.7.4
         #    module load numpy/1.18.2-python-3.7.4
         #    module load matplotlib/3.2.1-python-3.7.4
@@ -630,11 +630,12 @@ workflow process_frb {
         fcm
 
     main:
-        coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                        antennas,fcm
-)
-        refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-        if (!params.skip_ics) {
+        if (params.nbits > 1) {
+            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
+                                            antennas,fcm)
+            refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
+        }
+        if (!params.skip_ics && params.nbits > 1) {
             if ( new File(refined_candidate_path).exists()) {
                 refined_candidate = Channel.fromPath(refined_candidate_path)
             }

@@ -124,7 +124,7 @@ process do_ref_correlation {
         # bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $fcm"
-        args="\$args -b 4"
+        args="\$args -b $params.nbits"
         args="\$args -k"
         args="\$args --name=$label"
         args="\$args -o ."
@@ -248,7 +248,7 @@ process do_correlation {
         # bat0.pl `find $data/*/*/*vcraft | head -1`
 
         args="-f $fcm"
-        args="\$args -b 4"
+        args="\$args -b $params.nbits"
         args="\$args -k"
         args="\$args --name=$label"
         args="\$args -o ."

@@ -312,7 +312,7 @@ def _main():
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
                 tcleanvals["specmode"] = "mfs"
-                tcleanvals["niter"] = 10000
+                tcleanvals["niter"] = 1000
                 tcleanvals["savemodel"] = "modelcolumn"
 
             # Default: produce a cleaned cube image (unless skipping imaging)
@@ -320,7 +320,7 @@ def _main():
                 tcleanvals["imagename"] = f"TARGET.cube.{pol}"
                 tcleanvals["specmode"] = "cube"
                 tcleanvals["width"] = args.averagechannels
-                tcleanvals["niter"] = 5000
+                tcleanvals["niter"] = 1000
                 tcleanvals["cycleniter"] = 100
                 tcleanvals["savemodel"] = "modelcolumn"
                 tcleanvals["spw"] = args.spwrange

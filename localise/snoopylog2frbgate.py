@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import math
 
 fakepulsarperiod = 10  # seconds
 
@@ -189,6 +190,9 @@ def calc_best_int_time(corrstartmjd: float, midmjd: float) -> float:
     if bestinttime < 0.1:
         bestinttime = 1.3824
 
+    # Actually, never a good idea to make int time too long any more. Just always set to 1.3824s
+    bestinttime = 1.3824
+
     return bestinttime
 
 
@@ -330,6 +334,8 @@ def calc_gate_bins(
     gateendphase = (
         86400.0 * (gateendmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod
+    gatestartphase -= math.floor(gatestartphase)
+    gateendphase -= math.floor(gateendphase)
 
     binedges = [gatestartphase, gateendphase]
     weights = [0.0, 1.0]
