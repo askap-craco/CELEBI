@@ -155,7 +155,8 @@ process do_ref_correlation {
         if [ "\$int_time" != "" ]; then
             args="\$args -i \$int_time"
         fi
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && set -xu && echo \$args && python3 $localise_dir/processTimeStep.py \$args'
+
+        python3 $localise_dir/processTimeStep.py \$args
         """
     
     stub:
@@ -164,129 +165,6 @@ process do_ref_correlation {
         touch c${card}_f${fpga}/stubD2D.input
         """
 }
-
-process do_ref_correlation_new {
-    /*
-        Correlate the data using DiFX
-
-        Input            
-            label: val
-                FRB name and context of process instance as a string (no 
-                spaces)
-            data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
-            ra: val
-                Right ascension to correlate around, as hh:mm:ss
-            dec: val
-                Declination to correlate around, as dd:mm:ss
-            binconfig: path
-                File specifying how to bin the correlated data
-            polyco: path
-                TODO: describe polyco
-            inttime: val
-                Integration time in seconds
-            startmjd: environment variable
-                The earliest start time found in the data headers
-            card, fpga: tuple(val, val)
-                Specific card-fpga pair to be correlated by this instance
-        
-        Output
-            correlated_data: path
-                A directory "c{card}_f{fpga}" containing the correlated data
-            D2D: path
-                A file within the correlated_data directory that only exists if 
-                the correlation has completed. This is used as an output to 
-                ensure that Nextflow correctly determines if this process has 
-                completed or not, since the correlated_data directory will 
-                exist even if the process has ended (e.g. by being killed) 
-                without completing.
-    */
-
-    container "file://$params.container"
-
-    label 'python'
-
-    input:
-        val label
-        val data
-        val ra
-        val dec
-        path binconfig, stageAs: "craftfrb.binconfig"
-        path polyco, stageAs: "craftfrb.polyco"
-        path inttime
-        val startmjd
-        tuple val(card), val(fpga)
-        path fcm
-
-    output:
-        path "c${card}_f${fpga}", emit: cx_fy
-        path "c${card}_f${fpga}/*D2D.input", emit: d2d
-
-    script:
-        """
-        export CRAFTCATDIR="."
-        source /opt/setup_proc_container 
-        bat0.pl `find $data/*/*/*vcraft | head -1`
-
-        freqlabel="c${card}_f${fpga}"
-        if [ -d \$freqlabel ]; then
-            rm -r \$freqlabel
-        fi
-        mkdir \$freqlabel
-        cp craftfrb.polyco \$freqlabel/.
-        cp .bat0 \$freqlabel/.
-
-        ### Set up some optional args
-        uppersideband=""
-        # High-band FRBs need --uppersideband
-        if [ "$params.uppersideband" == "true" ]; then
-            uppersideband="--uppersideband"
-        fi
-
-        # use all the available cores
-        ozstar="--ts ${task.cpus}"
-
-        # Only use binconfig if it's not empty
-        binconfig=""
-        if [ `wc -c craftfrb.binconfig | awk '{print \$1}'` != 0 ]; then
-            binconfig="-p craftfrb.binconfig"
-        fi
-
-        # Only include inttime if non-zero
-        int_time=`cat $inttime`
-        if [ "\$int_time" != "" ]; then
-            int_time="-i \$int_time"
-        else
-            int_time=""
-        fi
-
-        python3 $localise_dir/processTimeStep.py \
-                -f $fcm \
-                -b 4 \
-                -k \
-                --name=$label \
-                -o . \
-                --timestep $data \
-                --ra=$ra \
-                --dec=$dec \
-                --card $card \
-                --freqlabel \$freqlabel \
-                --dir=$projectDir/../difx \
-                --startmjd=${startmjd} \
-                \$uppersideband \
-                \$ozstar \
-                \$binconfig \
-                \$int_time
-        """
-    
-    stub:
-        """
-        mkdir c${card}_f${fpga}
-        touch c${card}_f${fpga}/stubD2D.input
-        """
-}
-
 process do_correlation {
     /*
         Correlate the data using DiFX
@@ -576,23 +454,16 @@ process subtract_rfi {
         """
 
         # subtractions not empty: finder mode
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
         if [ `wc -c $subtractions | awk '{print \$1}'` != 0 ]; then
             fits="$target_fits"
             bin=\${fits:9:2}
             sleep \$bin     # stagger starts of parallel processes
             scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
 
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits'
+            uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits
         else
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits'
+            uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits
         fi
-        rm -rf \$aips_dir
         """
     
     stub:
