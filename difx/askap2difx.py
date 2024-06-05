@@ -162,8 +162,10 @@ def _main():
                 f"  tscrunchDiFX.py $b {basename}_tscrunch.difx/$(basename $b) -i {basename}.input --mjd=$mjd > tscrunch_log2.txt\n"
                 f"  fillDiFX.py {basename}_tscrunch.difx/$(basename $b) ../{args.ref}/*[0-9].difx/$(basename $b) {basename}_fill.difx/$(basename $b) -i {basename}.input\n"
                  "done\n"
-                f"mv {basename}.difx {basename}_old.difx\n"
-                f"mv {basename}_fill.difx {basename}.difx\n"
+                f"if [ -f {basename}_fill.difx ]; then\n"
+                f"  mv {basename}.difx {basename}_old.difx\n"
+                f"  mv {basename}_fill.difx {basename}.difx\n"
+                f" else; echo \"{basename}_fill.difx not found!!\"; exit 1;fi\n"
             )
             print(runscript)
             runfill.write(runscript)
