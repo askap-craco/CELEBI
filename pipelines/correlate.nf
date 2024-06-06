@@ -313,6 +313,7 @@ process difx_to_fits {
     publishDir "${params.out_dir}/loadfits/${mode}", mode: "copy"
 
     label "python"
+    label "aips"
 
     input:
         val label
@@ -323,15 +324,6 @@ process difx_to_fits {
     output:
         path "${label}*.fits", emit: fits
         path "finderbin04.fits", emit: centre, optional: true
-
-    // Create a temp directory for aips that is read/writeable
-    beforeScript 'echo "BEFORE";cp -r /fred/oz313/aips-clean-datadirs AIPS_TEMP'
-
-    // mount this directory
-    containerOptions '-B ./AIPS_TEMP/DA00:/usr/local/aips/DA00 -B ./AIPS_TEMP/DATA:/usr/local/aips/DATA'
-
-    // clean up the temp dirs
-    afterScript 'echo "AFTER"' //"rm -r AIPS_TEMP"
 
     script:
         """

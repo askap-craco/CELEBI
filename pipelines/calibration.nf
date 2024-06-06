@@ -42,6 +42,7 @@ process determine_flux_cal_solns {
     */
     publishDir "${params.out_dir}/fluxcal", mode: "copy"
 
+    label 'python'
     label 'aips'
 
     input:
@@ -57,17 +58,14 @@ process determine_flux_cal_solns {
 
     script:
         """
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+        source /opt/setup_proc_container
+        set -x 
+
+        aipsid="\$((RANDOM%8192))"
 
         args="--calibrateonly"
         args="\$args -c $cal_fits"
         args="\$args --uvsrt"
-        aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
@@ -87,8 +85,7 @@ process determine_flux_cal_solns {
             args="\$args --skipplot"
         fi
 
-        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
-        rm -rf \$aips_dir 
+        ParselTongue $localise_dir/calibrateFRB.py \$args
         """
     
     stub:
