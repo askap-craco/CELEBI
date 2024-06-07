@@ -115,7 +115,7 @@ process find_offset {
             args="\$args --localracssourcepath=${params.localracssourcepath}"
         fi
 
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/RACS_lookup.py \$args field*jmfit'
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && hostname >> hostname.txt && python3 $localise_dir/RACS_lookup.py \$args field*jmfit'
 
         args="--askappos ${params.label}_ASKAP.dat"
         args="\$args --askapnames ${params.label}_names.dat"
