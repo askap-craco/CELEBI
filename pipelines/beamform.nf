@@ -122,6 +122,9 @@ process do_beamform {
                 used to image the data and produce a position
             fcm: path
                 fcm to use
+            cand: val
+                candidate file path, using val type so This can be reused with polcal, also file already
+                exists before run, so don't need to wait for it
 
         Output
             pol, fine spectrum: tuple(val, path)
@@ -138,6 +141,7 @@ process do_beamform {
         each ant_idx
         path flux_cal_solns
         path fcm
+        val cand
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
@@ -163,6 +167,11 @@ process do_beamform {
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args -i 1"
         args="\$args --cpus=16"
+
+        # Candidate file for cropping
+        if [[ $label == "${params.label}" ]]; then
+            args="\$args --snoopy $cand"
+        fi
 
         # High band FRBs need --uppersideband
         if [ "$params.uppersideband" = "true" ]; then
@@ -601,6 +610,9 @@ workflow beamform {
                 Number of antennas available in the data
             fcm: path
                 fcm to use
+            cand: val
+                candidate file path, using val type so This can be reused with polcal, also file already
+                exists before run, so don't need to wait for it
         
         Emit
             htr_data: path
@@ -616,6 +628,7 @@ workflow beamform {
         centre_freq         // central frequency
         nants               // number of antennas
         fcm                 // fcm file
+        cand                // path to cand file
     
     main:
         // preliminaries
@@ -626,7 +639,7 @@ workflow beamform {
 
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand
         )
         sum_antennas(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())

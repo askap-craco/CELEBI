@@ -30,6 +30,32 @@ __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
 
 
+
+def parse_snoopy(snoopy_file: str) -> "list[str]":
+    """Parse snoopy file, returning a candidate as a list of strings.
+
+    We expect this file to only contain one candidate (the triggering
+    candidate), so we only return one line.
+
+    :param snoopy_file: Path to snoopy candidate file
+    :type snoopy_file: str
+    :return: Candidate information as a list of strings. Each string is
+        a whitespace-separated value in the candidate file.
+    :rtype: list[str]
+    """
+    nocommentlines = []
+    for line in open(snoopy_file):
+        print(line)
+        if len(line) > 1 and not line[0] == "#":
+            nocommentlines.append(line)
+            print(f"Snoopy info {nocommentlines}")
+    if len(nocommentlines) != 1:
+        print("ERROR: No information found")
+        sys.exit()
+
+    return nocommentlines[0].split()
+
+
 def _main():
     values = parse_args()
 
@@ -91,9 +117,15 @@ def _main():
             np.save(fn, ant_ics)
         else:
             print("PERFORMING TIED-ARRAY BEAMFORMING")
-            temp = corr.do_tab(values.an)
+
+            mjd, DM = None, None
+            if values.snoopy is not None:
+                cand = parse_snoopy(values.snoopy)
+                mjd, DM = float(cand[7]), float(cand[5])
+
+            temp = corr.do_tab(values.an, mjd, DM)
             fn = values.outfile
-            print(f"saving output to {fn}")
+            print(f"saving output to {fn} with size {temp.shape}")
             np.save(fn, temp)
 
     finally:
@@ -115,7 +147,7 @@ class AntennaSource:
         self.pol = self.vfile.pol.lower()
         print(f"antenna {self.antname} {self.vfile.freqconfig}")
 
-    def do_f_tab(self, corr, iant):
+    def do_f_tab(self, corr, iant, mjd, DM):
         # iant is the number of the antenna in the AIPS AN table, minus 1 (i.e., a zero based index from the 36 antennas)
         start = timer()
         self.frparams = FringeRotParams(corr, self)
@@ -131,18 +163,23 @@ class AntennaSource:
         total_delay_samp = framediff_samp
         whole_delay = int(np.round(total_delay_samp))
 
-        data_out = np.zeros(
-            (corr.nint, corr.nfine_chan, corr.npol_in), dtype=np.complex64
-        )
+
+        #############################################################
+        # Where the loading of the data happens
+        #
+        #############################################################
+
+
         nfine = corr.nfft - 2 * corr.nguard_chan
 
         nsamp = corr.nint * corr.nfft
+        nchan_coarse = len(corr.freqs)
 
         # time-dependent geometric delays
         # np.linspace(0, 1, nsamp) == time in units of integrations
         geom_delays_us = (
             geom_delay_us
-            + geom_delay_rate_us * np.linspace(0, 1, nsamp)
+            + geom_delay_rate_us * np.linspace(0, 1, nsamp, dtype = np.float32)
             - fixed_delay_us
         )
         np.save("TEMP_geom_delays_us.npy", geom_delays_us)
@@ -150,6 +187,88 @@ class AntennaSource:
         geom_delays_us = np.load("TEMP_geom_delays_us.npy", mmap_mode="r")
 
         sampoff = whole_delay + corr.abs_delay
+
+        # update sampoff and nsamp based on mjd and DM for better cropping
+        if (mjd is not None) and (DM is not None):
+            # perform rough pulse cropping
+            print(f"Start MJD of buffer: {self.mjdstart}")
+            print(f"Start MJD of cand pulse: {mjd}")
+            pulse_offset_samp = int((mjd - self.mjdstart)*8.64e10)
+
+            # measure DM sweep
+            kDM = 4149.377593
+            DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))))
+
+            # calculate crop bounds
+            crop_offset = pulse_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
+            crop_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
+
+            # factor in oversampling, each sample is (1/1.185) us of time
+            crop_offset = int(crop_offset * 32/27)
+            crop_nsamp = int(crop_nsamp * 32/27)
+
+
+            # check bounds of new crop
+            samp_end = sampoff + nsamp  # END BOUNDS OF ORIGINAL CROP
+            old_offset = sampoff
+            old_nsamp = nsamp
+            if crop_offset > sampoff:
+                sampoff = crop_offset
+
+            # check width of new crop
+            if sampoff + crop_nsamp < samp_end:
+                nsamp = crop_nsamp
+            
+            else:
+                nsamp = samp_end - sampoff
+
+            corr.nguard_chan = int(5 * nsamp // 64)
+
+            # crop geom delays
+            geom_delays_us = geom_delays_us[sampoff - old_offset:sampoff - old_offset + nsamp]
+            nfine = nsamp - 2 * corr.nguard_chan
+            corr.fine_chanbw = 1.0/float(nfine)
+
+            print("\n#######################################################")
+            print(f"Changed crop based on a DM sweep of {DM_sweep_samp} us pulse MJD offset of {pulse_offset_samp} us")
+            print(f"Allowing a DM_sweep padding of 1.1x{DM_sweep_samp} = {int(1.1*DM_sweep_samp)} us")
+            print("----------")
+            print(f"Old crop: offset -> {old_offset}, sample width -> {old_nsamp}")
+            print(f"New crop: offset -> {sampoff}, sample width -> {nsamp}")
+            print("#######################################################\n")
+
+
+        else:
+            # We will only get to this part if the polarisation calibrator is being beamformed.
+            # In this case, we don't care about careful cropping, so we will always take the full crop, unless
+            # that crop is larger than 3.8s, in which case we will take a crop of 3.8s. Doesn't matter where the crop starts
+            # since the generate_dynspec script will crop the sides anyway, so we will always get a good integer number
+            # of pulses for polcal.
+            old_nsamp = nsamp
+            # 11851850
+            if nsamp >= 3800000:
+                nsamp = 3800000
+
+                corr.nguard_chan = int(5 * nsamp // 64)
+
+                # crop geom delays
+                geom_delays_us = geom_delays_us[:nsamp]
+                nfine = nsamp - 2 * corr.nguard_chan
+                corr.fine_chanbw = 1.0/float(nfine)
+
+            print("\n#######################################################")
+            print(f"Old nsamp: {old_nsamp}, New nsamp: {nsamp}")
+            print("#######################################################\n")
+
+
+        print(f"# fine channels {nfine}")
+        print(f"# coarse channels {nchan_coarse}")
+        print(f"# oversample guard (2x) {corr.nguard_chan}")
+        data_out = np.zeros(
+            (corr.nint, nfine * nchan_coarse, corr.npol_in), dtype=np.complex64
+        )
+
+
         print(("Zero-based, full-array antenna #: ", iant, self.antname))
         frameid = self.vfile.start_frameid + sampoff
         print(
@@ -166,9 +285,18 @@ class AntennaSource:
         print("corr.sideband is ", corr.sideband)
         rawd = self.vfile.read(sampoff, nsamp)
         np.save("TEMP_rawd.npy", rawd)
+        # np.save("NEW_rawd.npy", rawd)
+        print(f"rawd shape: {rawd.shape}")
         del rawd
         rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
-        
+
+
+        # save corrected MJD to txt file
+        corrected_MJD = self.mjdstart + (geom_delay_us - fixed_delay_us)/(1e6*24*3600)
+        with open("corrected_ant_MJD.txt", "a") as file:
+            file.write(f"{self.antname}:    {corrected_MJD}\n")
+
+        # np.save("NEW_geoms.npy", geom_delays_us)
 
         assert rawd.shape == (
             nsamp,
@@ -177,8 +305,10 @@ class AntennaSource:
 
         # Fine channel frequencies from -0.5 MHz to 0.5 MHz
         freqs = (
-            np.arange(nfine, dtype=float) - float(nfine) / 2.0
+            np.arange(nfine, dtype = np.float32) - float(nfine) / 2.0
         ) * corr.fine_chanbw
+
+        print(freqs)
 
         # Leave the fine channel frequencies running the same direction regardless of sideband - we will convert the sideband sense prior to correction
         freqs = -freqs
@@ -196,7 +326,7 @@ class AntennaSource:
             cfreq = corr.freqs[c]
 
             # rawd's shape: (nsamp, corr.ncoarse_chan)
-            x1 = rawd[:, c].reshape(-1, corr.nfft)
+            x1 = rawd[:, c].reshape(-1, nsamp)
 
             # Conjugate the incoming data if needed to turn it into LSB
             if corr.sideband == 1: # FIXME this is a change
@@ -236,6 +366,7 @@ class AntennaSource:
             freq_ghz = (cfreq + freqs) / 1e3
 
             # apply calibration solutions to phasor
+            # print(f"Aips SOlution?: {corr.aips.get_solution(iant, 0, freq_ghz)}")
             phasor /= corr.aips.get_solution(iant, 0, freq_ghz)
 
             xfguard_f = xfguard_f * phasor
@@ -245,16 +376,25 @@ class AntennaSource:
             fcend = (c + 1) * nfine
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
+            # print(f"{corr.nguard_chan}, {nfine}")
+            print(f"{c}:{fcstart}:{fcend}")
+
         Parallel(n_jobs=corr.values.cpus, require="sharedmem")(
             delayed(process_chan)(c)
             for c in range(corr.ncoarse_chan)
         )
+
+        with open("fftlen", "w") as f:
+            f.write(f"{nsamp}")
 
         print(f"do_f_tab (stage 2): {timer()-start} s")
 
         if np.isnan(data_out).any():
             print("WARNING: Output contains NaNs. Calibration solutions not available?")
 
+        print(f"data out shape: {data_out.shape}")
+        print(data_out)
+        print(np.mean(data_out))
         return data_out
 
     def do_ics(self, corr, an):
@@ -372,8 +512,8 @@ class Correlator:
         self.nfft = nsamp
         self.nguard_chan = int(5 * nsamp // 64)
 
-        with open("fftlen", "w") as f:
-            f.write(f"{nsamp}")
+        # with open("fftlen", "w") as f:
+        #     f.write(f"{nsamp}")
 
         print(f"nfft = {self.nfft}")
         print(f"nguard_chan = {self.nguard_chan}")
@@ -515,22 +655,22 @@ class Correlator:
         self.frdata_mid = self.get_calc_results(self.curr_mjd_mid)
         self.frdata_end = self.get_calc_results(self.curr_mjd_end)
 
-    def do_tab(self, an=None):
+    def do_tab(self, an=None, mjd = None, DM = None):
         # Tied-array beamforming
 
         nsamp = self.nint
         nchan = self.ncoarse_chan * self.nfine_per_coarse
 
-        print(nsamp, nchan, self.npol_in)
-        sum_aligned = np.zeros(
-            (nsamp, nchan, self.npol_in), dtype=np.complex64
-        )
+        # print(nsamp, nchan, self.npol_in)
+        # sum_aligned = np.zeros(
+        #     (nsamp, nchan, self.npol_in), dtype=np.complex64
+        # )
 
         start = timer()
         print("## Operate on only antenna #: " + str(an))
         ant = self.ants[an]
         iant = ant_map[ant.antname]
-        temp = ant.do_f_tab(self, iant)
+        temp = ant.do_f_tab(self, iant, mjd, DM)
         print(f"do_f_tab (total): {timer()-start} s")
         return temp
 
@@ -704,6 +844,9 @@ def parse_args():
         "voltages",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
+
+    # need to add in snoopy file for the rough MDJ time of the burst for better cropping
+    parser.add_argument("--snoopy", default = None, help = "Snoopy file with rough pulse MJD")
 
     parser.add_argument(
         "-d",
