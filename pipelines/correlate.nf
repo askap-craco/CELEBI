@@ -494,9 +494,9 @@ process subtract_rfi {
             sleep \$bin     # stagger starts of parallel processes
             scale=\$(grep finderbin00.fits dosubtractions.sh | cut -d' ' -f4)
 
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits'
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits *_rfi.fits \$scale norfifbin\${bin}.fits --ignoretime'
         else
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits'
+            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && uvsubScaled.py $target_fits $rfi_fits 1 norfi_$target_fits --ignoretime'
         fi
         rm -rf \$aips_dir
         """
