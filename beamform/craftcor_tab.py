@@ -20,6 +20,7 @@ from calc11 import ResultsFile
 from joblib import Parallel, delayed, parallel_backend
 from scipy.interpolate import interp1d
 from parse_aips import aipscor
+from scipy.fft import next_fast_len
 
 # antenna name to index mapping
 ant_map = {}
@@ -28,6 +29,74 @@ for i in range(36):
 
 __author__ = ["Keith Bannister <keith.bannister@csiro.au>",
               "Danica Scott <danica.r.scott@postgrad.curtin.edu.au>"]
+
+
+
+
+def next_biggest_fftlen(x, bw):
+    """
+
+    NOTE: IMPORTANT!!!! - on the unlikely event that this breaks, i.e. the size of outputted data products for
+    each antenna mismatches, it might be caused by precision error, in which case, one solution would be to 
+    truncate the buffer sizes to the smallest antenna buffer size in thw [sum.py] script that adds the antenna 
+    together.
+
+    Very brute force approach, find the next largest length of samples within a single channel
+    that makes the full 336MHz buffer a 5-smooth number (optimised for FFT).
+
+    Parameters
+    ----------
+    x : current number of samples
+
+    Returns
+    -------
+    ysamp : number of samples
+    y : number of fine channels
+    yguard : truncated num of samples on 1 side
+    """
+
+    xguard = int(5 * x // 64)
+    x -= 2*xguard
+    y = x
+
+    while True:
+        if y*bw == next_fast_len(y*bw):
+
+            yguard = int(xguard * (float(y)/float(x)))
+
+            return y + 2*yguard, y, yguard
+    
+        y+=1
+    
+def next_smallest_fftlen(x, bw):
+    """
+
+    Very brute force approach, find the next largest length of samples within a single channel
+    that makes the full 336MHz buffer a 5-smooth number (optimised for FFT).
+
+    Parameters
+    ----------
+    x : current number of samples
+
+    Returns
+    -------
+    ysamp : number of samples
+    y : number of fine channels
+    yguard : truncated num of samples on 1 side
+    """
+
+    xguard = int(5 * x // 64)
+    x -= 2*xguard
+    y = x
+
+    while True:
+        if y*bw == next_fast_len(y*bw):
+
+            yguard = int(xguard * (float(y)/float(x)))
+
+            return y + 2*yguard, y, yguard
+    
+        y-=1
 
 
 
@@ -182,60 +251,92 @@ class AntennaSource:
             + geom_delay_rate_us * np.linspace(0, 1, nsamp, dtype = np.float32)
             - fixed_delay_us
         )
-        np.save("TEMP_geom_delays_us.npy", geom_delays_us)
-        del geom_delays_us
-        geom_delays_us = np.load("TEMP_geom_delays_us.npy", mmap_mode="r")
+        # np.save("TEMP_geom_delays_us.npy", geom_delays_us)
+        # del geom_delays_us
+        # geom_delays_us = np.load("TEMP_geom_delays_us.npy", mmap_mode="r")
 
         sampoff = whole_delay + corr.abs_delay
 
         # update sampoff and nsamp based on mjd and DM for better cropping
         if (mjd is not None) and (DM is not None):
             # perform rough pulse cropping
-            print(f"Start MJD of buffer: {self.mjdstart}")
-            print(f"Start MJD of cand pulse: {mjd}")
-            pulse_offset_samp = int((mjd - self.mjdstart)*8.64e10)
+            start_samp = int(self.mjdstart * 8.64e10 * 32/27)
+            cand_samp = int(mjd * 8.64e10 * 32/27)
+            print(f"Cand MJD from start of buffer (in samples): {cand_samp - start_samp}")
+            pulse_offset_samp = cand_samp - start_samp
 
             # measure DM sweep
             kDM = 4149.377593
-            DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))))
+            DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))) * 32/27)
 
             # calculate crop bounds
             crop_offset = pulse_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
             crop_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
 
-            # factor in oversampling, each sample is (1/1.185) us of time
-            crop_offset = int(crop_offset * 32/27)
-            crop_nsamp = int(crop_nsamp * 32/27)
+            # get next biggest buffer length for FFT
+            crop_nsamp, _, _ = next_biggest_fftlen(crop_nsamp, corr.ncoarse_chan)
 
+            crop_start = crop_offset
+            crop_end = crop_offset + crop_nsamp
 
             # check bounds of new crop
-            samp_end = sampoff + nsamp  # END BOUNDS OF ORIGINAL CROP
-            old_offset = sampoff
-            old_nsamp = nsamp
-            if crop_offset > sampoff:
-                sampoff = crop_offset
+            buffer_end = sampoff + nsamp  # END BOUNDS OF ORIGINAL CROP
+            buffer_start = sampoff
+
+            print(f"Initial crop start: {crop_start}")
+            print(f"Initial Crop end: {crop_end}")
+            print("------")
+            print(f"Buffer start: {buffer_start}")
+            print(f"Buffer end: {buffer_end}")
+
+            if crop_start > buffer_start:
+                sampoff = crop_start
 
             # check width of new crop
-            if sampoff + crop_nsamp < samp_end:
-                nsamp = crop_nsamp
+            if crop_end > buffer_end:
+                # gone past end, change width
+                nsamp = buffer_end - sampoff
             
             else:
-                nsamp = samp_end - sampoff
+                nsamp = crop_end - sampoff
 
-            corr.nguard_chan = int(5 * nsamp // 64)
+            print("------")
+            print(f"New crop start: {sampoff}")
+            print(f"New crop end: {sampoff + nsamp}")
+            print(f"New crop nguard: {int(5 * nsamp // 64)}")
+
+
+            # get next smallest buffer length for FFT, if nothing has changed, this will return the same as next_biggest_fftlen,
+            # if nsamp changes, next_smallest_fftlen will ensure the optimal width is within the original buffer bounds
+            nsamp, nfine, corr.nguard_chan = next_smallest_fftlen(nsamp, corr.ncoarse_chan)
+            # corr.nguard_chan = int(5 * nsamp// 64)
+            # nfine = nsamp - 2 * corr.nguard_chan
+            corr.fine_chanbw = 1.0/float(nfine)
+
+            print("------")
+            print(f"FFT crop start: {sampoff}")
+            print(f"FFT crop end: {sampoff + nsamp}")
+            print(f"FFT crop nguard: {corr.nguard_chan}")
+
+            print("------")
+            print(f"geom delays crop start: {sampoff - buffer_start}")
+            print(f"geom delays crop end: {sampoff - buffer_start + nsamp}")
 
             # crop geom delays
-            geom_delays_us = geom_delays_us[sampoff - old_offset:sampoff - old_offset + nsamp]
-            nfine = nsamp - 2 * corr.nguard_chan
-            corr.fine_chanbw = 1.0/float(nfine)
+            geom_delays_us = geom_delays_us[sampoff - buffer_start:sampoff - buffer_start + nsamp]
 
             print("\n#######################################################")
             print(f"Changed crop based on a DM sweep of {DM_sweep_samp} us pulse MJD offset of {pulse_offset_samp} us")
             print(f"Allowing a DM_sweep padding of 1.1x{DM_sweep_samp} = {int(1.1*DM_sweep_samp)} us")
             print("----------")
-            print(f"Old crop: offset -> {old_offset}, sample width -> {old_nsamp}")
-            print(f"New crop: offset -> {sampoff}, sample width -> {nsamp}")
+            print(f"Buffer start: {buffer_start}, Buffer end: {buffer_end}, Buffer width: {buffer_end - buffer_start}")
+            print(f"Crop start: {sampoff}, Crop end: {sampoff + nsamp}, Crop width: {nsamp}")
             print("#######################################################\n")
+
+            # save crop MJD to txt file
+            crop_MJD = self.mjdstart + ((sampoff - buffer_start) * 27/32)/8.64e10
+            with open("frb_crop_MJD.txt", "w") as file:
+                file.write(f"{crop_MJD}")
 
 
         else:
@@ -284,11 +385,11 @@ class AntennaSource:
         print(f"{sampoff} + {nsamp} <= {self.vfile.nsamps}")
         print("corr.sideband is ", corr.sideband)
         rawd = self.vfile.read(sampoff, nsamp)
-        np.save("TEMP_rawd.npy", rawd)
-        # np.save("NEW_rawd.npy", rawd)
-        print(f"rawd shape: {rawd.shape}")
-        del rawd
-        rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
+        # np.save("TEMP_rawd.npy", rawd)
+        # # np.save("NEW_rawd.npy", rawd)
+        # print(f"rawd shape: {rawd.shape}")
+        # del rawd
+        # rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
 
 
         # save corrected MJD to txt file
@@ -316,9 +417,9 @@ class AntennaSource:
         #    freqs = -freqs
 
         # Save and reload to improve memory efficiency
-        np.save("TEMP_freqs.npy", freqs)
-        del freqs
-        freqs = np.load("TEMP_freqs.npy", mmap_mode="r")
+        # np.save("TEMP_freqs.npy", freqs)
+        # del freqs
+        # freqs = np.load("TEMP_freqs.npy", mmap_mode="r")
         start = timer()
 
         def process_chan(c):
