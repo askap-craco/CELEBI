@@ -9,6 +9,7 @@ include { find_offset; apply_offset; apply_offset as apply_offset_htr;
     generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 include { flag_proper as flagdat } from './flagging'
+include { compile_summary } from './utils'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -281,6 +282,7 @@ process plot {
         path "crops", emit: crops
         path "*_channel_mask.txt"
         path "crops/*.npy", emit: crop_us
+        val "_compile", emit: _compile
     
     script:
         """
@@ -809,6 +811,7 @@ workflow process_frb {
                     params.centre_freq_frb, params.dm_frb,
                     frb_start_mjd, refined_candidate
                 )
+
                 // crops = plot.out.crops
                 // crop_start = plot.out.crop_start
                 // crop_50us = plot.out.crop_50us
@@ -871,5 +874,9 @@ workflow process_frb {
             //         offset, image_htrgate.out.jmfit
             //     )
             // }
+        }
+
+        if (params.beamform && params.calibrate && !params.opt_gate) {
+            compile_summary(plot.out._compile, finalres.final_position)
         }
 }
