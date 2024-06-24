@@ -79,35 +79,47 @@ def deripple(
 
     bw = int(bw) # MAKE SURE IT'S AN INTEGER
     
-    FFFF = FFFF[0, :, 0]
-
-    # ASKAP Parameters
-    N = 1536
-    OS_De = 27.0
-    OS_Nu = 32.0
-    passbandLength = int(((fftLength / 2) * OS_De) / OS_Nu)
-
+    FFFF = FFFF[0, :, 0]    
+    
+    # load in coefficients
     coeffs = np.load(coeffs_fname, mmap_mode="r")
 
+    # calculate pass band Length
+    passbandLength = FFFF.size // bw
+
+    # Check if passbandLength is divisible by two or not
+    isdiv2 = False
+    if not (passbandLength % 2):
+        passbandLength = passbandLength // 2
+        isdiv2 = True
+
+    else:   # if not divisible by two, extend passbandlength by one and truncat mid point when concatenating
+        passbandLength = (passbandLength // 2) + 1
+    
     print("Interpolating...")
-    interp_x = np.interp(np.arange(passbandLength+1),6*np.arange(coeffs.size),coeffs)
+    interp_x = np.interp(np.arange(passbandLength),6*np.arange(coeffs.size),coeffs)
 
 
     print("Calculating deripple...")
-    deripple = np.ones(passbandLength + 1) / np.abs(interp_x)
+    deripple = np.ones(passbandLength) / np.abs(interp_x)
 
     #PRINT SOME INFOMATION
     print("FFT LENGTH (oversamp): {:d}".format(fftLength))
     print("PASS BAND LENGTH: {:d}".format(passbandLength))
     print("BAND WIDTH (MHz): {:d}".format(bw))
-    
 
     print("derippling....")
-    deripple = np.concatenate((deripple[:0:-1],deripple[:-1]),axis=0)
+    
+    if isdiv2:
+        deripple = np.concatenate((deripple[::-1],deripple), axis = 0)
+    else:
+        deripple = np.concatenate((deripple[:0:-1], deripple), axis = 0)
+
+    print(f"BUFFER SAMPLE LENGTH: {FFFF.size // bw}")
+    print(f"INTERP COEFFS BUFFER LENGTH: {deripple.size}")
 
     #reshape
-    FFFF = FFFF[:bw*passbandLength*2] #crop data if nessesary
-    FFFF = FFFF.reshape(bw,passbandLength*2)
+    FFFF = FFFF.reshape(bw,FFFF.size // bw)
     
     #apply deripple
     FFFF *= deripple
