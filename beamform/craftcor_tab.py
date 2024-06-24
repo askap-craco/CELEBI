@@ -190,9 +190,9 @@ def _main():
             mjd, DM = None, None
             if values.snoopy is not None:
                 cand = parse_snoopy(values.snoopy)
-                mjd, DM = float(cand[7]), float(cand[5])
+                mjd = float(cand[7])
 
-            temp = corr.do_tab(values.an, mjd, DM)
+            temp = corr.do_tab(values.an, mjd, values.DM)
             fn = values.outfile
             print(f"saving output to {fn} with size {temp.shape}")
             np.save(fn, temp)
@@ -948,6 +948,7 @@ def parse_args():
 
     # need to add in snoopy file for the rough MDJ time of the burst for better cropping
     parser.add_argument("--snoopy", default = None, help = "Snoopy file with rough pulse MJD")
+    parser.add_argument("--DM", help = "DM of FRB", type = float)
 
     parser.add_argument(
         "-d",
