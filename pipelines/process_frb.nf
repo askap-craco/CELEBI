@@ -94,7 +94,7 @@ process load_coarse_dynspec {
 	args="\$args -b $params.nbits"
 	args="\$args --card 1"
 	args="\$args -k"
-	args="\$args --name=210117_ICS"
+	args="\$args --name=${label}_ICS"
 	args="\$args -o ."
 	args="\$args --freqlabel c1_f0"
 	args="\$args --dir=$localise_dir/../difx"
@@ -630,12 +630,10 @@ workflow process_frb {
         fcm
 
     main:
-        if (params.nbits > 1) {
+        if (!params.skip_ics && params.nbits > 1) {
             coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
                                             antennas,fcm)
             refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-        }
-        if (!params.skip_ics && params.nbits > 1) {
             if ( new File(refined_candidate_path).exists()) {
                 refined_candidate = Channel.fromPath(refined_candidate_path)
             }
