@@ -184,9 +184,20 @@ process do_beamform {
         fi
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/craftcor_tab.py \$args'
-        rm TEMP*
 
         export FFTLEN=`cat fftlen`
+
+        # save corrected antenna MJD to file
+        ant_file="${params.out_dir}/binconfigs/${label}_corrected_ant_MJD.txt"
+        if ! [ -f \$ant_file ]; then
+            touch \$ant_file
+        fi
+        echo \$(<"corrected_ant_MJD.txt") >> \$ant_file 
+
+        # only want to calculate this once, so choice of antenna id is arbitrary
+        if [ $label == "${params.label}" ] && [ $ant_idx == 0 ]; then
+            cp frb_crop_MJD.txt ${params.out_dir}/binconfigs/frb_crop_MJD.txt
+        fi
         """
 
     stub:
@@ -649,7 +660,7 @@ workflow beamform {
         xy = ifft.out.collect()
 
         // if FRB, apply polcal solutions
-        if (label == "${params.label}") {
+        if ((label == "${params.label}") && !params.nopolcal) {
             xy = apply_pol_cal_solns(label, xy, pol_cal_solns, centre_freq, dm).calib_data
             label="${params.label}_calib"
         }
