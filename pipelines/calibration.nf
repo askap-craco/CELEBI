@@ -614,6 +614,7 @@ process determine_pol_cal_solns {
     output:
         path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
         path "*.png", emit: plots
+        path "polcal_name.txt"
     
     script:
         """
@@ -661,6 +662,9 @@ process determine_pol_cal_solns {
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/polcal.py \$args'
         
         cp polcal_sampler/polcal_corner.png .
+
+        # make name txt file
+        echo "${params.polcal_name}" > polcal_name.txt
         """
     
     stub:
