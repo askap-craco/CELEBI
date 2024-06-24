@@ -125,6 +125,8 @@ process do_beamform {
             cand: val
                 candidate file path, using val type so This can be reused with polcal, also file already
                 exists before run, so don't need to wait for it
+            dm: val
+                DM of FRB
 
         Output
             pol, fine spectrum: tuple(val, path)
@@ -142,6 +144,7 @@ process do_beamform {
         path flux_cal_solns
         path fcm
         val cand
+        val dm
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
@@ -171,6 +174,7 @@ process do_beamform {
         # Candidate file for cropping
         if [[ $label == "${params.label}" ]]; then
             args="\$args --snoopy $cand"
+            args="\$args --DM $dm"
         fi
 
         # High band FRBs need --uppersideband
@@ -650,7 +654,7 @@ workflow beamform {
 
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand, dm
         )
         sum_antennas(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())

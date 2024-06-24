@@ -187,7 +187,7 @@ def _main():
         else:
             print("PERFORMING TIED-ARRAY BEAMFORMING")
 
-            mjd, DM = None, None
+            mjd = None
             if values.snoopy is not None:
                 cand = parse_snoopy(values.snoopy)
                 mjd = float(cand[7])
@@ -948,7 +948,7 @@ def parse_args():
 
     # need to add in snoopy file for the rough MDJ time of the burst for better cropping
     parser.add_argument("--snoopy", default = None, help = "Snoopy file with rough pulse MJD")
-    parser.add_argument("--DM", help = "DM of FRB", type = float)
+    parser.add_argument("--DM", help = "DM of FRB", type = float, default = None)
 
     parser.add_argument(
         "-d",
