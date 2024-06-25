@@ -75,7 +75,7 @@ workflow process_pol_cal {
             bform_pcal(
                 label, params.data_polcal, pos, flux_cal_solns, empty_file, 
                 params.dm_polcal, params.centre_freq_polcal,
-                params.nants_pcal, fcm
+                params.nants_pcal, fcm, "NONE"
             )
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   

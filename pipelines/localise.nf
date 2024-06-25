@@ -36,6 +36,7 @@ process generate_binconfig {
         path "craftfrb.polyco", emit: polyco
         path "dosubtractions.sh", emit: subtractions
         path "int_time", emit: int_time
+        path "geo_delay.txt"
 
     script:
         """

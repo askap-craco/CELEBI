@@ -122,6 +122,11 @@ process do_beamform {
                 used to image the data and produce a position
             fcm: path
                 fcm to use
+            cand: val
+                candidate file path, using val type so This can be reused with polcal, also file already
+                exists before run, so don't need to wait for it
+            dm: val
+                DM of FRB
 
         Output
             pol, fine spectrum: tuple(val, path)
@@ -138,6 +143,8 @@ process do_beamform {
         each ant_idx
         path flux_cal_solns
         path fcm
+        val cand
+        val dm
 
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
@@ -164,6 +171,12 @@ process do_beamform {
         args="\$args -i 1"
         args="\$args --cpus=16"
 
+        # Candidate file for cropping
+        if [[ $label == "${params.label}" ]]; then
+            args="\$args --snoopy $cand"
+            args="\$args --DM $dm"
+        fi
+
         # High band FRBs need --uppersideband
         if [ "$params.uppersideband" = "true" ]; then
             args="\$args --uppersideband"
@@ -175,9 +188,20 @@ process do_beamform {
         fi
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/craftcor_tab.py \$args'
-        rm TEMP*
 
         export FFTLEN=`cat fftlen`
+
+        # save corrected antenna MJD to file
+        ant_file="${params.out_dir}/binconfigs/${label}_corrected_ant_MJD.txt"
+        if ! [ -f \$ant_file ]; then
+            touch \$ant_file
+        fi
+        echo \$(<"corrected_ant_MJD.txt") >> \$ant_file 
+
+        # only want to calculate this once, so choice of antenna id is arbitrary
+        if [ $label == "${params.label}" ] && [ $ant_idx == 0 ]; then
+            cp frb_crop_MJD.txt ${params.out_dir}/binconfigs/frb_crop_MJD.txt
+        fi
         """
 
     stub:
@@ -601,6 +625,9 @@ workflow beamform {
                 Number of antennas available in the data
             fcm: path
                 fcm to use
+            cand: val
+                candidate file path, using val type so This can be reused with polcal, also file already
+                exists before run, so don't need to wait for it
         
         Emit
             htr_data: path
@@ -616,6 +643,7 @@ workflow beamform {
         centre_freq         // central frequency
         nants               // number of antennas
         fcm                 // fcm file
+        cand                // path to cand file
     
     main:
         // preliminaries
@@ -626,7 +654,7 @@ workflow beamform {
 
         // processing
         do_beamform(
-            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm
+            label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand, dm
         )
         sum_antennas(label, do_beamform.out.data.groupTuple())
         coeffs = generate_deripple(do_beamform.out.fftlen.first())
@@ -636,7 +664,7 @@ workflow beamform {
         xy = ifft.out.collect()
 
         // if FRB, apply polcal solutions
-        if (label == "${params.label}") {
+        if ((label == "${params.label}") && !params.nopolcal) {
             xy = apply_pol_cal_solns(label, xy, pol_cal_solns, centre_freq, dm).calib_data
             label="${params.label}_calib"
         }
