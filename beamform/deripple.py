@@ -77,24 +77,28 @@ def deripple(
     :rtype: :class:`np.ndarray`
     """
 
+    # bandwidth, i.e. number of coarse channels
     bw = int(bw) # MAKE SURE IT'S AN INTEGER
     
+    # FFFF is the stitched 336 (or some other bw) MHz fine channel complex beamformed data. 
     FFFF = FFFF[0, :, 0]    
     
     # load in coefficients
     coeffs = np.load(coeffs_fname, mmap_mode="r")
 
-    # calculate pass band Length
-    passbandLength = FFFF.size // bw
+    # calculate the number of fine channels in each coarse channel, which should simply be the size of the
+    # buffer in samples / bw in MHz
+    nfine = FFFF.size // bw
 
-    # Check if passbandLength is divisible by two or not
+    # passbandLength is nfine/2 samples, however, whether nfine is odd or even, will change how
+    # we create the deripple coeff array.
     isdiv2 = False
-    if not (passbandLength % 2):
-        passbandLength = passbandLength // 2
+    if nfine % 2 == 0:
+        passbandLength = nfine // 2
         isdiv2 = True
 
     else:   # if not divisible by two, extend passbandlength by one and truncat mid point when concatenating
-        passbandLength = (passbandLength // 2) + 1
+        passbandLength = (nfine // 2) + 1
     
     print("Interpolating...")
     interp_x = np.interp(np.arange(passbandLength),6*np.arange(coeffs.size),coeffs)
@@ -110,16 +114,16 @@ def deripple(
 
     print("derippling....")
     
-    if isdiv2:
+    if isdiv2: # can simply mirror [deripple] to make coeffs array
         deripple = np.concatenate((deripple[::-1],deripple), axis = 0)
-    else:
+    else:   # truncate end sample 
         deripple = np.concatenate((deripple[:0:-1], deripple), axis = 0)
 
-    print(f"BUFFER SAMPLE LENGTH: {FFFF.size // bw}")
-    print(f"INTERP COEFFS BUFFER LENGTH: {deripple.size}")
+    print(f"number of samples per coarse channel: {nfine}")
+    print(f"interpolated deripple coeff sample number: {deripple.size}")
 
     #reshape
-    FFFF = FFFF.reshape(bw,FFFF.size // bw)
+    FFFF = FFFF.reshape(bw, nfine)
     
     #apply deripple
     FFFF *= deripple

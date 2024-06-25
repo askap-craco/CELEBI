@@ -111,7 +111,7 @@ def _compile(args):
             lines = file.readlines()
         for i in range(23,25):
             line = lines[i].split()
-            ofile.write(line[0].ljust(justlen) + line[1].ljust(justlen) + f"+/- {line[3]}\n")
+            ofile.write((line[0] + ":").ljust(justlen) + line[1].ljust(justlen) + f"+/- {line[3]}\n")
 
         # uncertainty ellipse
         ofile.write("\nUNCERTAINTY ELLIPSE\n")

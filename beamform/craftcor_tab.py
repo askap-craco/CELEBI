@@ -217,6 +217,13 @@ class AntennaSource:
         print(f"antenna {self.antname} {self.vfile.freqconfig}")
 
     def do_f_tab(self, corr, iant, mjd, DM):
+
+        ##########################
+        # calculate buffer offset
+        # for alignment and geometric
+        # delays
+        ##########################
+
         # iant is the number of the antenna in the AIPS AN table, minus 1 (i.e., a zero based index from the 36 antennas)
         start = timer()
         self.frparams = FringeRotParams(corr, self)
@@ -227,73 +234,73 @@ class AntennaSource:
 
         self.all_geom_delays.append(geom_delay_us)
         self.all_mjds.append(corr.curr_mjd_mid)
-
         fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
         total_delay_samp = framediff_samp
         whole_delay = int(np.round(total_delay_samp))
 
 
-        #############################################################
-        # Where the loading of the data happens
-        #
-        #############################################################
+        nfine = corr.nfft - 2 * corr.nguard_chan    # number of samples in 1 MHz coarse channel
+        nsamp = corr.nint * corr.nfft               # number of samples in 1.185 MHz oversampled channel
+        nchan_coarse = len(corr.freqs)              # number of coarse channels 
+        
+        sampoff = whole_delay + corr.abs_delay      # starting sample used in cropping antenna buffers, this is the earliest
+                                                    # sample for which there is data for all the antennas
 
-
-        nfine = corr.nfft - 2 * corr.nguard_chan
-
-        nsamp = corr.nint * corr.nfft
-        nchan_coarse = len(corr.freqs)
-
-        # time-dependent geometric delays
-        # np.linspace(0, 1, nsamp) == time in units of integrations
+        # time-dependent geometric delays, these will be used to beamform the antennas
         geom_delays_us = (
             geom_delay_us
             + geom_delay_rate_us * np.linspace(0, 1, nsamp, dtype = np.float32)
             - fixed_delay_us
         )
-        # np.save("TEMP_geom_delays_us.npy", geom_delays_us)
-        # del geom_delays_us
-        # geom_delays_us = np.load("TEMP_geom_delays_us.npy", mmap_mode="r")
 
-        sampoff = whole_delay + corr.abs_delay
 
-        # update sampoff and nsamp based on mjd and DM for better cropping
+        ###########################################################################
+        # Crop antenna buffers, use the DM and rough candidate position of the FRB
+        # to create a crop that encompasses the entire DM sweep of the FRB.
+        ###########################################################################
         if (mjd is not None) and (DM is not None):
-            # perform rough pulse cropping
-            start_samp = int(self.mjdstart * 8.64e10 * 32/27)
-            cand_samp = int(mjd * 8.64e10 * 32/27)
-            print(f"Cand MJD from start of buffer (in samples): {cand_samp - start_samp}")
-            pulse_offset_samp = cand_samp - start_samp
+            print("FRB cropping\n")
+            
+            # sample number of candidate position
+            cand_offset_samp = int((mjd - self.mjdstart) * 8.64e10 * 32/27)
 
             # measure DM sweep
             kDM = 4149.377593
             DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))) * 32/27)
 
-            # calculate crop bounds
-            crop_offset = pulse_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
-            crop_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
+            print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
+            print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
 
-            # get next biggest buffer length for FFT
+            # calculate sampoff and nsamp based on DM sweep and cand position
+            requested_sampoff = cand_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
+            requested_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
+
+            # make requested_nsamp a 5-smooth number such that we can take advantage
+            # of the cooley-Tukey FFT algorithm, look for the next 5-smooth number
             crop_nsamp, _, _ = next_biggest_fftlen(crop_nsamp, corr.ncoarse_chan)
 
-            crop_start = crop_offset
-            crop_end = crop_offset + crop_nsamp
+            # compare the requested crop bounds with the actually buffer bounds 
+            # to make sure we are not requesting samples outside of the original 
+            # buffer.
+            requested_crop_start = requested_sampoff
+            requested_crop_end = requested_sampoff + requested_nsamp
 
-            # check bounds of new crop
-            buffer_end = sampoff + nsamp  # END BOUNDS OF ORIGINAL CROP
+            # check bounds of new crop            
             buffer_start = sampoff
-
-            print(f"Initial crop start: {crop_start}")
-            print(f"Initial Crop end: {crop_end}")
+            buffer_end = sampoff + nsamp  # END BOUNDS OF ORIGINAL CROP
             print("------")
+            print(f"Requested crop start: {requested_crop_start}")
+            print(f"Requested Crop end: {requested_crop_end}")
             print(f"Buffer start: {buffer_start}")
             print(f"Buffer end: {buffer_end}")
 
-            if crop_start > buffer_start:
+            # sampoff and nsamp are the final sample offset and sample width used when loading
+            # in data
+            if requested_crop_start > buffer_start:
                 sampoff = crop_start
 
             # check width of new crop
-            if crop_end > buffer_end:
+            if requested_crop_end > buffer_end:
                 # gone past end, change width
                 nsamp = buffer_end - sampoff
             
@@ -301,37 +308,30 @@ class AntennaSource:
                 nsamp = crop_end - sampoff
 
             print("------")
-            print(f"New crop start: {sampoff}")
-            print(f"New crop end: {sampoff + nsamp}")
-            print(f"New crop nguard: {int(5 * nsamp // 64)}")
+            print(f"Allowed crop start: {sampoff}")
+            print(f"Allowed crop end: {sampoff + nsamp}")
+            print(f"Allowed crop nguard: {int(5 * nsamp // 64)}")
 
 
             # get next smallest buffer length for FFT, if nothing has changed, this will return the same as next_biggest_fftlen,
             # if nsamp changes, next_smallest_fftlen will ensure the optimal width is within the original buffer bounds
             nsamp, nfine, corr.nguard_chan = next_smallest_fftlen(nsamp, corr.ncoarse_chan)
-            # corr.nguard_chan = int(5 * nsamp// 64)
-            # nfine = nsamp - 2 * corr.nguard_chan
+
+            # recalculate fine channel bandwidth since the number of requested samples per coarse channel
+            # has changed
             corr.fine_chanbw = 1.0/float(nfine)
 
             print("------")
-            print(f"FFT crop start: {sampoff}")
-            print(f"FFT crop end: {sampoff + nsamp}")
-            print(f"FFT crop nguard: {corr.nguard_chan}")
+            print(f"Final crop start: {sampoff}")
+            print(f"Final crop end: {sampoff + nsamp}")
+            print(f"Final crop nguard: {corr.nguard_chan}")
 
             print("------")
             print(f"geom delays crop start: {sampoff - buffer_start}")
             print(f"geom delays crop end: {sampoff - buffer_start + nsamp}")
 
-            # crop geom delays
+            # we need to crop the geometric delays since we have changed sampoff and nsamp 
             geom_delays_us = geom_delays_us[sampoff - buffer_start:sampoff - buffer_start + nsamp]
-
-            print("\n#######################################################")
-            print(f"Changed crop based on a DM sweep of {DM_sweep_samp} us pulse MJD offset of {pulse_offset_samp} us")
-            print(f"Allowing a DM_sweep padding of 1.1x{DM_sweep_samp} = {int(1.1*DM_sweep_samp)} us")
-            print("----------")
-            print(f"Buffer start: {buffer_start}, Buffer end: {buffer_end}, Buffer width: {buffer_end - buffer_start}")
-            print(f"Crop start: {sampoff}, Crop end: {sampoff + nsamp}, Crop width: {nsamp}")
-            print("#######################################################\n")
 
             # save crop MJD to txt file
             crop_MJD = self.mjdstart + ((sampoff - buffer_start) * 27/32)/8.64e10
@@ -342,33 +342,33 @@ class AntennaSource:
         else:
             # We will only get to this part if the polarisation calibrator is being beamformed.
             # In this case, we don't care about careful cropping, so we will always take the full crop, unless
-            # that crop is larger than 3.8s, in which case we will take a crop of 3.8s. Doesn't matter where the crop starts
+            # that crop is larger than 3.21529s, in which case we will take a crop of 3.21529s. Doesn't matter where the crop starts
             # since the generate_dynspec script will crop the sides anyway, so we will always get a good integer number
-            # of pulses for polcal.
+            # of pulses for polcal. NOTE: 3.21529s is arbitrarily chosen
+            print("POLCAL cropping\n")
             old_nsamp = nsamp
-            # 11851850
             if nsamp >= 3800000:
                 nsamp = 3800000
 
-                corr.nguard_chan = int(5 * nsamp // 64)
+            # get next 5-smooting nsamp for optimal FFT algorithm
+            nsamp, nfine, corr.nguard_chan = next_biggest_fftlen(nsamp, corr.ncoarse_chan)
+            
+            # recalculate fine channel bandwidth
+            corr.fine_chanbw = 1.0/float(nfine)
 
-                # crop geom delays
-                geom_delays_us = geom_delays_us[:nsamp]
-                nfine = nsamp - 2 * corr.nguard_chan
-                corr.fine_chanbw = 1.0/float(nfine)
+            # crop geom delays
+            geom_delays_us = geom_delays_us[:nsamp]
 
-            print("\n#######################################################")
             print(f"Old nsamp: {old_nsamp}, New nsamp: {nsamp}")
-            print("#######################################################\n")
+            print(f"New nfine: {nfine}")
+            print(f"New nguard: {corr.nguard_chan}")
 
 
-        print(f"# fine channels {nfine}")
-        print(f"# coarse channels {nchan_coarse}")
-        print(f"# oversample guard (2x) {corr.nguard_chan}")
+        # make new buffer array, this will be the final beamformed antenna fine channel
+        # buffer array that will be coherently summed with all other antenna    
         data_out = np.zeros(
             (corr.nint, nfine * nchan_coarse, corr.npol_in), dtype=np.complex64
         )
-
 
         print(("Zero-based, full-array antenna #: ", iant, self.antname))
         frameid = self.vfile.start_frameid + sampoff
@@ -384,12 +384,9 @@ class AntennaSource:
         print("samp_start + nsamp <= self.nsamps")
         print(f"{sampoff} + {nsamp} <= {self.vfile.nsamps}")
         print("corr.sideband is ", corr.sideband)
+
+        # load in data
         rawd = self.vfile.read(sampoff, nsamp)
-        # np.save("TEMP_rawd.npy", rawd)
-        # # np.save("NEW_rawd.npy", rawd)
-        # print(f"rawd shape: {rawd.shape}")
-        # del rawd
-        # rawd = np.load("TEMP_rawd.npy", mmap_mode="r")
 
 
         # save corrected MJD to txt file
@@ -397,8 +394,7 @@ class AntennaSource:
         with open("corrected_ant_MJD.txt", "a") as file:
             file.write(f"{self.antname}:    {corrected_MJD}\n")
 
-        # np.save("NEW_geoms.npy", geom_delays_us)
-
+        # check if loaded data is right shape
         assert rawd.shape == (
             nsamp,
             corr.ncoarse_chan,
@@ -409,17 +405,12 @@ class AntennaSource:
             np.arange(nfine, dtype = np.float32) - float(nfine) / 2.0
         ) * corr.fine_chanbw
 
-        print(freqs)
 
         # Leave the fine channel frequencies running the same direction regardless of sideband - we will convert the sideband sense prior to correction
         freqs = -freqs
         #if corr.sideband == -1:
         #    freqs = -freqs
 
-        # Save and reload to improve memory efficiency
-        # np.save("TEMP_freqs.npy", freqs)
-        # del freqs
-        # freqs = np.load("TEMP_freqs.npy", mmap_mode="r")
         start = timer()
 
         def process_chan(c):
@@ -477,14 +468,13 @@ class AntennaSource:
             fcend = (c + 1) * nfine
             data_out[:, fcstart:fcend, 0] = xfguard_f
 
-            # print(f"{corr.nguard_chan}, {nfine}")
-            print(f"{c}:{fcstart}:{fcend}")
 
         Parallel(n_jobs=corr.values.cpus, require="sharedmem")(
             delayed(process_chan)(c)
             for c in range(corr.ncoarse_chan)
         )
 
+        # save nfine as txt file for use further in CELEBI beamforming pipeline
         with open("fftlen", "w") as f:
             f.write(f"{nsamp}")
 
