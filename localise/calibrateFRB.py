@@ -5,6 +5,7 @@ import glob
 import os
 import socket
 import sys
+import subprocess
 
 import astropy.units as un
 import numpy as np
@@ -13,6 +14,7 @@ from AIPS import AIPS
 from AIPSData import AIPSImage, AIPSUVData
 from AIPSTask import AIPSTask
 from astropy.time import Time
+
 
 # Global constants
 try:
@@ -33,6 +35,17 @@ SEQNO = 1
 snversion = 1
 clversion = 1
 bpversion = 1
+
+
+def run(cmd):
+    """
+    A drop in replacement for os.system, that will check the return code of the
+    executed command and report failure/quit if the command quits
+    """
+    ret = subprocess.run(cmd, shell=True).returncode
+    if ret != 0:
+        print("ERR:FAILED COMMAND:{cmd}")
+        sys.exit(ret)
 
 
 def _main():
@@ -294,7 +307,7 @@ def _main():
                 tcleanvals["specmode"] = "cube"
                 tcleanvals["niter"] = 0
                 tcleanvals["width"] = args.averagechannels
-                os.system(f"rm -rf {tcleanvals['imagename']}.*")
+                run(f"rm -rf {tcleanvals['imagename']}.*")
 
             elif args.dirtymfs:
                 tcleanvals = deftcleanvals.copy()
@@ -302,7 +315,7 @@ def _main():
                 tcleanvals["specmode"] = "mfs"
                 tcleanvals["niter"] = 0
                 tcleanvals["width"] = args.averagechannels
-                os.system(f"rm -rf {tcleanvals['imagename']}.*")
+                run(f"rm -rf {tcleanvals['imagename']}.*")
 
             elif args.cleanmfs:
                 tcleanvals["imagename"] = args.imagename
@@ -324,7 +337,7 @@ def _main():
                 tcleanvals["imagename"] = args.image
 
             # Overwrite any existing images
-            os.system(f"rm -rf {tcleanvals['imagename']}.*")
+            run(f"rm -rf {tcleanvals['imagename']}.*")
 
             if args.dotimesteps:
                 write_timestep_loop(
@@ -340,8 +353,8 @@ def _main():
 
             casaout.close()
             if not args.image:
-                os.system("chmod 775 imagescript.py")
-                os.system("casa --nologger -c imagescript.py")
+                os.chmod("imagescript.py", 0o775)
+                run("casa --nologger -c imagescript.py")
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
@@ -355,8 +368,8 @@ def _main():
                     },
                 )
                 casaout.close()
-                os.system("chmod 775 exportfits.py")
-                os.system("casa --nologger -c exportfits.py")
+                os.chmod("exportfits.py", 0o755)
+                run("casa --nologger -c exportfits.py")
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
@@ -374,7 +387,7 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    run("casa --nologger -c imagescript.py")
                 elif args.image[-6:] == ".image":
                     casaimagename = args.image
                     fitsimagename = f"{args.image[:-6]}.fits"
@@ -388,7 +401,7 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    run("casa --nologger -c imagescript.py")
                 elif args.image[-5:] == ".fits":
                     casaimagename = f"{args.image[:-5]}.image"
                     fitsimagename = args.image
@@ -402,14 +415,14 @@ def _main():
                         },
                     )
                     casaout.close()
-                    os.system("casa --nologger -c imagescript.py")
+                    run("casa --nologger -c imagescript.py")
 
                 # Identify point sources in image
                 print("Identifying point sources")
-                os.system(
+                run(
                     f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | casa --nologger -c {args.findsourcescript}"
                 )
-                os.system(
+                run(
                     f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
                 )
                 source_pixs = np.loadtxt(
@@ -438,7 +451,7 @@ def _main():
                         top,
                     )
                     print(f"JMFIT locstring = {locstring}")
-                    os.system(
+                    run(
                         "jmfitfromfile.py %s %s.jmfit %s"
                         % (
                             fitsimagename,
@@ -469,7 +482,7 @@ def _main():
                         print(f"\t({x}, {y})")
                         print("")
                         print(f"({left}, {bottom})\t\t({right}, {bottom})")
-                        os.system(
+                        run(
                             "jmfitfromfile.py %s %s_%02d.jmfit %s"
                             % (
                                 fitsimagename,
@@ -784,7 +797,7 @@ def out_fnames(fitspath: str) -> "tuple[str, str]":
     if os.path.exists(msfname):
         #print(f"{msfname} already exists - aborting!!!")
         #sys.exit()
-        os.system("rm -rf " + msfname)
+        run("rm -rf " + msfname)
 
     return fitsfname, msfname
 
@@ -981,7 +994,7 @@ def run_FRING(
 
     # Write SN table to disk
     if os.path.exists(fringsnfname):
-        os.system("rm -f " + fringsnfname)
+        run("rm -f " + fringsnfname)
     vlbatasks.writetable(caldata, "SN", snversion, fringsnfname)
 
 
@@ -1072,7 +1085,7 @@ def run_bandpass(
 
     # Write BP table to disk
     if os.path.exists(bpfname):
-        os.system("rm -f " + bpfname)
+        run("rm -f " + bpfname)
     vlbatasks.writetable(caldata, "BP", bpversion, bpfname)
 
 
@@ -1142,7 +1155,7 @@ def run_selfcal(
 
     # Write SN table to disk
     if os.path.exists(selfcalsnfname):
-        os.system("rm -f " + selfcalsnfname)
+        run("rm -f " + selfcalsnfname)
     vlbatasks.writetable(splitcaldata, "SN", 1, selfcalsnfname)
 
 
@@ -1279,10 +1292,10 @@ def write_readme(
     )
     readmeout.close()
     if os.path.exists(calibtarballfile):
-        os.system("rm -f " + calibtarballfile)
+        run("rm -f " + calibtarballfile)
     print(tarinputfiles)
     print(readmefname.split('/')[-1])
-    os.system(
+    run(
         f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}"
     )
 
@@ -1306,7 +1319,7 @@ def fits_to_ms(fitsfname: str, msfname: str) -> None:
         },
     )
     casaout.close()
-    os.system("casa --nologger -c loadtarget.py")
+    run("casa --nologger -c loadtarget.py")
 
 
 def write_casa_cmd(casaout: os.PathLike, cmd: str, vals: dict) -> None:
@@ -1412,7 +1425,7 @@ def write_outlier_file(pol: str, rmscenter: str, imsize: int) -> str:
     """
     offsourcename = f"OFFSOURCE.cube.{pol}"
     rmsimsize = imsize * 4
-    os.system(f"rm -rf {offsourcename}*")
+    run(f"rm -rf {offsourcename}*")
     outlierfile = open(f"outlierfield_Stokes{pol}.txt", "w")
     outlierfile.write(
         "imagename={0}\n"
