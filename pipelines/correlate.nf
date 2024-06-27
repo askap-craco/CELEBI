@@ -1,5 +1,6 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2   // Enable DSL2
+nextflow.enable.strict=true // be less generous
 
 // Cards and FPGAs to be processed. Override these in a config file to cut out
 // data. The lowest card-fpga pair is used as a reference correlation.

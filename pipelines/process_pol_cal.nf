@@ -1,4 +1,5 @@
 nextflow.enable.dsl=2
+nextflow.enable.strict=true // be less generous
 
 include { create_empty_file } from './utils'
 include { correlate as corr_pcal } from './correlate'
