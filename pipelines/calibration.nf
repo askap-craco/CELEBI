@@ -125,6 +125,7 @@ process image_finder {
     publishDir "${params.out_dir}/finder", mode: "copy"
     maxForks 1
 
+    label 'python'
     label 'aips'
 
     input:
@@ -139,15 +140,9 @@ process image_finder {
 
     script:
         """
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_parseltongue3
-        #fi
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+        source /opt/setup_proc_container 
+
+        aipsid="\$((RANDOM%8192))"
 
         tar -xzvf $cal_solns
         target_fits=$target_fits
@@ -164,7 +159,6 @@ process image_finder {
         args="\$args --imagesize=$params.finderimagesize"
         args="\$args --pixelsize=$params.finderpixelsize"
         args="\$args -a 16"
-        aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --skipplot"
         args="\$args --src=$params.target"
@@ -177,13 +171,12 @@ process image_finder {
             args="\$args --tarflagfile=$params.finderflagfile"
         fi
 
-        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args' 
+        ParselTongue $localise_dir/calibrateFRB.py \$args
 
         for f in `ls fbin\${bin}*jmfit`; do
             echo \$f
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
+            source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
         done
-        rm -rf \$aips_dir
         """
         
     stub:
@@ -329,6 +322,7 @@ process image_field {
     */
     publishDir "${params.out_dir}/field", mode: "copy"
 
+    label 'python'
     label 'aips'
 
     input:
@@ -345,19 +339,16 @@ process image_field {
 
     script:
         """
+        source /opt/setup_proc_container
+
+        aipsid="\$((RANDOM%8192))"
+
         tar -xzvf $cal_solns
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
 
         args="--imagename=field"
         args="\$args -j"
         args="\$args -i"
         args="\$args --pols=I"
-        aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --imagesize=$params.fieldimagesize"
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
@@ -384,14 +375,13 @@ process image_field {
             args="\$args --image=$params.fieldimage"
         fi
 
-        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
+        ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
+            source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
-        rm -rf \$aips_dir
         """    
     
     stub:
@@ -427,7 +417,7 @@ process image_polcal {
                 DS9 region of source fit    
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
-
+    label 'python'
     label 'aips'
 
     input:
@@ -443,14 +433,12 @@ process image_polcal {
 
     script:
         """
-        tar -xzvf $cal_solns
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+        source /opt/setup_proc_container
 
+        aipsid="\$((RANDOM%8192))"
+
+        tar -xzvf $cal_solns
+        
         args="--targetonly"
         args="\$args -t $target_fits"
         args="\$args -r 3"
@@ -461,7 +449,6 @@ process image_polcal {
         args="\$args --imagename=polcal"
         args="\$args --imagesize=$params.polcalimagesize"
         args="\$args -a 16"
-        aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --skipplot"
         args="\$args --src=$params.target"
@@ -473,20 +460,15 @@ process image_polcal {
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
 
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_parseltongue3
-        #
-        # fi
 
-        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
+        ParselTongue $localise_dir/calibrateFRB.py \$args
 
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg'
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
-        rm -rf \$aips_dir
         """
 
     stub:
@@ -524,6 +506,7 @@ process image_htrgate {
     publishDir "${params.out_dir}/htrgate", mode: "copy"
     maxForks 1
     
+    label 'python'
     label 'aips'
 
     input:
@@ -538,15 +521,9 @@ process image_htrgate {
 
     script:
         """
-        # if [ "$params.ozstar" == "true" ]; then
-        #    . $launchDir/../setup_parseltongue3
-        # fi
-        ml apptainer
-        set -a
-        set -o allexport
-        aips_dir="/fred/oz313/tempaipsdirs/aips_dir_\$((RANDOM%8192))"
-        cp -r /fred/oz313/aips-clean-datadirs \$aips_dir
-        export APPTAINER_BINDPATH="/fred/oz313/:/fred/oz313/,\$aips_dir/DATA/:/usr/local/aips/DATA,\$aips_dir/DA00/:/usr/local/aips/DA00"
+        source /opt/setup_proc_container
+
+        aipsid="\$((RANDOM%8192))"
 
         tar -xzvf $cal_solns
         target_fits=$target_fits
@@ -562,7 +539,6 @@ process image_htrgate {
         args="\$args --imagesize=$params.finderimagesize"
         args="\$args --pixelsize=$params.finderpixelsize"
         args="\$args -a 16"
-        aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --skipplot"
         args="\$args --src=$params.target"
@@ -571,14 +547,13 @@ process image_htrgate {
         args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
-        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
+        ParselTongue $localise_dir/calibrateFRB.py \$args
 
         for f in `ls *jmfit`; do
             echo \$f
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
+            python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
 
         done
-        rm -rf \$aips_dir
         """
         
     stub:
@@ -608,9 +583,6 @@ process determine_pol_cal_solns {
                 for troubleshooting/verifying solutions
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
-    
-    
-    container "file://$params.container"
 
     label 'python'
 
@@ -623,13 +595,13 @@ process determine_pol_cal_solns {
     
     script:
         """
+        source /opt/setup_proc_container 
 
         elipse=''
         if [ '$params.polcal_ellipse' == 'true' ]; then
             elipse="--elipse"
         fi
 
-        source /opt/setup_proc_container 
 
         python3 $beamform_dir/polcal.py \
                 -i ${params.label}_polcal_I_dynspec_${params.dm_polcal}.npy \
@@ -683,8 +655,6 @@ process apply_pol_cal_solns {
 
     publishDir "${params.out_dir}/htr", mode: "copy"
     
-    container "file://$params.container"
-
     label 'python'
 
     input: 
