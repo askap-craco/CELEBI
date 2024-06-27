@@ -59,7 +59,9 @@ process flag_proper {
             . $launchDir/../setup_proc
         fi   
 
-	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
+	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
+
+        export ANKDIR=$params.ankdir
 
         python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt
         """
@@ -100,7 +102,9 @@ process flag_initial {
             . $launchDir/../setup_proc
         fi   
 
-	badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
+	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
+
+        export ANKDIR=$params.ankdir
 
         python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none
         """
