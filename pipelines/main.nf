@@ -1,4 +1,5 @@
 nextflow.enable.dsl=2
+nextflow.enable.strict=true // be less generous
 
 include { process_flux_cal as fcal1; process_flux_cal as fcal2 } from './process_flux_cal'
 include { process_pol_cal as pcal } from './process_pol_cal'
