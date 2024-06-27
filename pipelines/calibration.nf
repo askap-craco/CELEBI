@@ -84,6 +84,8 @@ process determine_flux_cal_solns {
         if [ "$params.nopossm" == "true" ]; then
             args="\$args --skipplot"
         fi
+        # ensure casa is in the path
+        export PATH=\$PATH:$params.casapath
 
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
