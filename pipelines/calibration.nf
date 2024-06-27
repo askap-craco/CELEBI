@@ -59,6 +59,7 @@ process determine_flux_cal_solns {
     script:
         """
         source /opt/setup_proc_container
+        export PATH=\$PATH:$params.casapath
         set -x 
 
         aipsid="\$((RANDOM%8192))"
@@ -84,8 +85,6 @@ process determine_flux_cal_solns {
         if [ "$params.nopossm" == "true" ]; then
             args="\$args --skipplot"
         fi
-        # ensure casa is in the path
-        export PATH=\$PATH:$params.casapath
 
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
@@ -141,6 +140,8 @@ process image_finder {
     script:
         """
         source /opt/setup_proc_container 
+        export PATH=\$PATH:$params.casapath
+        set -x 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -175,7 +176,7 @@ process image_finder {
 
         for f in `ls fbin\${bin}*jmfit`; do
             echo \$f
-            source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
+            python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
         done
         """
         
@@ -340,6 +341,8 @@ process image_field {
     script:
         """
         source /opt/setup_proc_container
+        export PATH=\$PATH:$params.casapath
+        set -x 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -379,7 +382,7 @@ process image_field {
         i=1
         for f in `ls *jmfit`; do
             echo \$f
-            source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
         """    
@@ -434,6 +437,8 @@ process image_polcal {
     script:
         """
         source /opt/setup_proc_container
+        export PATH=\$PATH:$params.casapath
+        set -x 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -522,6 +527,8 @@ process image_htrgate {
     script:
         """
         source /opt/setup_proc_container
+        export PATH=\$PATH:$params.casapath
+        set -x 
 
         aipsid="\$((RANDOM%8192))"
 
