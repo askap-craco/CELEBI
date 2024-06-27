@@ -9,8 +9,8 @@ include { create_empty_file as empty1; create_empty_file as empty2 } from './uti
 params.fluxflagfile = ""
 params.polflagfile = ""
 params.fieldflagfile = ""
-params.calibrate = false
-params.beamform = false
+params.calibrate = true
+params.beamform = true
 params.noflag = false       // don't automatically flag
 params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
@@ -22,13 +22,15 @@ params.nants_fcal = params.nants
 
 workflow {
     fcm_delayfix = fcal1(params.fcm).fcm_delayfix
-    println "TESTING"
-    println fcm_delayfix
-    println params.fcm
-    // if(fcm_delayfix != "") {
-    //     flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
-    // }
-    // // else there is no fcm_delayfix and frb will fail
+    println "TESTING" 
+    println "fcm_delayfix " + fcm_delayfix
+    println "params.fcm " + params.fcm
+
+    // the following will always fail if calibrate=false, why is thise even an option?
+    if(fcm_delayfix != "") {
+        flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
+    }
+    // else there is no fcm_delayfix and frb will fail
 
     // if(params.nopolcal) {
     //     pol_cal_solns = empty1("polcal.dat")
