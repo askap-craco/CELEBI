@@ -465,7 +465,9 @@ process image_polcal {
         args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
         args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
 
-
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
         ParselTongue $localise_dir/calibrateFRB.py \$args
 
         i=1
