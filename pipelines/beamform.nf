@@ -468,8 +468,6 @@ process generate_dynspecs {
     publishDir "${params.out_dir}/htr", mode: "copy"
     cpus 16
     
-    container "file://$params.container"
-
     label 'python'
 
 
