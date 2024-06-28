@@ -111,8 +111,15 @@ process find_offset {
         args="\$args -n ${params.label}_names.dat"
         args="\$args -r ${params.label}_RACS_sources.reg"
         args="\$args -j ${params.label}_jmfits.dat"
-        if [ "$params.uselocalracs" == "true" ]; then
-            args="\$args --localracssourcepath=${params.localracssourcepath}"
+        args="\$args --referencecatalog=${params.referencecatalog}"
+        if [ "$params.uselocalcatalog" == "true" ]; then
+            if [ "$params.referencecatalog" == "RACS" ]; then 
+                args="\$args --localracssourcepath=${params.localracssourcepath}"
+            elif [ "$params.referencecatalog" == "VLASS" ]; then
+                args="\$args --localvlasspath=${params.localvlasspath}"
+            else
+                echo "Not sure what to do with reference catalog ${params.referencecatalog}"
+            fi 
         fi
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && hostname >> hostname.txt && python3 $localise_dir/RACS_lookup.py \$args field*jmfit'
@@ -145,9 +152,16 @@ process find_offset {
         args="\$args -n ${params.label}_names.dat"
         args="\$args -r ${params.label}_RACS_sources.reg"
         args="\$args -j ${params.label}_jmfits.dat"
-        if [ "$params.uselocalracs" == "true" ]; then
-            args="\$args --localracsgausspath=${params.localracsgausspath}"
-            args="\$args --localracssourcepath=${params.localracssourcepath}"
+        args="\$args --referencecatalog=${params.referencecatalog}"
+        if [ "$params.uselocalcatalog" == "true" ]; then
+            if [ "$params.referencecatalog" == "RACS" ]; then
+                args="\$args --localracsgausspath=${params.localracsgausspath}"
+                args="\$args --localracssourcepath=${params.localracssourcepath}"
+            elif [ "$params.referencecatalog" == "VLASS" ]; then
+                args="\$args --localvlasspath=${params.localvlasspath}"
+            else
+                echo "Not sure what to do with reference catalog ${params.referencecatalog}"
+            fi
         fi
 
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/RACS_lookup.py \$args field*jmfit'
@@ -210,8 +224,8 @@ process apply_offset {
         tmp_file=".TMP_\$BASHPID"
 
         # Get the FRB galactic latitude
-        if [ "$params.uselocalracs" == "true" ]; then
-            apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/frb_galactic_coordinates.py --frbra=${params.ra_frb} --frbdec=${params.dec_frb} --planelatcut ${params.racs_plane_latcut} --onplanera ${params.racs_rasystematics_onplane} --offplanera ${params.racs_rasystematics_offplane} --onplanedec ${params.racs_decsystematics_onplane} --offplanedec ${params.racs_decsystematics_offplane} > frameuncertainties.txt'
+        if [ "$params.uselocalcatalog" == "true" ]; then
+            apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/frb_galactic_coordinates.py --frbra=${params.ra_frb} --frbdec=${params.dec_frb} --planelatcut ${params.catalog_plane_latcut} --onplanera ${params.catalog_rasystematics_onplane} --offplanera ${params.catalog_rasystematics_offplane} --onplanedec ${params.catalog_decsystematics_onplane} --offplanedec ${params.catalog_decsystematics_offplane} > frameuncertainties.txt'
         fi 
 
         args="--frbname ${params.label}"
@@ -219,7 +233,7 @@ process apply_offset {
         args="\$args --offset $offset"
         args="\$args --doffset $doffset"
         args="\$args --frbfits ${params.out_dir}/finder/${params.label}.fits"
-        if [ "$params.uselocalracs" == "true" ]; then
+        if [ "$params.uselocalcatalog" == "true" ]; then
             rasys=`awk '{print \$1}' frameuncertainties.txt`
             decsys=`awk '{print \$2}' frameuncertainties.txt`
             args="\$args --framerauncertainty=\$rasys"

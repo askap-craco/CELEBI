@@ -1,3 +1,4 @@
+import sys
 import os
 import pandas as pd
 import numpy as np
@@ -5,7 +6,11 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from astropy.coordinates import SkyCoord as sc
 from astropy.table import Table
-from astroquery.utils.tap.core import TapPlus
+from astropy.table import vstack
+from astropy import units as u
+
+#from astroquery.utils.tap.core import TapPlus
+#from astroquery.vizier import Vizier
 
 
 def _main():
@@ -13,15 +18,19 @@ def _main():
         description="Lookup source position in RACS",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument("--referencecatalog", default="RACS", type=str,
+                        help="Reference catalog to use [RACS or VLASS currently supported]")
     parser.add_argument("--localracsgausspath", default="",
                         help="Use this local RACS catalog (gaussian components) instead of CASDA")
     parser.add_argument("--localracssourcepath", default="",
                         help="Use this local RACS catalog (source components) instead of CASDA")
+    parser.add_argument("--localvlasspath", default="",
+                        help="Use this local VLASS catalog instead of Vizier")
     parser.add_argument("--racsrasystematic", type=int, default=0.0,
                         help="Add this value in quadrature to the final RA uncertainty")
     parser.add_argument("--racsdecsystematic", type=int, default=0.0,
                         help="Add this value in quadrature to the final Dec uncertainty")
-    parser.add_argument("-o", required=True, help="Output RACS positions file")
+    parser.add_argument("-o", required=True, help="Output reference positions file")
     parser.add_argument("-a", required=True, help="Output ASKAP positions file")
     parser.add_argument("-n", required=True, help="Output names file")
     parser.add_argument("-r", required=True, help="Output region file")
@@ -41,6 +50,10 @@ def _main():
     
     localgausscatalogue = None
     localsourcecatalogue = None
+    localvlasscatalogue = None
+    if args.referencecatalog != "RACS" and args.referencecatalog != "VLASS":
+        print("args.referencecatalog was set to {0}, must be either RACS or VLASS".format(args.referencecatalog))
+        sys.exit()
     if args.localracsgausspath != "":
         print("Reading local catalogue at ", args.localracsgausspath)
         if not os.path.exists(args.localracsgausspath):
@@ -55,10 +68,16 @@ def _main():
             sys.exit()
         localsourcecatalogue = pd.read_csv(args.localracssourcepath)
         print("Local sources catalog read successfully")
-    if args.localracsgausspath == "" and args.localracssourcepath == "":
+    if args.referencecatalog == "RACS" and args.localracsgausspath == "" and args.localracssourcepath == "":
         print("Opening casdatap")
         casdatap = TapPlus(url="https://casda.csiro.au/casda_vo_tools/tap")
         print("casdatap open")
+    if args.localvlasspath != "":
+        print("Reading local catalogue at ", args.localvlasspath)
+        if not os.path.exists(args.localvlasspath):
+            print("This path does not exist! Aborting.")
+            sys.exit()
+        localvlasscatalogue = pd.read_csv(args.localvlasspath)
 
     for f in args.files:
         print(f)
@@ -67,13 +86,24 @@ def _main():
         if coord.sn < 7:
             continue
 
-        if args.localracssourcepath == "": # No local source catalogue specified
-            if args.localracssourcepath != "": # But there is a local gaussians catalogue - use that
-                t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localgausscatalogue)
-            else: # No local catalogues supplied at all - use CASDA
-                t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
-        else: # A local source catalogue was supplied - use that as the primary
-            t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localsourcecatalogue)
+        racs_avail = True # Flag to indicate whether RACS is available in the region
+        if float(coord.dec_dms.split(':')[0]) > 29:
+            racs_avail = False
+        if args.referencecatalog == "VLASS": # Going to use VLASS as primary:
+            # First check the declination
+            if float(coord.dec_dms.split(':')[0]) < -45:
+                print("VLASS is not available below -45 degrees, can't use!")
+                print("You should probably just use --referencecatalog=RACS")
+                sys.exit()
+            t1 = VLASS_lookup_local(coord.ra_hms, coord.dec_dms, localvlasscatalogue)
+        else: # Going to use RACS
+            if args.localracssourcepath == "": # No local source catalogue specified
+                if args.localracsgausspath != "": # But there is a local gaussians catalogue - use that
+                    t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localgausscatalogue)
+                else: # No local catalogues supplied at all - use CASDA
+                    t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
+            else: # A local source catalogue was supplied - use that as the primary
+                t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localsourcecatalogue)
 
         print(t1)
 
@@ -94,9 +124,16 @@ def _main():
             continue
         
         # Filter out sources that are likely unacceptably resolved, if we had both gauss and source catalogues
-        if args.localracssourcepath != "" and args.localracsgausspath != "":
-            if RACS_exclude_resolved(localgausscatalogue, table):
+        if args.referencecatalog == "VLASS":
+            if not VLASS_compact(table):
+                print("Skipping source {0} that is not compact in VLASS".format(f))
                 continue
+        else: # Using RACS
+            if args.localracssourcepath != "" and args.localracsgausspath != "":
+                if RACS_exclude_resolved(localgausscatalogue, table):
+                    continue
+            # If we don't have both source and local gaussians, can't do any compactness exclusion
+            # An improvement would be to use VLASS if available
         
         source = table[0]
 
@@ -135,7 +172,7 @@ def _main():
         try:
             name = source["source_id"]
         except KeyError:
-            name = source["component_name"]
+            name = source["Component_name"]
 
         name_file.write(name + "\n")
 
@@ -176,6 +213,79 @@ class Coord:
         self.dec_err = max(float(fields["Est. Dec error (mas)"]) / 1e3, 0.01) # arcseconds
         self.sn = float(fields["S/N"])
 
+def VLASS_lookup(ra_hms, dec_dms, radius=0.0014):
+    """
+    Performs a VLASS lookup for a given celestial position.
+
+    Args:
+        ra_hms (str): Right Ascension in hours, minutes, and seconds (e.g., '12h34m56s').
+        dec_dms (str): Declination in degrees, minutes, and seconds (e.g., '12d34m56s').
+        radius (float): Search radius in degrees (default is 0.0014 degrees).
+
+    Returns:
+        job (Table): A table containing the VLASS lookup results
+    """
+    try:
+        c = sc(ra_hms, dec_dms, unit="hour,deg")
+        print(f"Looking up {c}")
+        v = Vizier(columns=['CompName', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000', 'Ftot', 'e_Ftot', 'Fpeak', 'e_Fpeak', 'Maj', 'e_Maj', 'Min', 'e_Min', 'PA', 'e_PA'], row_limit=-1)
+        job = v.query_region(c, radius=radius*u.degree, catalog='VLASS')[0]
+    except:
+        job = Table(names=['CompName', 'RAJ2000', 'DEJ2000', 'e_RAJ2000', 'e_DEJ2000', 'Ftot', 'e_Ftot', 'Fpeak', 'e_Fpeak', 'Maj', 'e_Maj', 'Min', 'e_Min', 'PA', 'e_PA'])
+    
+    job.rename_column('CompName', 'Component_name')
+    job.rename_column('RAJ2000', 'ra')
+    job.rename_column('DEJ2000', 'dec')
+    job.rename_column('e_RAJ2000', 'ra_err')
+    job.rename_column('e_DEJ2000', 'dec_err')
+    
+    # Add 0.25 arcsec to all rows in the dec column to compensate for the known VLASS offset
+    job['dec'] -= 0.25 / 3600
+
+    return job
+
+def VLASS_lookup_local(ra_hms, dec_dms, cat, radius=0.0014):
+    """
+    Perform a VLASS lookup based on the given coordinates and catalog.
+
+    Parameters:
+    ra_hms (str): Right Ascension in hours, minutes, and seconds.
+    dec_dms (str): Declination in degrees, minutes, and seconds.
+    cat (pandas.DataFrame): Catalog containing RA and DEC columns.
+    radius (float, optional): Search radius in degrees. Default is 0.0014 degrees.
+
+    Returns:
+    astropy.table.Table: Subset of the input catalog containing selected rows.
+    """
+    ra = sc(ra_hms, dec_dms, unit="hour,deg").ra.deg
+    dec = sc(ra_hms, dec_dms, unit="hour,deg").dec.deg
+    
+    cat_ra, cat_dec = np.array(cat['RA']), np.array(cat['DEC'])
+    
+    phi1 = ra * np.pi / 180
+    theta1 = dec * np.pi / 180
+    phi2 = cat_ra * np.pi / 180
+    theta2 = cat_dec * np.pi / 180
+    
+    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(phi1-phi2)
+    
+    sep = np.arccos(cos_sep_radian) * 180 / np.pi
+    select_bool = sep < radius
+    
+    vlass_table = Table.from_pandas(cat.iloc[select_bool])
+    
+    vlass_table.rename_column('RA', 'ra')
+    vlass_table.rename_column('DEC', 'dec')
+    vlass_table.rename_column('E_RA', 'ra_err')
+    vlass_table.rename_column('E_DEC', 'dec_err')
+    
+    return vlass_table
+
+def VLASS_compact(table):
+    if (table[0]['Total_flux'] / table[0]['Peak_flux']) < 1.5:
+        return True
+    else:
+        return False
 
 def RACS_lookup1(ra_hms, dec_dms, casdatap):
     c = sc(ra_hms, dec_dms, unit="hour,deg")
@@ -183,7 +293,10 @@ def RACS_lookup1(ra_hms, dec_dms, casdatap):
     job1 = casdatap.launch_job_async(
         f"SELECT * FROM AS110.racs_dr1_gaussians_galacticcut_v2021_08_v02 WHERE 1=CONTAINS(POINT('ICRS', ra, dec),CIRCLE('ICRS', {c.ra.value},{c.dec.value},0.0014))",
     )
-    return job1.get_results()
+    job2 = casdatap.launch_job_async(
+        f"SELECT * FROM AS110.racs_dr1_gaussians_galacticregion_v2021_08_v02 WHERE 1=CONTAINS(POINT('ICRS', ra, dec),CIRCLE('ICRS', {c.ra.value},{c.dec.value},0.0014))",
+    )
+    return vstack([job1.get_results(), job2.get_results()])
 
 
 def RACS_lookup2(ra_hms, dec_dms, casdatap):
@@ -196,16 +309,16 @@ def RACS_lookup2(ra_hms, dec_dms, casdatap):
 
 def RACS_lookup_local(ra_hms, dec_dms, cat, radius=0.0014):
     """
-    Query the RACS local catalog based on the given coordinates and radius.
+    Perform a local RACS lookup based on the given coordinates and catalog.
 
     Parameters:
-    ra (float): Right Ascension in degrees.
-    dec (float): Declination in degrees.
-    radius (float, optional): Search radius in degrees. Default is 5 arcsec.
-    catpath (str, optional): Path to the catalog file. Default is an empty string.
+    ra_hms (str): Right Ascension in hours, minutes, and seconds (e.g., '12:34:56').
+    dec_dms (str): Declination in degrees, minutes, and seconds (e.g., '+12:34:56').
+    cat (pandas.DataFrame): Catalog containing 'ra' and 'dec' columns.
+    radius (float): Search radius in degrees. Default is 0.0014 degrees.
 
     Returns:
-    astropy.Table: Subset of the catalog containing sources within the specified radius.
+    astropy.table.Table: Subset of the input catalog containing rows within the search radius.
     """
     ra = sc(ra_hms, dec_dms, unit="hour,deg").ra.deg
     dec = sc(ra_hms, dec_dms, unit="hour,deg").dec.deg
@@ -238,7 +351,6 @@ def RACS_exclude_resolved(cat, source_table):
     - bool
         True if the Gaussian parameters meet the specified conditions, False otherwise.
     """
-    
     cat_gaus = cat[(cat['source_id'] == source_table['source_id'][0])]
     
     source_coords = sc(source_table['ra'], source_table['dec'], unit='deg')

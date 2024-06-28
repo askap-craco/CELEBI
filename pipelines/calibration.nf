@@ -265,8 +265,8 @@ process get_peak {
 
         # largebeam_ind=\$(python3 $localise_dir/argBeamExceed.py "\$(echo \$BMINs)" "\$(echo \$BMAXs)" "\$(echo \$beamBMIN)" "\$(echo \$beamBMAX)" "\$(ls *jmfit)")
 
-        ml apptainer
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/argBeamExceed.py "\$(echo \$BMINs)" "\$(echo \$BMAXs)" "\$(echo \$beamBMIN)" "\$(echo \$beamBMAX)" "\$(ls *jmfit)" >> largebeam_ind.txt'
+        ml gcc/12.3.0 numpy/1.25.1-scipy-bundle-2023.07
+        python3 $localise_dir/argBeamExceed.py "\$(echo \$BMINs)" "\$(echo \$BMAXs)" "\$(echo \$beamBMIN)" "\$(echo \$beamBMAX)" "\$(ls *jmfit)" >> largebeam_ind.txt
         # echo "\$largebeam_ind are files to be removed"
         echo "files to be removed:"
         cat largebeam_ind.txt
@@ -280,7 +280,7 @@ process get_peak {
         SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
         # peak_jmfit=\$(python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)")
 
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)">>peak_jmfit.txt'
+        python3 $localise_dir/argmax.py "\$(echo \$SNs)" "\$(ls *jmfit)">>peak_jmfit.txt
         peak_jmfit=\$(cat "peak_jmfit.txt")
 
         peak="\${peak_jmfit%.*}"
