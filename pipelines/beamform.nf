@@ -466,10 +466,8 @@ process generate_dynspecs {
                 File containing file names of dynamic spectra created
     */
     publishDir "${params.out_dir}/htr", mode: "copy"
-    cpus 16
     
     label 'python'
-
 
     input:
         val label
