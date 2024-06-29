@@ -5,17 +5,17 @@
 #####################################################################################
 
 import argparse
-import glob
+# import glob
 import os
-import re
+# import re
 import sys
 import math
-from itertools import dropwhile, islice
+from itertools import dropwhile #, islice
 
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy import constants as const
-from astropy import units as u
+# from astropy import constants as const
+# from astropy import units as u
 from astropy.io import fits
 from astropy.coordinates import SkyCoord as sc
 
