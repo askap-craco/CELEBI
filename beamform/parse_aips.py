@@ -6,10 +6,10 @@ obtain antenna delays and phase
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy import io
-import os
-import sys
+# import matplotlib.pyplot as plt
+# from scipy import io
+# import os
+# import sys
 from astropy.io import fits
 
 import glob

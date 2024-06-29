@@ -68,8 +68,8 @@ def main():
 
     print("Reading in data from ", nfiles, " input files")
     data = []
-    ndtot = 0
-    ndoff = 0
+    # ndtot = 0
+    # ndoff = 0
     for i in np.arange(nfiles):
         data.append(load_data(sys.argv[i + 1]))
 
@@ -141,7 +141,7 @@ def main():
 
     # calculate the degrees of freedom for var_ra (nsrc) and var (2*this due to ra and dec)
     nsrc_tot = np.sum(nsrc)
-    ndat_tot = nsrc_tot * 2
+    # ndat_tot = nsrc_tot * 2
 
     # Under H0, the following should be ~1. This helps estimate how much larger/smaller
     # the true number must be
@@ -265,9 +265,9 @@ def main():
 
     all_means = np.concatenate((mean_ra, mean_dec))
     all_errs = np.concatenate((mean_ra_err, mean_dec_err))
-    sigma_offsets = (
-        np.sum(all_means ** 2 / all_errs) / np.sum(1.0 / all_errs)
-    ) ** 0.5
+    # sigma_offsets = (
+    #     np.sum(all_means ** 2 / all_errs) / np.sum(1.0 / all_errs)
+    # ) ** 0.5
     # print("Standard deviation of offsets about 0 is {0:6.2f}".format(sigma_offsets))
 
     # performs an f-test for reduction in variance between 0,0 model and offsets in ra,dec

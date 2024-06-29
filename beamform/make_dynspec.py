@@ -17,9 +17,9 @@ from scipy.fft import fft
 from math import ceil
 
 ## import basic libraries
-import argparse, sys
-from os import path, mkdir
-import shutil
+import argparse#, sys
+# from os import path, mkdir
+# import shutil
 
 
 # stokes functions
