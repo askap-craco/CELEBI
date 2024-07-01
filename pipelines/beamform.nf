@@ -419,6 +419,8 @@ process ifft {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/ifft.py \
                 -f $spectrum \
                 -o ${label}_${pol}_t_${dm}.npy
