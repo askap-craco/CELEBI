@@ -1,919 +1,1108 @@
-import argparse
-from functools import reduce
+##################################################
+# Author:   Tyson Dial                           #
+# Email:    tdial@swin.edu.au                    #
+# Date (created):     11/11/2023                 #
+# Date (updated):     18/12/2023                 #
+##################################################
+# Polarisation Calibration [polcal.py]           #
+#                                                #
+# This script solves for free parameters         #
+# that describe the rotational offset and        #
+# polarisation leakage of the observation.       #
+#                                                #
+# This uses a given polarisation calibrator      #
+# (for example the VELA pulsar) with well        #
+# known polarisation properties to solve for.    #
+##################################################
+# KNOWN BUGS/THINGS TO DO (TODO)                 #
+#                                                #
+# 1. Upper-Sideband??                            #
+# 2. Add channel zapping                         #
+##################################################
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+## Imports 
 import numpy as np
-from astropy import units as un
-from scipy.optimize import curve_fit
+from matplotlib import rc
+import matplotlib.pyplot as plt
+from copy import deepcopy
+import bilby
+from bilby.core.utils.io import check_directory_exists_and_if_not_mkdir
+import yaml
+import inspect
 
 
-def _main():
+## import basic libraries
+import argparse, sys
+from os import path, mkdir, getcwd
+import shutil
+
+
+## constants
+c = 2.997924538e8 # Speed of light [m/s]
+
+
+## plotting properties
+rc('font', **{'size' : 16})  # change figure axes font size
+default_col = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+# GLOBAL container for holding data for plotting purposes
+class GLOBAL_():
+    pass
+
+
+
+
+##-------------------------##
+# additional util functions #
+##-------------------------##
+
+def calc_ratio(I, X, Ierr = None, Xerr = None):
+    """
+    Calculate Stokes Ratio X/I 
+    """
+    XIerr = None
+
+    # calc XI
+    XI = X/I
+
+    # calc error?
+    if Ierr is not None and Xerr is not None:
+        XIerr = np.sqrt((Xerr/I)**2 + (Ierr*X/I**2)**2)
+
+    return XI, XIerr
+
+
+def rotate_stokes(A, B, angle):
+    """
+    Apply rotation between 2 stokes parameters, also applies rotation to stokes 
+    errors.
+
+    ##== inputs ==##
+    A:                  array 1 to rotate 
+    B:                  array 2 to rotate
+    angle:              angle to rotate A and B by
+
+    ##== outputs ==##
+    X:                  rotated A array
+    Y:                  rotated B array
+        
+    """
+
+    # apply rotation between A and B (and errors)
+    X = A*np.cos(angle) + B*np.sin(angle)
+    Y = -A*np.sin(angle) + B*np.cos(angle)
+
+    return X, Y
+
+
+
+def get_args():
+    """
+    Get arguments passed during script call
+
+
+    ##==== outputs ====##
+    args:               Arguments for POLCAL.py script
+
+    """
+
+    parser = argparse.ArgumentParser(
+        description = "Fit for pol cal solutions"
+    )
+
+    ## data arguments
+    parser.add_argument("-i", help = "Stokes I dynspec", type = str)
+    parser.add_argument("-q", help = "Stokes Q dynspec", type = str)
+    parser.add_argument("-u", help = "Stokes U dynspec", type = str)
+    parser.add_argument("-v", help = "Stokes V dynsepc", type = str)
+    parser.add_argument("--l_model", help = "L/I coefficient", type = str)
+    parser.add_argument("--v_model", help = "V/I coefficient", type = str)
+
+
+    ## data reduction arguments
+    parser.add_argument("--peak_w", help = "Width of window [in bins] to average data [boost S/N]", type = int, default = 0)
+    parser.add_argument("--rms_w", help = "number of bins to estimate rms", type = int, default = 40)
+    parser.add_argument("--tN", help = "Factor to scrunch in time", type = int, default = 100)
+    parser.add_argument("--fN", help = "Factor to scrunch in frequency", type = int, default = 1)
+    parser.add_argument("--RFIguard", help = "Total phase of pulse period between pulse peak and RFI windows",
+                        type = float, default = 0.1)
+
+
+    ## calibrator arguments
+    parser.add_argument("--pa0", help = "PA at reference frequency", type = float, default = None)
+    parser.add_argument("--f0", help = "reference frequency for rm fitting", type = float, default = None)
+
+    ## observation arguments
+    parser.add_argument("--cfreq", help = "Central frequency [MHz]", type = float)
+    parser.add_argument("--bw", help = "Bandwidth [MHz]", type = float)
+
+
+    ## sampler arguments
+    parser.add_argument("--cpus", help = "Number of cpus to dedicate to sampling, i.e. number of walkers.",
+                        type = int, default = 1)
+    parser.add_argument("--live", help = "Number of walker iterations?", type = int, default = 1000)
+    parser.add_argument("--redo", help = "Redo Sampling", action = "store_true")
+    parser.add_argument("--priors", help = "File to YAML file containing priors", default = "pol_priors.yaml")
+    parser.add_argument("--ellipse", help = "Also sample possible ellipticity angle between X and Y.", action = "store_true")
+
+
+    ## output arguments
+    parser.add_argument("--odir", help = "output dir", type = str, default = None)
+
+    parser.add_argument("--ofile", help = "Name out polcal solutions .txt file", type = str, 
+                        default = "polcal_solutions.txt")
+    parser.add_argument("--save_data", help = "Will save measured and corrected stokes data to .npy file",
+                        action = "store_true")
+
+    args = parser.parse_args()
+
+    ## processing some arguments
+    if args.odir is None:
+        args.odir = ""
+
+    return args
+
+
+
+
+
+
+
+
+
+def load_data(args):
+    """
+    Load in Stokes I, Q, U & V data along with 
+    estimates on L/I and V/I coefficients.
+
+    ##== inputs ==##
+    args:           Arguments of POLCAL.py script
+
+
+    ##== outputs ==##
+    stk:            dict of stokes dynspecs [IQUV]
+    freqs:          array of frequencies
+    l_model:        L/I model for calibrator
+    v_model:        V/I model for calibrator
+    
+    """
+
+    ## load in folded pulsar stokes data
+    stk = {}
+
+
+    # for now zap top band (works for low and mid band frbs, not sure about upper band frbs)
+    # (DC component)
+    stk['I'] = np.load(args.i, mmap_mode = "r")[1:]
+    stk['Q'] = np.load(args.q, mmap_mode = "r")[1:]
+    stk['U'] = np.load(args.u, mmap_mode = "r")[1:]
+    stk['V'] = np.load(args.v, mmap_mode = "r")[1:]
+
+
+    ## Get Frequencies 
+    freqs = np.linspace(args.cfreq - args.bw/2 + 0.5, args.cfreq + args.bw/2 - 0.5,
+                        int(args.bw))[:-1]
+    
+
+    ## models  
+    l_model = np.polyval(np.loadtxt(args.l_model), freqs)
+    v_model = np.polyval(np.loadtxt(args.v_model), freqs) 
+
+
+    return stk, freqs, l_model, v_model
+
+
+
+
+
+
+
+
+
+
+
+
+def get_spectra(args, stk, freqs, l_model, v_model):
+    """
+    Get spectra from folded stokes data
+
+    Process:
+        1. scrunch in time and frequency
+        2. window pulse profile and off-pulse (rms) region to produce spectra
+
+
+    ##== inputs ==##
+    args:           arguments
+    stk:            dict of stokes parameters
+    freqs:          array of frequencies
+
+
+    ##== outputs ==##
+    stk_s:          noise subtracted stokes ratios (i.e. U/I)
+                    ["I", "Ierr", "U", "Uerr", "V", "Verr", "Q", "Qerr"]
+    freqs:          scrunched array of frequencies 
+
+    
+    """
+    print("[POLCAL]: Folding/Scrunching Stokes...")
+
+    ##=================##
+    ## local functions ##
+    ##=================##
+
+    def scrunch(x, N, axis = 0):
+        """
+        scrunch data in either f or t
+
+        ##==== inputs ====##
+        x:              data
+        N:              scrunch factor
+        axis:           axis to scrunch in
+
+        ##==== outputs ====## 
+        x:              scrunched data
+
+        """
+        if axis == -1:
+            # time
+            t_new = (x.shape[-1]//N) * N
+            shape_new = list(x.shape)
+            shape_new[-1] = t_new // N
+            shape_new.append(N)
+
+            return np.mean(x[...,:t_new].reshape(shape_new), axis = -1)
+        
+        elif axis == 0:
+            # frequency
+            f_new = (x.shape[0]//N) * N
+            shape_new = list(x.shape)[::-1]
+            shape_new[-1] = f_new // N
+            shape_new.append(N)
+
+            return np.mean(x.T[...,:f_new].reshape(shape_new), axis = -1).T
+
+        else:
+            print("invalid scrunching axis")
+            return x
+
+
+    ## plot data for diagnostics ##
+    PLOTDATA.ds = {}
+    PLOTDATA.r_raw_spec = {}
+    PLOTDATA.r_spec = {}
+    PLOTDATA.off_pulse = {}
+
+
+
+    ##=======================##
+    ## fold and make spectra ##
+    ##=======================##
+
+
+    ## create new dict for folded and scrunched stokes dynspecs
+    stk_s = {}
+    peak_w = args.peak_w
+    rms_w  = args.rms_w
+    tN     = args.tN
+    fN     = args.fN
+
+    ## scrunch freq array to match stokes_spec resolution
+    freqs = scrunch(freqs, fN, -1)      
+    l_model = scrunch(l_model, fN, -1)    # L/I model
+    v_model = scrunch(v_model, fN, -1)    # V/I model
+
+
+    # iterate over "IQUV" items
+    for S in "IQUV":
+        print(f"Averaging Stokes {S}...")
+
+        ## scrunch dynamic spectra
+        ds_r = scrunch(stk[S], tN, -1)        # Time
+        # flip band
+        ds_r = scrunch(ds_r[::-1], fN, 0)     # Frequency
+
+
+        ## get peak of mean pulse in time (using power dynspec)
+        if S == "I":
+            peak = np.argmax(np.mean(ds_r, axis = 0))
+            rfi_guard = int(ds_r.shape[1] * args.RFIguard)
+
+        ## get on pulse spectra
+        stk_s[S] = np.mean(ds_r[:,peak-peak_w:peak+peak_w+1], axis = 1)
+
+        # get offpulse spectra rms by taking bins of either windows of off-pulse
+        # on either side
+        off_pulse1 = ds_r[:,peak-rfi_guard-rms_w:peak-rfi_guard+1]
+        off_pulse2 = ds_r[:,peak+rfi_guard:peak+rfi_guard+rms_w+1]
+        off_pulseT = np.concatenate((off_pulse1, off_pulse2), axis = 1)
+
+        # Error accounts for sampling in time along with ratio of off-pulse region to on-pulse region
+        # in time.
+        off_rms    = np.std(off_pulseT, axis = 1)/(off_pulseT.shape[1]**0.5) * ((2*rms_w + 1)/(peak_w + 1))**0.5
+        # account for added noise when doing RFI subtraction
+        stk_s[f"{S}err"] = off_rms * (1 + 1/(4*rms_w + 2)**0.5)
+
+        # RFI subtraction (it may be the case that Baseline correction is)
+        # being done over a much larger range than what could be allowed when
+        # approximating the RFI to be constant. So this step may be added just
+        # in case. 
+        stk_s[S] -= np.mean(off_pulseT, axis = 1)
+
+
+        ##=================##
+        ## For Diagnostics ##
+        ##=================##
+
+        ## plot data for diagnostics ##
+        PLOTDATA.r_raw_spec[S] = stk_s[S].copy()
+        PLOTDATA.r_raw_spec[f"{S}err"] = stk_s[f"{S}err"].copy()
+        PLOTDATA.off_pulse[S] = np.mean(off_pulseT, axis = 1)
+        PLOTDATA.ds[S] = ds_r.copy()
+        PLOTDATA.peak = peak
+        PLOTDATA.rfi_guard = rfi_guard
+
+
+    
+    ## calculate Stokes Ratios
+    for S in "QUV":
+        stk_s[S], stk_s[f"{S}err"] = calc_ratio(stk_s['I'], stk_s[S],
+                                        stk_s['Ierr'], stk_s[f"{S}err"])
+        PLOTDATA.r_spec = deepcopy(stk_s)
+
+    return stk_s, freqs, l_model, v_model
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def get_solutions(args, stk_s, freqs, l_model, v_model):
+    """
+    Derive solutions for PAF rotational Offset (PA offset) and Polarisation
+    leakage.
+
+    Process:
+        1. Set up Sampler
+        2. Run sampler and retrieve solutions
+
+    ##==== inputs ====##
+    args:           arguments for POLCAL script
+    stk_s:          stokes spectra
+    freqs:          array of frequencies [MHz]
+    l_model:        polcal model of linear fraction
+    v_model:        polcal model of circular fraction
+
+    """
+
+    print("[POLCAL]: Deriving Polarisation calibrator Solutions...")
+
+
+
+    ##=============================================##
+    ## POL LEAKAGE CAL LIKELIHOOD CLASS + FUNCTION ##
+    ##=============================================##
+
+    ## Likelyhood function for Stokes calibration
+    class pol_likelihood(bilby.Likelihood):
+        def __init__(self, f, Q, U, V, function, Qerr, Uerr, Verr):
+            """
+            Likelihood function for Stokes calibration correction
+
+            ##== inputs ==##
+            f:                  Frequencies
+            Q, U, V:            Stokes spectra
+            Qerr, Uerr, Verr:   Stokes spectra rms
+            function:           Function to evaluate model
+            
+            """
+            # f data
+            self.f = f
+            self.N = f.size
+
+            # stk data
+            self.Q = Q
+            self.U = U
+            self.V = V
+
+            # errors
+            # should work regardless of being an array of errors or single value
+            self.Qsigma = Qerr
+            self.Usigma = Uerr
+            self.Vsigma = Verr
+
+            # function
+            self.function = function
+
+            # These lines of code infer parameters from provided function
+            parameters = inspect.getfullargspec(function).args[1:]
+            super().__init__(parameters = dict.fromkeys(parameters))
+            self.parameters = dict.fromkeys(parameters)
+
+            self.function_keys = self.parameters.keys()
+
+        def log_likelihood(self):
+            """
+            Log Likelihood, adding Q, U and V likelihoods
+            
+            """
+            # calculate likelihoods of Q, U and V
+            model_parameters = {k: self.parameters[k] for k in self.function_keys}
+            Qm, Um, Vm = self.function(self.f, **model_parameters)
+
+            # assume we have error for each frequency
+            def lhood(x, mu, sig):
+                return -0.5 * np.sum(np.log(2*np.pi*sig**2) + ((x-mu)/sig)**2)
+            
+            # calculate total
+            lhood_total = (lhood(self.Q, Qm, self.Qsigma) 
+                            + lhood(self.U, Um, self.Usigma) 
+                            + lhood(self.V, Vm, self.Vsigma))
+
+
+            return lhood_total
+
+
+
+
+    ##=========================##
+    ## STOKES FITTING FUNCTION ##
+    ##=========================##
+
+    def fit_stk_ellipse(f, psi, rm, tau, phi, Lfrac, Vfrac, alpha):
+        """
+        Fit for predicted Stk Q, U and V based on pol cal solutions
+
+        ##== inputs ==##
+        f:              Frequencies (MHz)
+        psi:            rotation offset in [X,Y] PAF basis
+        rm:             rotation measure
+        tau:            time delay in U and V (ms)
+        phi:            phase delay in U and V
+        Lfrac:          Linear polarisation fraction free parameter 
+        Vfrac:          Circular polarisation fraction free parameter
+        alpha:          elliptical angle for X,Y coupling
+
+
+        ##== outputs ==##
+        Qi:           Predicted stokes Q
+        Ui:           Predicted stokes U
+        Vi:           Predicted stokes V
+        
+        """
+
+        # combined pol leakage angle
+        theta = 2 * np.pi * f * tau + phi
+        
+        # Faraday rotation and PAF rotational offset
+        PA = rm * c**2 / 1e12 * (1/f**2 - 1/args.f0**2) + args.pa0 + psi
+
+        # base vela stokes
+        Qi = Lfrac * l_model * np.cos(2*PA)
+        Ui = Lfrac * l_model * np.sin(2*PA)
+        Vi = Vfrac * v_model
+
+        # apply X,Y elliptical pol leakage (between Q and V)
+        Qi, Vi = rotate_stokes(Qi, Vi, 2 * alpha)
+
+        # apply Polarisation leakage (between U and V)
+        Ui, Vi = rotate_stokes(Ui, Vi, theta)
+
+        return Qi, Ui, Vi
+
+    def fit_stk(f, psi, rm, tau, phi, Lfrac, Vfrac):
+        """
+        Fit for predicted Stk Q, U and V based on pol cal solutions
+
+        ##== inputs ==##
+        f:              Frequencies (MHz)
+        psi:            rotation offset in [X,Y] PAF basis
+        rm:             rotation measure
+        tau:            time delay in U and V (ms)
+        phi:            phase delay in U and V
+        Lfrac:          Linear polarisation fraction free parameter 
+        Vfrac:          Circular polarisation fraction free parameter
+        alpha:          elliptical angle for X,Y coupling
+
+
+        ##== outputs ==##
+        Qi:           Predicted stokes Q
+        Ui:           Predicted stokes U
+        Vi:           Predicted stokes V
+        
+        """
+
+        # combined pol leakage angle
+        theta = 2 * np.pi * f * tau + phi
+        
+        # Faraday rotation and PAF rotational offset
+        PA = rm * c**2 / 1e12 * (1/f**2 - 1/args.f0**2) + args.pa0 + psi
+
+        # base vela stokes
+        Qi = Lfrac * l_model * np.cos(2*PA)
+        Ui = Lfrac * l_model * np.sin(2*PA)
+        Vi = Vfrac * v_model
+
+        # apply Polarisation leakage (between U and V)
+        Ui, Vi = rotate_stokes(Ui, Vi, theta)
+
+        return Qi, Ui, Vi
+
+
+
+    
+    ##===============================##
+    ## SET UP AND RUN NESTED SAMPLER ##
+    ##===============================##
+
+    # stk func to sample
+    if args.ellipse:
+        stk_func = fit_stk_ellipse
+    else:
+        stk_func = fit_stk
+
+    # load priors
+    with open(args.priors, "r") as f:
+        p = yaml.safe_load(f)
+
+        if not args.ellipse:
+            del p['alpha']
+        
+        print("\nFitting the following parameters:")
+        for key in p.keys():
+            print(f"{key}:  {p[key]}")
+        print("\n")
+
+        if args.ellipse:
+            print("\033[36m In addition, the ellipticity angle between X and Y will also be modelled. \033[0m")
+
+
+    # convert to Uniform (Gaussian) prior object (Bilby)
+    priors = {}
+    for key in p.keys():
+        priors[key] = bilby.core.prior.Uniform(*p[key], key)
+
+
+    # check if saved sampler is being scrapped, if so remake directory 
+    # for bilby output
+    sampler_dir = path.join(args.odir, "polcal_sampler", "")
+    check_directory_exists_and_if_not_mkdir(sampler_dir)
+    if args.redo:
+        shutil.rmtree(sampler_dir)
+
+        mkdir(sampler_dir)
+
+
+    # create likelihood instance
+    likelihood = pol_likelihood(freqs, stk_s['Q'], stk_s['U'], stk_s['V'], stk_func, 
+                                stk_s['Qerr'], stk_s['Uerr'], stk_s['Verr'])
+
+    # run sampler -> by default runs "dynesty" sampler
+    result = bilby.run_sampler(likelihood = likelihood, priors = priors, outdir = sampler_dir,
+                               label = "polcal", npool = args.cpus, nlive = args.live)
+
+    
+    # get posterior
+    posterior = {}
+
+    for key in priors.keys():
+        # get bestfit value
+        par = result.get_one_dimensional_median_and_error_bar(key)
+        posterior[key] = par.median
+        print(f"{key}: {par.median}    +{par.plus}    -{par.minus}")
+
+
+    # get prediction for measures stokes spectra
+    stk_pred = {}
+    stk_pred['Q'], stk_pred['U'], stk_pred['V'] = stk_func(freqs, **posterior)
+
+    # add alpha if not fitting ellipticity
+    if not args.ellipse:
+        posterior['alpha'] = 0.0
+
+
+
+    ##=======================##
+    ## SAVE RESULTS TO FILES ##
+    ##=======================##
+
+    # save solutions to .txt file
+    with open(path.join(args.odir, args.ofile), "w") as file:
+        for key in posterior.keys():
+            file.write(f"{key}:{posterior[key]}\n")
+
+        if not args.ellipse:
+            file.write("ELLIPTICITY:0\n")
+        else:
+            file.write("ELLIPTICITY:1\n")
+
+
+    ## plot data for diagnostics ##
+    PLOTDATA.posterior = deepcopy(posterior)
+    PLOTDATA.stk_pred  = deepcopy(stk_pred)
+
+    # make corner plot
+    result.plot_corner()
+
+
+    return
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
+    """
+    Plot diagnostics
+        1. Stokes dynamic spectra showing windowed pulse
+        2. Stokes spectra
+        3. PA fit
+        4. Pol leakage fit
+        5. measured/corrected data VS calibrator model 
+
+    ##==== inputs ====##
+    args:               arguments for POLCAL.py
+    stk_s:              stokes spectra              
+    freqs:              array of frequencies [MHz]
+    l_model:            polcal model of linear fraction
+    v_model:            polcal model of circular fraction
+
+    
+    """
+    ##=====================##
+    ## Auxillary functions ##
+    ##=====================##
+
+    def save_stokes(freqs, stk, filename):
+        """
+        Save stokes data to file
+
+        ##==== inputs ====##
+        freqs:          frequency array [MHz]
+        stk:            Stokes spectra
+        filename:       Filename of file to save to
+
+        """
+        with open(filename, "wb") as f:
+            for S in "IQUV":
+                np.save(f, stk[S])
+            
+            np.save(f, freqs)
+
+        return 
+
+
+    
+    print("[POLCAL]: Plotting Diagnostics...")
+  
+    ##===========================##
+    ## 1. Stokes dynamic spectra ##
+    ##===========================##
+
+    peak = PLOTDATA.peak                # peak of pulse profile (I)
+    peak_w = args.peak_w                # width of pulse profile window
+    rms_w = args.rms_w                  # width of rms off-pulse window
+    rfi_guard = PLOTDATA.rfi_guard      # rfi guard
+
+    for i,S in enumerate("IQUVIQUV"):
+
+        #ds data
+        ds = PLOTDATA.ds[S]
+        spec = PLOTDATA.r_raw_spec[S]
+
+        filename_ext = ""
+        if i > 3:
+            ds -= PLOTDATA.off_pulse[S][:,None]
+            spec -= PLOTDATA.off_pulse[S]
+            filename_ext = "_RFIsub"
+
+        fig = plt.figure(figsize = (10, 10))
+        ax1 = fig.add_axes([0.10, 0.07, 0.74, 0.74])  # dynspec
+        ax2 = fig.add_axes([0.10, 0.81, 0.74, 0.1])  # time profile
+        ax3 = fig.add_axes([0.84, 0.07, 0.10, 0.74])  # on-pulse spectra
+
+        # plot dynamic spectrum
+        im_xlim = [.0, ds.shape[1] - 1]
+        im_ylim = [freqs[0], freqs[-1]]
+        ax1.imshow(X = ds[::-1], aspect = 'auto', extent = [*im_xlim, *im_ylim])
+        # region markers
+        ax1.plot([peak - peak_w, peak - peak_w], im_ylim, 'r--')
+        ax1.plot([peak + peak_w, peak + peak_w], im_ylim, 'r--')
+        ax1.plot([peak - rms_w - rfi_guard, peak - rms_w - rfi_guard], im_ylim, 'm--')
+        ax1.plot([peak - rfi_guard, peak - rfi_guard], im_ylim, 'm--')
+        ax1.plot([peak + rfi_guard, peak + rfi_guard], im_ylim, 'm--')
+        ax1.plot([peak + rms_w + rfi_guard, peak + rms_w + rfi_guard], im_ylim, 'm--')
+        # axes labels
+        ax1.set(xlim = im_xlim, ylim = im_ylim, xlabel = "Time [samples]", ylabel = "Frequency [MHz]")
+
+        # plot time series
+        ax2.plot(np.linspace(*im_xlim, ds.shape[1]), np.mean(ds, axis = 0), 'k')
+        t_ylim = ax2.get_ylim()
+        # region markers
+        ax2.plot([peak - peak_w, peak - peak_w], t_ylim, 'r--')
+        ax2.plot([peak + peak_w, peak + peak_w], t_ylim, 'r--')
+        ax2.plot([peak - rms_w - rfi_guard, peak - rms_w - rfi_guard], t_ylim, 'm--')
+        ax2.plot([peak - rfi_guard, peak - rfi_guard], t_ylim, 'm--')
+        ax2.plot([peak + rfi_guard, peak + rfi_guard], t_ylim, 'm--')
+        ax2.plot([peak + rms_w + rfi_guard, peak + rms_w + rfi_guard], t_ylim, 'm--')
+        # axes labels
+        ax2.set(xlim = im_xlim, ylim = t_ylim, ylabel = "Flux Density (arb.)")
+        ax2.get_xaxis().set_visible(False)
+
+        # plot frequency spectrum
+        ax3.plot(spec, freqs, 'r')
+        # axes labels
+        ax3.set(ylim = im_ylim, xlabel = "Flux Density (arb.)")
+        ax3.get_yaxis().set_visible(False)
+
+        plt.suptitle(f"Stokes [{S}] dynamic Spectrum")
+
+        plt.savefig(path.join(args.odir,f"polcal_{S}{filename_ext}_ds.png"))
+
+
+
+    ##=========================##
+    ## 2. Stokes ratio spectra ##
+    ##=========================##
+
+    fig, AX = plt.subplots(2, 2, figsize = (16, 10))
+    AX = AX.flatten()
+
+    # plot
+    PLOTDATA.r_spec['L'] = np.sqrt(PLOTDATA.r_spec['Q']**2 + 
+                                       PLOTDATA.r_spec['U']**2)
+    PLOTDATA.r_spec["Lerr"] = np.sqrt(PLOTDATA.r_spec['Q']**2*PLOTDATA.r_spec['Qerr']**2 + 
+                                      PLOTDATA.r_spec['U']**2*PLOTDATA.r_spec['Uerr']**2)/PLOTDATA.r_spec['L']
+    for i,S in enumerate("LQUV"):
+        # plot
+        AX[i].plot(freqs, PLOTDATA.r_spec[S], default_col[i])
+        AX[i].fill_between(freqs, PLOTDATA.r_spec[S]-PLOTDATA.r_spec[f"{S}err"],
+                         PLOTDATA.r_spec[S] + PLOTDATA.r_spec[f"{S}err"], color = default_col[i], alpha = 0.4)
+        AX[i].set(title = f"{S}/I")
+
+    # axes labels
+    AX[0].set(ylabel = "S/I")
+    AX[2].set(xlabel = "Frequency [MHz]", ylabel = "S/I")
+    AX[3].set(xlabel = "Frequency [MHz]")
+    
+    fig.tight_layout()
+
+    plt.savefig(path.join(args.odir,f"polcal_stokes_ratios.png"))
+
+
+
+    ##=========================##
+    ## 2.2. Stokes raw spectra ##
+    ##=========================##
+
+    fig, AX = plt.subplots(2, 3, figsize = (16, 10))
+    AX = AX.flatten()
+
+    # plot
+    PLOTDATA.r_raw_spec['L'] = np.sqrt(PLOTDATA.r_raw_spec['Q']**2 + 
+                                       PLOTDATA.r_raw_spec['U']**2)
+    PLOTDATA.r_raw_spec["Lerr"] = np.sqrt(PLOTDATA.r_raw_spec['Q']**2*PLOTDATA.r_raw_spec['Qerr']**2 + 
+                                      PLOTDATA.r_raw_spec['U']**2*PLOTDATA.r_raw_spec['Uerr']**2)/PLOTDATA.r_raw_spec['L']
+    for i,S in enumerate("ILQUV"):
+        # plot
+        AX[i].plot(freqs, PLOTDATA.r_raw_spec[S], default_col[i])
+        AX[i].fill_between(freqs, PLOTDATA.r_raw_spec[S]-PLOTDATA.r_raw_spec[f"{S}err"],
+                         PLOTDATA.r_raw_spec[S] + PLOTDATA.r_raw_spec[f"{S}err"], color = default_col[i], alpha = 0.4)
+        AX[i].set(title = f"{S}")
+
+    # axes labels
+    AX[0].set(ylabel = "Flux Density (arb.)")
+    AX[3].set(xlabel = "Frequency [MHz]", ylabel = "Flux Density (arb.)")
+    AX[4].set(xlabel = "Frequency [MHz]")
+    AX[5].set_axis_off()
+    
+    fig.tight_layout()
+
+    plt.savefig(path.join(args.odir,f"polcal_stokes_raw.png"))
+
+
+    ##=========================##
+    ## 2.5. Stokes time series ##
+    ##=========================##
+
+    fig, ax = plt.subplots(1, 1, figsize = (10,10))
+
+    for i, S in enumerate("IQUV"):
+        
+        #ds data
+        ds = PLOTDATA.ds[S]
+        
+        # plot
+        ax.plot(np.linspace(0.0, 1.0, ds.shape[1]), np.mean(ds, axis = 0), 
+                default_col[i], label = S)
+
+    ax.legend()
+    ax.set(xlabel = "Phase (Time units)", ylabel = "Flux Density (arb.)",
+               title = "Time series stokes spectra")
+        
+    plt.savefig(path.join(args.odir, f"polcal_stokes_t.png"))
+
+
+
+
+    ##======================================================##
+    ## Making models, correcting data for further modelling ##
+    ##======================================================##
+
+    # angles needed for correction
+    params = PLOTDATA.posterior
+    leak_ang    = 2 * np.pi * freqs * params['tau'] + params['phi']    # pol leakage
+    psi_ang     = 2 * params['psi']                                    # offset rotation
+    faraday_ang = 2 * (params['rm'] * c**2 / 1e12 * 
+                    (1/freqs**2 - 1/args.f0**2) + args.pa0)            # faraday rotation
+    ellipse_ang  = 2 * params['alpha']                                 # elliptical angle
+    
+    # stokes model data
+    stk_m = {}
+    stk_m['Q'] = l_model * np.ones(freqs.size)
+    stk_m['U'] = np.zeros(freqs.size)
+    stk_m['V'] = v_model * np.ones(freqs.size)
+    stk_m['L'] = l_model * np.ones(freqs.size)
+    stk_m['fQ'] = l_model * np.cos(faraday_ang + psi_ang) # with faraday rotation
+    stk_m['fU'] = l_model * np.sin(faraday_ang + psi_ang) # with faraday rotation
+
+    # correct data
+    stk_corr = {}
+    stk_corr['I'] = stk_s['I'].copy()
+    stk_corr['U'], stk_corr['V'] = rotate_stokes(stk_s['U'], stk_s['V'], -leak_ang)                     # correct leakage
+    stk_corr['Q'], stk_corr['V'] = rotate_stokes(stk_s['Q'], stk_corr['V'], -ellipse_ang)               # correct ellipticity
+    stk_corr['Q'], stk_corr['U'] = rotate_stokes(stk_corr['Q'], stk_corr['U'], psi_ang)                 # correct rotation
+    stk_corr['Q'], stk_corr['U'] = rotate_stokes(stk_corr['Q'], stk_corr['U'], faraday_ang)             # correct faraday
+    stk_corr['L'] = np.sqrt(stk_corr['Q']**2 + stk_corr['U']**2)        # Linear pol fraction (L/I)
+
+    # make seperate spectra with pol leakage and rotation offset added
+    # back in, this allowing us to remove faraday rotation for diagnostic
+    # purposes.
+    stk_meas = {}
+    stk_meas['Q'], stk_meas['U'] = rotate_stokes(stk_corr['Q'],stk_corr['U'], -psi_ang)  
+    stk_meas['Q'], stk_meas['V'] = rotate_stokes(stk_meas['Q'], stk_corr['V'], ellipse_ang)          
+    stk_meas['U'], stk_meas['V'] = rotate_stokes(stk_meas['U'], stk_meas['V'], leak_ang)
+    stk_meas['L'] = np.sqrt(stk_meas['Q']**2 + stk_meas['U']**2)        # Linear pol fraction (L/I)
+
+    # make seperate spectra for predicted data
+    stk_pred = PLOTDATA.stk_pred
+    stk_pred['L'] = np.sqrt(stk_pred['Q']**2 + stk_pred['U']**2)
+
+    # Linear pol Fraction for plotting 
+    stk_s['L'] = np.sqrt(stk_s['Q']**2 + stk_s['U']**2)
+
+    # # make dataset with only leakage
+    U_leak, V_leak = rotate_stokes(stk_s['U'], stk_s['V'], -leak_ang)
+    Q_leak, V_leak = rotate_stokes(stk_s['Q'], V_leak, -ellipse_ang)
+
+    Q_ellipse = Q_leak.copy()
+    V_ellipse = V_leak.copy()
+
+    U_leak, V_leak = rotate_stokes(U_leak, V_leak, leak_ang)
+
+    # make dataset with only ellipticity
+    Q_ellipse, V_ellipse = rotate_stokes(Q_ellipse, V_ellipse, ellipse_ang)
+
+    # create dataset with rotation offset removed for PA diagnostics
+    Q_PA, U_PA = rotate_stokes(stk_corr['Q'], stk_corr['U'], -faraday_ang)
+
+
+    ##===================##
+    ## 3. PA fitted plot ##
+    ##===================##
+
+    plt.figure(figsize = (10, 10))
+    PA = 0.5 * np.arctan2(U_PA, Q_PA)
+    # plot
+    plt.scatter(freqs, PA%np.pi, marker = '+', s = 20, c = 'k', label = "Measured (offset corrected, de-faraday)")
+    plt.plot(freqs, 0.5*faraday_ang%np.pi, 'r--', label = "Model")
+    # axes labels
+    plt.title(f"PA = 0.09 * [{params['rm']:.2f}]$(1/f^{{2}} - 1/[{args.f0:.2f}]^{{2}}) + [{args.pa0:.2f}]$")
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("PA [rad]")
+
+    plt.legend()
+
+    plt.savefig(path.join(args.odir,f"polcal_PA_fit.png"))
+
+
+
+
+    ##========================##
+    ## 4. leakage fitted plot ##
+    ##========================##
+
+    plt.figure(figsize = (10, 10))
+    # TODO: Will i need to wrap this?
+    theta_pred = np.arctan2(params['Lfrac']*stk_m['fU'], params['Vfrac']*stk_m['V'])
+    theta_meas = np.arctan2(U_leak, V_leak)
+    theta_res = theta_meas-theta_pred
+    # plot
+    plt.scatter(freqs, theta_res, c = 'k', s = 20, marker = '+', label = "residual $\\theta$")
+    plt.plot(freqs, leak_ang, 'r--', label = "Model $\\theta$")
+
+    # axes labels
+    plt.title(f"$\\theta = 2\\pi$f[{params['tau']:.2g}] + [{params['phi']:.2f}]")
+    plt.xlabel("Frequency [MHz]")
+    plt.ylabel("$\\theta$ [rad]")
+    plt.ylim([-np.pi, np.pi])
+
+    plt.legend()
+
+    plt.savefig(path.join(args.odir,f"polcal_leakage_fit.png"))
+
+
+
+
+    ##==========================##
+    ## 4.5. ellipse fitted plot ##
+    ##==========================##
+
+    if args.ellipse:
+
+        plt.figure(figsize = (10, 10))
+        # TODO: Will i need to wrap this?
+        theta_pred = np.arctan2(params['Lfrac']*stk_m['fQ'], params['Vfrac']*stk_m['V'])
+        theta_meas = np.arctan2(Q_ellipse, V_ellipse)
+        theta_res = theta_meas - theta_pred
+        # plot
+        plt.scatter(freqs, theta_res, c = 'k', s = 20, marker = '+', label = "residual $\\theta$")
+        plt.plot(freqs, ellipse_ang*np.ones(freqs.size), 'r--', label = "Model $\\theta$")
+
+        # axes labels
+        plt.title(f"$\\theta = 2\\pi$f[{params['tau']:.2g}] + [{params['phi']:.2f}]")
+        plt.xlabel("Frequency [MHz]")
+        plt.ylabel("$\\theta$ [rad]")
+        plt.ylim([-np.pi, np.pi])
+
+        plt.legend()
+
+        plt.savefig(path.join(args.odir,f"polcal_ellipse_fit.png"))
+
+
+
+
+    ##==========================================##
+    ## 5. measured/corrected data VS model data ##
+    ##==========================================##
+
+    fig = plt.figure(figsize = (16, 14))
+    ax1 = fig.add_axes([0.1, 0.54, 0.4, 0.4])   # for measured data plot
+    ax2 = fig.add_axes([0.57, 0.54, 0.4, 0.4])  # for corrected data plot
+    ax3 = fig.add_axes([0.3, 0.07, 0.4, 0.4])   # for predicted data plot
+    # plot
+    ax3.scatter([],[],marker = '+', s = 20, c = 'k', label = "Data")
+    ax3.plot([],[], 'k', label = "Calibrator model")
+
+    for i,S in enumerate("QUVL"):
+        lfrac = 1.0
+        if S in "QUL":   # account for L/I fraction free parameter
+            lfrac = params['Lfrac']
+        elif S == "V":
+            lfrac = params['Vfrac']
+        # plot de-faraday measured data
+        ax1.scatter(freqs, stk_meas[S], s = 20, marker = "+", c = default_col[i])
+        ax1.plot(freqs, lfrac * stk_m[S], color = default_col[i])
+
+        # plot de-faraday corrected data
+        ax2.scatter(freqs, stk_corr[S], s = 20, marker = "+", c = default_col[i])
+        ax2.plot(freqs, lfrac * stk_m[S], color = default_col[i])
+
+        # plot predicted data
+        ax3.scatter(freqs, stk_s[S], s = 20, marker = "+", c = default_col[i])
+        ax3.plot(freqs, stk_pred[S], color = default_col[i], label = S)
+
+
+    # axes labels
+    lim1 = ax1.get_ylim()
+    lim2 = ax2.get_ylim()
+    lim_new = [min([lim1[0],lim2[0]]), max([lim1[1],lim2[1]])]
+    ax1.set_ylim(lim_new)
+    ax2.set_ylim(lim_new)
+    ax1.set(xlabel = "Frequency [MHz]", ylabel = "Stokes/I", title = "Measured (de-faraday)")
+    ax2.set(xlabel = "Frequency [MHz]", title = "Corrected (de-faraday)")
+    ax3.set(title = "Predicted")
+
+    ax3.legend(loc = "center left", bbox_to_anchor=(1.15, 0.5))
+
+    plt.savefig(path.join(args.odir,f"polcal_stokes_corrected.png"))
+
+
+    ##======================##
+    ## optional - save data ##
+    ##======================##
+
+    # save data if enabled
+    if args.save_data:
+        print("Saving Stokes data...")
+        save_stokes(freqs, stk_s, path.join(args.odir, "measured_polcal_spec.npy"))
+        stk_corr['Q'], stk_corr['U'] = rotate_stokes(stk_corr['Q'], stk_corr['U'], -faraday_ang)
+        save_stokes(freqs, stk_corr, path.join(args.odir, "corrected_polcal_spec.npy"))
+        for S in "IQUV":
+            np.save(path.join(args.odir, f"polcal_{S}_ds.npy"),PLOTDATA.ds[S])
+
+
+    return
+
+
+
+
+
+
+
+#### ENTRY POINT ####
+if __name__ == "__main__":
+    """
+    Main code block 
+    """
+
+    PLOTDATA = GLOBAL_()
+
+    ## get arguments of script call
     args = get_args()
 
-    print("Loading IQUV")
-    I = np.load(args.i, mmap_mode="r")
-    Q = np.load(args.q, mmap_mode="r")
-    U = np.load(args.u, mmap_mode="r")
-    V = np.load(args.v, mmap_mode="r")
 
-    freqs, df, dt = get_freqs(
-        args.f * un.MHz, args.b * un.MHz, I.shape[0], args.reduce_df
-    )
+    ## load in data
+    stk, freqs, l_model, v_model = load_data(args)
 
-    period = args.p * un.s
-    print(f"period = {period}")
 
-    # get Stokes spectra and noise
-    print("Getting spectra")
-    I_f, I_noise, peak = get_pulsar_spec(I, period, dt, args, "I", widthms=args.pulsewidth)
-    Q_f, Q_noise, peak = get_pulsar_spec(Q, period, dt, args, "Q", widthms=args.pulsewidth, peak=peak)
-    U_f, U_noise, peak = get_pulsar_spec(U, period, dt, args, "U", widthms=args.pulsewidth, peak=peak)
-    V_f, V_noise, peak = get_pulsar_spec(V, period, dt, args, "V", widthms=args.pulsewidth, peak=peak)
+    ## process Stokes data (fold, scrunch)
+    stk_s, freqs, l_model, v_model = get_spectra(args, stk, freqs,
+                                                 l_model, v_model)
 
-    t = np.arange(I_f.shape[0])
 
-    I_noisesub = I_f - I_noise
-    Q_noisesub = Q_f - Q_noise
-    U_noisesub = U_f - U_noise
-    V_noisesub = V_f - V_noise
+    ## channel zapping?
 
-    S_noisesub = [I_noisesub, Q_noisesub, U_noisesub, V_noisesub]
-    S_names = ["I", "Q", "U", "V"]
 
-    S_ratio = np.array([
-        Q_noisesub / I_noisesub,
-        U_noisesub / I_noisesub,
-        V_noisesub / I_noisesub,
-    ])
+    ## Derive Calibrator Solutions
+    get_solutions(args, stk_s, freqs, l_model, v_model)
 
-    L_model = np.polyval(np.loadtxt(args.l_model), freqs.value)
-    V_model = np.polyval(np.loadtxt(args.v_model), freqs.value)
 
-    if args.nopeak:  # fit in each time step
-        pol_fs = np.zeros((t.shape[0], freqs.shape[0]))
-        pol_fits = np.zeros(t.shape)
-        pas = np.zeros(pol_fs.shape)
-        pa_fits = np.zeros(pol_fs.shape)
-        Q_askaps = np.zeros(pol_fs.shape)
-        L_amps = np.zeros(pol_fits.shape)
-        psi_skys = np.zeros(pol_fits.shape)
-        Q_fits = np.zeros(pol_fs.shape)
-        phis = np.zeros(pol_fs.shape)
-        delays = np.zeros(pol_fits.shape)
-        offsets = np.zeros(pol_fits.shape)
-        phi_fits = np.zeros(pol_fs.shape)
+    ## diagnostics
+    plot_diagnostics(args, stk_s, freqs, l_model, v_model)
 
-        for i in range(t.shape[0]):
-            print(f"{i+1}/{t.shape[0]}")
-            pol_fs[i], pol_fits[i] = fit_pol_frac(freqs, S_ratio[:, i])
 
-            pas[i], pa_fits[i] = fit_pol_ang(
-                freqs, U_noisesub[i], Q_noisesub[i]
-            )
-
-            Q_askaps[i], L_amp_fit, psi_sky_fit, Q_fits[i] = fit_psi_sky(
-                freqs, S_ratio[:, i], pa_fits[i]
-            )
-            L_amps[i] = L_amp_fit[0]
-            psi_skys[i] = psi_sky_fit[0]
-
-            phis[i], delay_fit, offset_fit, phi_fits[i] = fit_phi(
-                freqs, S_ratio[:, i], pa_fits[i], L_amp_fit[0], psi_sky_fit[0]
-            )
-            delays[i] = delay_fit[0]
-            offsets[i] = offset_fit[0]
-        
-        if args.plot:
-            ext = (
-                t[0], t[-1],
-                freqs[0].value, freqs[-1].value
-            )
-            # Stokes
-            fig, axs = plt.subplots(2, 2)
-            axs = axs.flatten()
-            for i in range(4):
-                axs[i] = im_plot(
-                    axs[i], 
-                    S_noisesub[i], 
-                    title=f"Stokes {S_names[i]}",
-                    extent=ext,
-                )
-
-                if i < 2:
-                    axs[i].set_xticks([])
-                else:
-                    axs[i].set_xlabel("Time (samp.)")
-
-                if i % 2 == 0:
-                    axs[i].set_ylabel("Frequency (MHz)")
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_Stokes.png")
-
-            # Stokes ratios
-            fig, axs = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
-            for i in range(3):
-                axs[i] = im_plot(
-                    axs[i], 
-                    S_ratio[i], 
-                    xlabel="Time (samp.)", 
-                    title=f"{S_names[i+1]}/{S_names[0]}",
-                    vmin=-1, 
-                    vmax=1,
-                    extent=ext,
-                )
-            axs[0].set_ylabel("Frequency (MHz)")
-            fig.savefig(f"{args.plotdir}/{args.label}_Stokes_ratios.png")
-
-            # polarisation fraction
-            fig, axs = plt.subplots(
-                nrows=2, ncols=1, figsize=(8, 12), sharex=True
-            )
-            ax = ax_plot(
-                axs[0],
-                t,
-                pol_fits,
-                ylabel="Fit polarisation fraction"
-            )
-            axs[0].set_ylim(0, 1)
-            ax = im_plot(
-                axs[1],
-                pol_fs,
-                xlabel="Time (samp.)",
-                ylabel="Frequency (MHz)",
-                extent=ext,
-                vmax=1,
-                cbar="Polarisation fraction",
-                orientation="horizontal",
-            )
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_polfrac.png")
-
-            # polarisation angle
-            fig, axs = plt.subplots(
-                nrows=2, ncols=1, figsize=(8,12), sharex=True, sharey=True
-            )
-
-            axs[0] = im_plot(
-                axs[0],
-                pa_fits - np.floor(pa_fits/np.pi + 0.5)*np.pi,
-                ylabel="Frequency (MHz)",
-                title="Fit PA",
-                extent=ext,
-                vmin=-np.pi/2,
-                vmax=np.pi/2,
-            )
-            axs[1] = im_plot(
-                axs[1],
-                pas - np.floor(pas/np.pi + 0.5)*np.pi,
-                xlabel="Time (samp.)",
-                ylabel="Frequency (MHz)",
-                title="Measured PA",
-                extent=ext,
-                vmin=-np.pi/2,
-                vmax=np.pi/2,
-                #cbar="PA",
-                #orientation="horizontal",
-            )
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_polang.png")
-
-            # psi_sky fit
-            pa_ext = (
-                t[0], t[-1],
-                np.min(pa_fits), np.max(pa_fits)
-            )
-            fig, axs = plt.subplots(
-                nrows=2, ncols=1, figsize=(8,12), sharex=True, sharey=True
-            )
-            axs[0] = im_plot(
-                axs[0],
-                Q_fits,
-                ylabel="PA (rad.)",
-                title="Fit Q/I",
-                extent=pa_ext,
-                vmin=-1,
-                vmax=1,
-            )
-            axs[1] = im_plot(
-                axs[1],
-                Q_askaps,
-                xlabel="Time (samp.)",
-                ylabel="PA (rad.)",
-                title="Measured Q/I",
-                extent=pa_ext,
-                vmin=-1,
-                vmax=1,
-            )
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_QI_fit.png")
-
-            # delta phi fit
-            fig, axs = plt.subplots(
-                nrows=2, ncols=1, figsize=(8,12), sharex=True, sharey=True
-            )
-            axs[0] = im_plot(
-                axs[0],
-                phi_fits,
-                ylabel="Frequency (MHz)",
-                title=r"Fit $\Delta\phi$",
-                extent=ext,
-            )
-            axs[1] = im_plot(
-                axs[1],
-                phis,
-                xlabel="Time (samp.)",
-                ylabel="Frequency (MHz)",
-                title=r"Measured $\Delta\phi$",
-                extent=ext,
-            )
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_solved_deltaphi.png")
-
-    else:
-        pol_f, pol_fit = fit_pol_frac(freqs, S_ratio)
-
-        pa, pa_fit = fit_pol_ang(freqs, U_noisesub, Q_noisesub)
-
-        Q_askap, psi_sky_fit, Q_fit = fit_psi_sky(freqs, S_ratio, pa_fit, L_model)
-
-        phi, delay_fit, offset_fit, phi_fit = fit_phi(
-            freqs, S_ratio, pa_fit, psi_sky_fit[0], L_model, V_model
-        )
-
-        if args.plot:
-            # Stokes
-            fig, axs = plt.subplots(2, 2)
-            axs = axs.flatten()
-            for i in range(4):
-                axs[i] = ax_plot(
-                    axs[i], freqs, S_noisesub[i], title=f"Stokes {S_names[i]}"
-                )
-
-                if i < 2:
-                    axs[i].set_xticks([])
-                else:
-                    axs[i].set_xlabel("Frequency (MHz)")
-
-                if i % 2 == 0:
-                    axs[i].set_ylabel("Intensity (arb.)")
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_Stokes.png")
-
-            # Stokes ratios
-            fig, axs = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
-            for i in range(3):
-                axs[i] = ax_plot(
-                    axs[i], 
-                    freqs,
-                    S_ratio[i], 
-                    xlabel="Frequency (MHz)",
-                    title=f"{S_names[i+1]}/{S_names[0]}"
-                )
-
-            axs[0].set_ylim(-1, 1)
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_Stokes_ratios.png")
-
-            # polarisation fraction
-            fig, ax = plt.subplots()
-            ax = ax_plot(
-                ax,
-                freqs,
-                pol_f,
-                xlabel="Frequency (MHz)",
-                ylabel="Polarisation fraction",
-            )
-            ax.axhline(pol_fit)
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_polfrac.png")
-
-            # polarisation angle
-            fig, ax = plt.subplots()
-            ax = ax_plot(
-                ax,
-                freqs,
-                pa - np.floor(pa/np.pi + 0.5)*np.pi,
-                type="scatter",
-                xlabel="Frequency (MHz)",
-                ylabel="Pol angle",
-                label="PA"
-            )
-            ax = ax_plot(
-                ax,
-                freqs,
-                pa_fit - np.floor(pa_fit/np.pi + 0.5)*np.pi,
-                type="line",
-                xlabel="Frequency (MHz)",
-                ylabel="Pol angle",
-                c="r",
-                label="Fit"
-            )
-            #ax.set_ylim(min(-np.pi / 2, np.min(pa)), 
-            #            max(np.pi / 2, np.max(pa)))
-            ax.set_ylim(-np.pi / 2, np.pi/2)
-            plt.yticks(
-                np.linspace(-1 / 2, 1 / 2, 5) * np.pi,
-                [
-                    r"-$\frac{\pi}{2}$",
-                    r"-$\frac{\pi}{4}$",
-                    r"$0$",
-                    r"$\frac{\pi}{4}$",
-                    r"$\frac{\pi}{2}$",
-                ],
-            )
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_polang.png")
-
-            def QoverI_askap(i, psi_sky):
-                return L_model[i] * np.cos(2 * pa_fit[i] + psi_sky)
-
-            # psi_sky fit
-            fig, ax = plt.subplots()
-            ax = ax_plot(
-                ax,
-                pa_fit,
-                Q_askap,
-                label=r"$Q/I$ (askap)$",
-                type="scatter"
-            )
-            ax = ax_plot(
-                ax,
-                pa_fit,
-                QoverI_askap(range(pa_fit.shape[0]), psi_sky_fit[0]),
-                label=r"$\psi_{sky}$ fit",
-                c="r",
-                type="line",
-            )
-            ax.set_xlabel("PA (rad)")
-            ax.set_ylabel("Q/I")
-            ax.legend()
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_QI_fit.png")
-
-            # delta phi fit
-            fig, ax = plt.subplots()
-            ax = ax_plot(ax, freqs, phi, label="Solved")
-            # for i, s in enumerate(slices):
-            # p = np.poly1d([delay_fit[0], offset_fit[0]])
-            ax = ax_plot(
-                ax,
-                freqs,
-                phi_fit,
-                label="Best fit",
-                c="r",
-                lw = 1,
-                type="line",
-            )
-            ax.set_xlabel("Frequency (MHz)")
-            ax.set_ylabel(r"$\Delta \Phi$")
-            plt.tight_layout()
-            fig.savefig(f"{args.plotdir}/{args.label}_solved_deltaphi.png")
-
-
-    with open(args.o, "w") as f:
-        f.write(f"{delay_fit[0]}\n")
-        f.write(f"{offset_fit[0]}\n")
-
-
-def get_args() -> argparse.Namespace:
-    """Parse command line arguments
-
-    :return: Command line argument paramters
-    :rtype: :class:`argparse.Namespace`
-    """
-    parser = argparse.ArgumentParser(
-        description="Determine and apply polarisation "
-        "calibration solutions",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument("-i", type=str, help="Stokes I dynamic spectrum")
-    parser.add_argument("-q", type=str, help="Stokes Q dynamic spectrum")
-    parser.add_argument("-u", type=str, help="Stokes U dynamic spectrum")
-    parser.add_argument("-v", type=str, help="Stokes V dynamic spectrum")
-    parser.add_argument("-p", type=float, help="Pulsar period in s")
-    parser.add_argument("-f", type=float, help="Centre frequency in MHz")
-    parser.add_argument("-b", type=float, help="Bandwidth in MHz")
-    parser.add_argument("-l", "--label", type=str, help="Label for plots")
-    parser.add_argument("-r", "--ref", type=str, help="Reference Parkes data")
-    parser.add_argument("-o", type=str, help="File to output delay and offset")
-    parser.add_argument("--pulsewidth", type=float, default=0.5,
-                        help="Pulse width in ms (take this around peak).",)
-    parser.add_argument(
-        "--reduce_df",
-        type=int,
-        default=1,
-        help="If given, reduces the frequency resolution by the given factor.",
-    )
-    parser.add_argument(
-        "--plot",
-        action="store_true",
-        default=False,
-        help="If given, will plot at various stages",
-    )
-    parser.add_argument("--plotdir", type=str, help="Directory to plot into.")
-    parser.add_argument(
-        "--refplotdir",
-        type=str,
-        help="Directory to plot reference data into.",
-    )
-    parser.add_argument(
-        "--nopeak",
-        action="store_true",
-        default=False,
-        help="DEBUG: Do not take peak spectra and fit per time step"
-    )
-    parser.add_argument(
-        "--l_model",
-        type=str,
-        required=True,
-        help="Coefficients file for Stokes L model"
-    )
-    parser.add_argument(
-        "--v_model",
-        type=str,
-        required=True,
-        help="Coefficients file for Stokes V model"
-    )
-
-    return parser.parse_args()
-
-
-def get_freqs(c_freq, bw, n_chan, reduce_df):
-    # "tuple[np.ndarray, astropy.Quantity, astropy.Quantity]"
-    """Determine fine channel frequencies, and frequency & time
-    resolutions.
-
-    :param c_freq: Central frequency
-    :type c_freq: :class:`astropy.Quantity`
-    :param bw: Bandwidth
-    :type bw: :class:`astropy.Quantity`
-    :param n_chan: Number of fine channels
-    :type n_chan: int
-    :param reduce_df: Factor to reduce frequency resolution by
-    :type reduce_df: int
-    :return: Frequency array, frequency resolution, time resolution
-    :rtype: tuple[np.ndarray, astropy.Quantity, astropy.Quantity]
-    """
-    print("Determining freqs")
-    freqs = np.linspace(
-        c_freq - bw / 2, c_freq + bw / 2, n_chan, endpoint=False
-    )
-    freqs = freqs[:: reduce_df]
-
-    df = freqs[1] - freqs[0]
-    dt = (1 / df) * reduce_df
-    print(f"df = {df}")
-
-    return freqs[:-1], df, dt
-
-
-def fold_ds(a, p, dt):
-    """
-    Fold a along last axis according to period p and time resolution dt
-    """
-    t_max = a.shape[-1] * dt.to(un.s)
-    dt_per_p = int(p / dt)
-    num_periods = int(t_max / p)
-
-    print(f"{num_periods} periods")
-
-    new_t_ax_shape = dt_per_p
-    fold_arr = np.zeros((a.shape[0], new_t_ax_shape, num_periods))
-
-    for i in range(num_periods):
-        fold_arr[:, :, i] = a[:, i * dt_per_p : (i + 1) * dt_per_p]
-
-    return np.sum(fold_arr, axis=2)
-
-
-def reduce(a, n, transpose=False, pbar=True):
-    """Reduces the time resolution of a given array by a factor n.
-
-    Reduces along the 0th axis, make sure this one is the time axis!
-    Returned array is the time-averaged version of the imported array.
-
-    Parameters
-    ----------
-    a : array
-        input array to be reduced
-
-    n : int
-        factor to reduce by
-
-    transpose : bool
-        does the function need to transpose the array before reducing?
-        Set to True iff axis 0 is not time
-        (Default value = False)
-
-    pbar : bool, optional
-
-    Returns
-    -------
-    array
-        reduced array
-    """
-
-    if n > 1:
-        a = a.transpose() if transpose else a
-        A_red = []
-        for i in range(int(a.shape[0] / n)):
-            A_red.append(np.sum(a[i * n : (i + 1) * n], axis=0))
-        return (
-            np.array(A_red) / np.sqrt(n)
-            if transpose
-            else np.array(A_red) / np.sqrt(n)
-        )
-    else:
-        return a
-
-
-def get_pulsar_spec(
-    ds, period, dt, args, par, peak=None, red_fac=100, widthms=0.5,
-):
-    folded_ds = fold_ds(ds, period, dt)
-    folded_ds_red = reduce(folded_ds, red_fac, transpose=True).transpose()
-
-    width = int(widthms / (dt.to(un.ms) * red_fac).value)
-    if width < 1: 
-        width = 1 
-    print(f"dt = {dt.to(un.us) * red_fac} microsec, width is now {width} because widthms was {widthms} ms")
-
-    if args.reduce_df > 1:
-        folded_ds_red = reduce(folded_ds_red, args.reduce_df)
-
-    peak = peak if peak else np.argmax(np.sum(folded_ds_red, axis=0))
-
-    turn_on = peak - width//2
-    turn_off = peak + width//2 + 1
-
-    fmin = args.f - args.b / 2
-    fmax = args.f + args.b / 2
-    if args.plot:
-        plt.imshow(
-            folded_ds_red,
-            extent=(0, folded_ds_red.shape[1], fmin, fmax),
-            aspect="auto",
-            interpolation="none",
-        )
-        plt.axvline(peak, c="r", lw=1)
-        plt.axvline(turn_on, c="r", linestyle="--", lw=1)
-        plt.axvline(turn_off, c="r", linestyle="--", lw=1)
-        plt.xlabel("Time")
-        plt.ylabel("Frequency (MHz)")
-        plt.title(f"Stokes {par} (on peak)")
-        plt.tight_layout()
-        plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_peak.png")
-
-    # [::-1] because it will be in the wrong order otherwise
-    spec = folded_ds_red[::-1, turn_on:turn_off][:-1]
-    if not args.nopeak:
-        spec = np.mean(spec, axis=1)
-
-    # roll folded data halfway along time axis and get noise with same indexes
-    folded_ds_red = np.roll(
-        folded_ds_red, int(folded_ds_red.shape[1] / 2), axis=1
-    )
-
-    if args.plot:
-        plt.imshow(
-            folded_ds_red,
-            extent=(0, folded_ds_red.shape[1], fmin, fmax),
-            aspect="auto",
-            interpolation="none",
-        )
-        plt.axvline(peak, c="r", lw=1)
-        plt.axvline(turn_on, c="r", linestyle="--", lw=1)
-        plt.axvline(turn_off, c="r", linestyle="--", lw=1)
-        plt.xlabel("Time")
-        plt.ylabel("Frequency (MHz)")
-        plt.title(f"Stokes {par} (off peak)")
-        plt.tight_layout()
-        plt.savefig(f"{args.plotdir}/{args.label}_Stokes{par}_noise.png")
-
-    noise = folded_ds_red[::-1, turn_on:turn_off][:-1]
-    if not args.nopeak:
-        noise = np.mean(noise, axis=1)
-
-    return spec.T, noise.T, peak
-
-
-def fit_pol_frac(freqs, S_ratio):
-    print("Calculating and fitting polarisation fraction")
-    pol_f = np.sqrt(S_ratio[0] ** 2 + S_ratio[1] ** 2 + S_ratio[2] ** 2)
-    pol_fit = np.polyfit(freqs, pol_f, 0)[0]
-    print(f"Pol frac fit: {pol_fit}")
-    return pol_f, pol_fit
-
-
-def fit_pol_ang(freqs, U, Q):
-    print("Calculating Polarisation Angle")
-    pol_ang = np.arctan2(U, Q) / 2
-
-    # Unwrap has differing behaviour before/after numpy version 1.21.0
-    # https://numpy.org/doc/stable/reference/generated/numpy.unwrap.html
-    try:
-        # Will work with numpy 1.21.0+
-        pol_ang = np.unwrap(pol_ang, period=np.pi)
-    except TypeError as e:
-        # Earlier numpy versions - unwrap assumes you want to put values
-        # within the range [0, 2pi], but here we want them in
-        # [-pi/2, pi/2].
-        print(e)
-        pol_ang += np.pi/2              # [-pi/2, pi/2] -> [0, pi]
-        pol_ang *= 2                    # [0, pi] -> [0, 2pi]
-        pol_ang = np.unwrap(pol_ang)
-        pol_ang /= 2                    # [0, 2pi] -> [0, pi]
-        pol_ang -= np.pi/2              # [0, pi] -> [-pi/2, pi/2]
-
-    # fit rm and offset
-    popt, pcov = curve_fit(faraday_angle, freqs.value, pol_ang, p0=[30, 0])
-    rm, offset = popt
-    rm_err, offset_err = np.diag(pcov)
-
-    pa_fit = faraday_angle(freqs.value, rm, offset)
-
-    print(f"rm\t= {rm:.3f}\t+- {rm_err:.5f}")
-    print(f"offset\t= {offset:.3f}\t+- {offset_err:.5f}")
-
-    return pol_ang, pa_fit
-
-
-# Parkes PA fit psi(nu): Get rm and offset
-def faraday_angle(freq_mhz, rm=30, offset=0):
-    lamb = 3e8 / (freq_mhz * 1e6)
-    return rm * np.power(lamb, 2) + offset
-
-
-def fit_psi_sky(freqs, S_ratio, pa_fit, L_model):
-    # psi'(nu) = psi(nu) + psi_sky
-    print("Fitting psi_sky")
-    Q_askap = np.copy(S_ratio[0])
-
-    def QoverI_askap(i, psi_sky):
-        return L_model[i] * np.cos(2 * pa_fit[i] + psi_sky)
-    
-    popt, pcov = curve_fit(QoverI_askap, range(pa_fit.shape[0]), Q_askap, p0=[0])
-    psi_sky = popt[0]
-    psi_sky_err = pcov[0][0]
-
-    # print(f"L_amp\t= {L_amp:.3f}\t+- {L_amp_err:.5f}")
-    print(f"psi_sky\t= {psi_sky:.3f}\t+- {psi_sky_err:.5f}")
-
-    Q_fit = QoverI_askap(range(pa_fit.shape[0]), psi_sky)
-
-    return Q_askap, (psi_sky, psi_sky_err), Q_fit
-
-
-
-
-def fit_phi(freqs, S_ratio, pa_fit, psi_sky, L_model, V_model):
-    # Solve using matrices
-    tan_phi = np.full((freqs.shape[0], 2), np.nan)
-    u_prime = S_ratio[1]  # U/I
-    v_prime = S_ratio[2]  # V/I
-    for i, f in enumerate(freqs.value):
-        pa_prime = psi_sky + pa_fit[i]
-
-        u = L_model[i] * np.sin(2 * pa_prime)
-        v = -V_model[i]
-
-        A = np.array([[u + v, v - u],
-                      [u - v, u + v]])
-        x = np.array([[u_prime[i] + v_prime[i]],
-                      [u_prime[i] - v_prime[i]]])
-        y = np.matmul(np.linalg.inv(A), x)
-
-        tan_phi[i, 0] = y[0]
-        tan_phi[i, 1] = y[1]
-
-    phi = np.arctan2(tan_phi[:, 1], tan_phi[:, 0])
-
-    # fit phi in several overlapping sub-bands, take best fit
-    n_bands = 4
-    overlap = 2
-    band_width = phi.shape[0] // n_bands
-    slices = [
-        slice(int(i*band_width/overlap), int((i+overlap)*band_width/overlap)) 
-        for i in range(n_bands*overlap-(overlap-1))
-    ]
-
-    delays = []
-    offsets = []
-    r2s = []
-
-    for i, s in enumerate(slices):
-        pfit, pcov = np.polyfit(freqs[s].value, phi[s], 1, cov=True)
-        perr = np.sqrt(np.diag(pcov))
-
-        delay = pfit[0]
-        delay_err = perr[0]
-        delays += [(delay, delay_err)]
-
-        offset = pfit[1]
-        offset_err = perr[1]
-        offsets += [(offset, offset_err)]
-
-        p = np.poly1d([delay * (2 * np.pi * 1e6), offset])
-
-        #https://stackoverflow.com/questions/29003241/how-to-quantitatively-measure-goodness-of-fit-in-scipy
-        ss_res = np.sum((phi[s] - p(freqs[s].value)**2))
-        ss_tot = np.sum((phi[s] - np.mean(phi[s]))**2)
-        r2s += [1 - (ss_res / ss_tot)]
-
-        print(f"Band {i+1}: {freqs[s][0]} - {freqs[s][-1]}")
-        print(
-            f"Delay:  {delay} +- {delay_err} rad us"
-        )
-        print(
-            f"Offset: {offset} +- {offset_err} "
-        )
-
-    best_band = np.argmin(r2s)
-    print(f"Band {best_band+1} is the best band")
-
-    phi_fit = np.poly1d(
-        [delays[best_band][0], offsets[best_band][0]]
-    )(freqs.value)
-
-    return phi, delays[best_band], offsets[best_band], phi_fit
-
-
-def polcal_ref(args):
-    plotdir = args.refplotdir
-    vela_pks = np.loadtxt(
-        args.ref,
-        dtype={
-            "names": ("freq_ghz", "I", "Q", "U", "V", "PA"),
-            "formats": ("f4", "f4", "f4", "f4", "f4", "f4"),
-        },
-    )
-    freq_mhz = (vela_pks["freq_ghz"] * un.GHz).to(un.MHz)
-    stokes_ratio_pks = [
-        np.copy(vela_pks["Q"]) / vela_pks["I"],
-        np.copy(vela_pks["U"]) / vela_pks["I"],
-        np.copy(vela_pks["V"]) / vela_pks["I"],
-    ]
-    stokes_ratio_name = ["Q/I", "U/I", "V/I"]
-    pa = np.copy(vela_pks["PA"])
-
-    if args.plot:
-        fig, ax = plt.subplots()
-        cs = ["r", "g", "b"]
-        for i in range(3):
-            ax = ax_plot(
-                ax,
-                freq_mhz,
-                stokes_ratio_pks[i],
-                c=cs[i],
-                label=stokes_ratio_name[i],
-                xlabel="Frequency (MHz)",
-            )
-        ax.legend()
-        plt.tight_layout()
-        fig.savefig(f"{plotdir}/vela_parkes_Stokes_ratios.png")
-
-    if args.plot:
-        fig, ax = plt.subplots()
-        ax = ax_plot(
-            ax, freq_mhz, pa, xlabel="Frequency (MHz)", ylabel="Pol angle"
-        )
-        plt.tight_layout()
-        fig.savefig(f"{plotdir}/vela_parkes_polang.png")
-
-    # determine p for Parkes
-    linearIntensity = (
-        stokes_ratio_pks[0] ** 2
-        + stokes_ratio_pks[1] ** 2
-        + stokes_ratio_pks[2] ** 2
-    )
-    nan = np.isnan(linearIntensity)
-    np.mean(linearIntensity[~nan])
-    if args.plot:
-        fig, ax = plt.subplots()
-        ax = ax_plot(
-            ax,
-            freq_mhz,
-            linearIntensity,
-            xlabel="Frequency (MHz)",
-            ylabel="Polarisation fraction",
-        )
-        plt.tight_layout()
-        fig.savefig(f"{plotdir}/vela_parkes_polfrac.png")
-
-    nonzero = np.where(pa != 0)
-    pa_tofit = np.copy(pa)
-    popt, pcov = curve_fit(
-        faraday_angle,
-        freq_mhz[nonzero].value,
-        pa_tofit[nonzero] / 180.0 * np.pi,
-        p0=(-30, -0.2),
-    )
-    rm = popt[0]
-    offset = popt[1]
-    print(("rm", rm, "offset", offset))
-    print(pcov)
-
-    if args.plot:
-        fig, ax = plt.subplots()
-        ax = ax_plot(
-            ax,
-            freq_mhz[nonzero],
-            pa_tofit[nonzero] / 180.0 * np.pi,
-            label="Parkes",
-        )
-        ax = ax_plot(
-            ax,
-            freq_mhz,
-            faraday_angle(freq_mhz.value, popt[0], popt[1]),
-            label="PA fit",
-            c="r",
-            type="line",
-        )
-        ax.set_ylabel("(rad)")
-        ax.set_xlabel("Frequency (MHz)")
-        ax.legend()
-        plt.tight_layout()
-        fig.savefig(f"{plotdir}/vela_parkes_polang_fit.png")
-
-    # Determine Parkes L/I (L_amp) via fitting for Q/I using psi(nu) from above
-    pa = faraday_angle(freq_mhz.value, rm, offset)
-
-    nan = np.isnan(stokes_ratio_pks[0])
-
-    def QoverI(pa, amp):
-        return amp * np.cos(2 * pa)
-
-    def UoverI(pa, amp):
-        return amp * np.sin(2 * pa)
-
-    return rm, offset, stokes_ratio_pks
-
-
-def ax_plot(
-    ax,
-    x,
-    y,
-    xlabel=None,
-    ylabel=None,
-    title=None,
-    label=None,
-    c="k",
-    lw=1,
-    type="step",
-    **kwargs,
-):
-    """
-    Plot y vs x on ax.
-
-    Type can be one of:
-        step
-        line
-        scatter
-        image
-    """
-    if type == "step":
-        ax.step(x, y, where="mid", c=c, lw=lw, label=label, **kwargs)
-    elif type == "line":
-        ax.plot(x, y, c=c, lw=lw, label=label, **kwargs)
-    elif type == "scatter":
-        ax.scatter(x, y, c=c, label=label, s=5, **kwargs)
-    else:
-        print(f"Plot type {type} not valid")
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    return ax
-
-
-def im_plot(
-    ax,
-    z,
-    cbar=False,
-    xlabel=None,
-    ylabel=None,
-    title=None,
-    aspect="auto",
-    interpolation="none",
-    orientation="vertical",
-    cmap='viridis',
-    **kwargs,
-):
-    im = ax.imshow(
-        z.T[::-1], 
-        aspect=aspect, 
-        interpolation=interpolation, 
-        cmap=cmap,
-        **kwargs)
-    if cbar:
-        plt.colorbar(im, ax=ax, orientation=orientation, label=cbar)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    return ax
-
-
-if __name__ == "__main__":
-    _main()
+    print("[POLCAL]: Completed.")
+    # END OF SCRIPT.
