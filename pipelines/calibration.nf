@@ -60,7 +60,7 @@ process determine_flux_cal_solns {
         """
         source /opt/setup_proc_container
         export PATH=\$PATH:$params.casapath
-        set -x 
+        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -86,6 +86,9 @@ process determine_flux_cal_solns {
             args="\$args --skipplot"
         fi
 
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
         ParselTongue $localise_dir/calibrateFRB.py \$args
         """
     
@@ -141,7 +144,7 @@ process image_finder {
         """
         source /opt/setup_proc_container 
         export PATH=\$PATH:$params.casapath
-        set -x 
+        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -172,6 +175,9 @@ process image_finder {
             args="\$args --tarflagfile=$params.finderflagfile"
         fi
 
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
         ParselTongue $localise_dir/calibrateFRB.py \$args
 
         for f in `ls fbin\${bin}*jmfit`; do
@@ -342,7 +348,7 @@ process image_field {
         """
         source /opt/setup_proc_container
         export PATH=\$PATH:$params.casapath
-        set -x 
+        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -378,6 +384,9 @@ process image_field {
             args="\$args --image=$params.fieldimage"
         fi
 
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
         ParselTongue $localise_dir/calibrateFRB.py \$args
         i=1
         for f in `ls *jmfit`; do
@@ -438,7 +447,7 @@ process image_polcal {
         """
         source /opt/setup_proc_container
         export PATH=\$PATH:$params.casapath
-        set -x 
+        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -530,7 +539,7 @@ process image_htrgate {
         """
         source /opt/setup_proc_container
         export PATH=\$PATH:$params.casapath
-        set -x 
+        set -xu
 
         aipsid="\$((RANDOM%8192))"
 
@@ -556,6 +565,9 @@ process image_htrgate {
         args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
         args="\$args --refant=$params.refant"
 
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
         ParselTongue $localise_dir/calibrateFRB.py \$args
 
         for f in `ls *jmfit`; do
@@ -605,6 +617,7 @@ process determine_pol_cal_solns {
     script:
         """
         source /opt/setup_proc_container 
+        set -xu
 
         elipse=''
         if [ '$params.polcal_ellipse' == 'true' ]; then
