@@ -100,7 +100,7 @@ process load_coarse_dynspec {
                 --startmjd \$startmjd
 
         mkdir delays    
-        python3 $beamform_dir/craftcor_tab.py
+        python3 $beamform_dir/craftcor_tab.py \
                 -d $data \
                 --parset $fcm \
                 --calcfile c1_f0/craftfrb.im \
@@ -158,7 +158,7 @@ process refine_candidate {
         
         python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
 
-        python3 $localise_dir/search_ics.py \$args
+        python3 $localise_dir/search_ics.py \
                 --ds ${label}_ICS.npy \
                 -s $snoopy \
                 -t $t_mjd \
