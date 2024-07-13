@@ -33,6 +33,14 @@ def load_data(infile):
     else:
         print("ERROR: Could not locate input file ", infile)
         exit()
+
+    #   ------ Added by AB to allow only one reference source
+    if (len(data.shape)==1):
+        print("Only one reference source!")
+        print("Trying to fool Clancy's code which requires more sources...")
+        data = np.array([data]).T
+    #   -----------------------------------------------------
+
     dims = data.shape
 
     if len(dims) != 2 or dims[0] != 4:
