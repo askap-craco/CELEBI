@@ -29,7 +29,6 @@ workflow process_flux_cal {
 
     main:
         label = "${params.label}_fluxcal"
-        println(fcm)
         // Correlation
         fluxcal_fits_path = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
         // if(new File(fluxcal_fits_path).exists()) {
