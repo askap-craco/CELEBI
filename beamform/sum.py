@@ -43,8 +43,9 @@ def get_args():
 
 
 def find_files(f_dir, FRB, p):
-    glob_str = f"{f_dir}/{FRB}_*_{p}_f.npy"
+    glob_str = f"{f_dir}/{FRB}_*_{p}_f_filtered.npy"
     return glob.glob(glob_str)
+
 
 
 def do_sum(fnames):
