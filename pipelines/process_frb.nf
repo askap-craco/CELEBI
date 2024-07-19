@@ -805,11 +805,11 @@ workflow process_frb {
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                     params.nants_frb, fcm, params.snoopy
                 )
-                frb_start_mjd = get_start_mjd(params.data_frb)
+                // frb_start_mjd = get_start_mjd(params.data_frb)
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
                     params.centre_freq_frb, params.dm_frb,
-                    frb_start_mjd, refined_candidate
+                    bform_frb.out.bform_start_MJD, refined_candidate
                 )
 
                 // crops = plot.out.crops
