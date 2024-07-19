@@ -15,7 +15,7 @@ c = 299792458.0
 
 
 def _main():
-    rawdata, snoopy_file = get_args()
+    rawdata, snoopy_file, numfinderbins, searchms = get_args()
     hdrfiles = find_hdrs(rawdata)
 
     minfreq, frbpos, triggermjd, samprate, nsamps = parse_hdrs(hdrfiles)
@@ -27,7 +27,7 @@ def _main():
     print(f"Lowest frequency is {minfreq}")
 
     # Determine and print snoopylog2frbgate.py command to be run
-    print(get_sl2fg_cmd(minfreq, geocentricdelay, corrstartmjd, snoopy_file))
+    print(get_sl2fg_cmd(minfreq, geocentricdelay, corrstartmjd, snoopy_file, numfinderbins, searchms))
 
 
 def get_args() -> "tuple[str, str]":
@@ -40,8 +40,8 @@ def get_args() -> "tuple[str, str]":
         arguments
     :rtype: tuple[str, str]
     """
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <rawdata directory> <snoopy file>")
+    if len(sys.argv) < 3 or len(sys.argv) > 5:
+        print(f"Usage: {sys.argv[0]} <rawdata directory> <snoopy file> [numfinderbins=7] [searchms=70]")
         print(
             "Raw data directory should contain akXX/beamXX/*.vcraft.hdr files"
         )
@@ -54,7 +54,15 @@ def get_args() -> "tuple[str, str]":
         print(f"{snoopy_file} doesn't exist")
         sys.exit()
 
-    return rawdata, snoopy_file
+    numfinderbins = 7
+    if len(sys.argv) > 3:
+        numfinderbins = int(sys.argv[3])
+
+    searchms = 70
+    if len(sys.argv) > 4:
+        searchms = float(sys.argv[4])
+
+    return rawdata, snoopy_file, numfinderbins, searchms
 
 
 def find_hdrs(rawdata: str) -> "list[str]":
@@ -198,6 +206,8 @@ def get_sl2fg_cmd(
     geocentricdelay: float,
     corrstartmjd: float,
     snoopy_file: str,
+    numfinderbins: int,
+    searchms: float,
 ) -> str:
     """Determine the snoopylog2frbgate.py command to be run next.
 
@@ -209,6 +219,10 @@ def get_sl2fg_cmd(
     :type corrstartmjd: float
     :param snoopy_file: Snoopy candidate file
     :type snoopy_file: str
+    :param numfinderbins: Number of finder bins to run
+    :type numfinderbins: int
+    :param searchms: Search space to run finder bins over
+    :type searchms: float
     :return: snoopylog2frbgate.py command call
     :rtype: str
     """
@@ -216,6 +230,8 @@ def get_sl2fg_cmd(
     sl2fgcmd += f" -f {minfreq:.3f}"
     sl2fgcmd += f" --timediff {geocentricdelay * 1e3:.3f}"
     sl2fgcmd += f" --corrstartmjd {corrstartmjd:.9f}"
+    sl2fgcmd += f" --numfinderbins {numfinderbins}"
+    sl2fgcmd += f" --searchms {searchms:.3f}"
     sl2fgcmd += f" {snoopy_file}"
     return sl2fgcmd
 

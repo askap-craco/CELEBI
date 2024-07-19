@@ -290,7 +290,7 @@ print("\nGenerating Healpix map using craco_fu_hp .....")
 print("export PATH=$PATH:/fred/oz313/anaconda/anaconda3/bin; unset PYTHONPATH; conda run -n cracofunew craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
 
 #commenting out for now
-os.system("export PATH=/fred/oz313/anaconda/anaconda3/bin:$PATH; unset PYTHONPATH; conda run -n cracofunew craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
+#os.system("export PATH=/fred/oz313/anaconda/anaconda3/bin:$PATH; unset PYTHONPATH; conda run -n cracofunew craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
 
 
 

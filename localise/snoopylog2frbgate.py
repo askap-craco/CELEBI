@@ -3,7 +3,7 @@ import os
 import sys
 import math
 
-fakepulsarperiod = 10  # seconds
+fakepulsarperiod = 100  # seconds
 
 
 def _main():
@@ -37,7 +37,7 @@ def _main():
     polycopath = write_polyco(polycorefmjd, hh, mm, ss, dm, args.freq)
 
     # Gate binconfig
-    gatebinedges, gateweights = calc_gate_bins(cand, timediffsec, polycorefmjd)
+    gatebinedges, gateweights = calc_gate_bins(cand, timediffsec, polycorefmjd, args.searchms)
     write_binconfig(
         "craftfrb.gate.binconfig", polycopath, gatebinedges, gateweights
     )
@@ -60,7 +60,7 @@ def _main():
 
     # Finder binconfig
     finderbinedges, finderweights, numfinderbins = calc_finder_bins(
-        rfibinedges, numfinderbins=7
+        rfibinedges, numfinderbins=args.numfinderbins
     )
     write_binconfig(
         "craftfrb.finder.binconfig",
@@ -110,6 +110,18 @@ def get_args() -> argparse.Namespace:
         type=float,
         default=-1,
         help="When the correlation will start",
+    )
+    parser.add_argument(
+        "--numfinderbins",
+        type=int,
+        default=7,
+        help="Number of finder bins",
+    )
+    parser.add_argument(
+        "--searchms",
+        type=float,
+        default=70,
+        help="Search space over which the finder bins will be spread",
     )
     return parser.parse_args()
 
@@ -304,12 +316,13 @@ def calc_gate_bins(
     cand: "list[str]",
     timediff: float,
     polycorefmjd: float,
+    searchms: float
 ) -> "tuple[list[float], list[float]]":
     """Determine the bins for the gate binconfig
 
     The gate mode has two bins:
-        > On-pulse (from 35 milliseconds before to 35 milliseconds
-            after the burst)
+        > On-pulse (from searchms/2 milliseconds before to searchms/2
+            milliseconds after the burst)
         > Off-pulse (everything else) - weighted 0
 
     :param cand: Fields of the snoopy candidate
@@ -326,8 +339,8 @@ def calc_gate_bins(
     pulsewidthms = float(cand[3])
     mjd = float(cand[7])
 
-    gatestartmjd = mjd - (pulsewidthms + 70) / (2 * 86400000.0)
-    gateendmjd = gatestartmjd + (pulsewidthms + 70) / 86400000.0
+    gatestartmjd = mjd - (pulsewidthms + searchms) / (2 * 86400000.0)
+    gateendmjd = gatestartmjd + (pulsewidthms + searchms) / 86400000.0
     gatestartphase = (
         86400.0 * (gatestartmjd - polycorefmjd) + timediff
     ) / fakepulsarperiod
@@ -363,16 +376,16 @@ def calc_rfi_bins(
 
     rfistartphase1 = (
         gatestartphase - 0.02 / fakepulsarperiod
-    )  # RFI gate (early side) starts 20ms before the start of the pulse
+    )  # RFI gate (early side) starts 20ms before the start of the pulse search space
     rfiendphase1 = (
         gatestartphase - 0.004 / fakepulsarperiod
-    )  # RFI gate (early side) ends 4ms before the start of the pulse
+    )  # RFI gate (early side) ends 4ms before the start of the pulse search space
     rfistartphase2 = (
         gateendphase + 0.004 / fakepulsarperiod
-    )  # RFI gate (late side) starts 4ms after the end of the pulse
+    )  # RFI gate (late side) starts 4ms after the end of the pulse search space
     rfiendphase2 = (
         gateendphase + 0.02 / fakepulsarperiod
-    )  # RFI gate (early side) ends 20ms after the end of the pulse
+    )  # RFI gate (early side) ends 20ms after the end of the pulse search space
 
     gateedges = [rfistartphase1, rfiendphase1, rfistartphase2, rfiendphase2]
     binedges = [0.0, 1.0, 0.0, 1.0]

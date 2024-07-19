@@ -46,7 +46,7 @@ process generate_binconfig {
         set -a
         set -o allexport
         tmp_file=".TMP_\$BASHPID"
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file'
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand $params.numfinderbins $params.searchms > \$tmp_file'
 
         sl2f_cmd=`tail -1 \$tmp_file`
         sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
