@@ -7,6 +7,7 @@ nextflow.enable.dsl=2
 
 include { get_start_mjd } from './correlate'
 include { apply_pol_cal_solns } from './calibration'
+include { filter_antenna } from './utils' 
 
 params.pols = ['X', 'Y']
 polarisations = Channel
@@ -149,6 +150,7 @@ process do_beamform {
     output:
         tuple val(pol), path("${label}_frb_${ant_idx}_${pol}_f.npy"), emit: data
         env FFTLEN, emit: fftlen
+        env bform_start_MJD, emit: bform_start_MJD
 
     script:
         """
@@ -170,6 +172,7 @@ process do_beamform {
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args -i 1"
         args="\$args --cpus=16"
+        args="\$args --polcal_crop_width_s $params.polcal_crop_width_s"
 
         # Candidate file for cropping
         if [[ $label == "${params.label}" ]]; then
@@ -191,17 +194,31 @@ process do_beamform {
 
         export FFTLEN=`cat fftlen`
 
-        # save corrected antenna MJD to file
-        ant_file="${params.out_dir}/binconfigs/${label}_corrected_ant_MJD.txt"
-        if ! [ -f \$ant_file ]; then
-            touch \$ant_file
+        export bform_start_MJD=`cat corrected_start_MJD.txt`
+
+        # if dirs do not exist, make them
+        if [ ! -d ${params.out_dir}/htr ]; then
+            mkdir ${params.out_dir}/htr
         fi
-        echo \$(<"corrected_ant_MJD.txt") >> \$ant_file 
+
+        if [ ! -d ${params.out_dir}/htr/info ]; then 
+            mkdir ${params.out_dir}/htr/info
+        fi
+
+        # if txt file called ant_failed was produced, save it to htr/info folder of publish dir
+        declare -a ffarr=(`find ./ -maxdepth 1 -name "*_failed.txt"`)
+        if [[ \${#ffarr[@]} -gt 0 ]]; then
+            cp *_failed.txt ${params.out_dir}/htr/info/.
+        fi
 
         # only want to calculate this once, so choice of antenna id is arbitrary
         if [ $label == "${params.label}" ] && [ $ant_idx == 0 ]; then
-            cp frb_crop_MJD.txt ${params.out_dir}/binconfigs/frb_crop_MJD.txt
+            cp frb_crop_MJD.txt ${params.out_dir}/htr/info/frb_crop_MJD.txt
+            cp corrected_start_MJD.txt ${params.out_dir}/htr/info/bform_start_MJD.txt
         fi
+
+        # save txt file with cropping information of each antenna 
+        cp ant_crop.txt ${params.out_dir}/htr/info/${label}_antcrop_${ant_idx}_${pol}_crop.txt
         """
 
     stub:
@@ -525,6 +542,7 @@ process generate_dynspecs {
     output:
         path "*.npy", emit: data
         path "*.txt", emit: dynspec_fnames
+        path "*.png"
 
     script:
         """
@@ -578,10 +596,10 @@ process generate_dynspecs {
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/make_dynspec.py \$args'
 
 
-        echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
-        echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${params.out_dir}/htr/${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
+        echo "${params.out_dir}/htr/${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${params.out_dir}/htr/${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${params.out_dir}/htr/${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
 
         """
     
@@ -653,22 +671,38 @@ workflow beamform {
             .of(0..nants-1)
 
         // processing
+
+        // apply delays and calibration solutions to each antenna/pol fine spectra, align each antenna
         do_beamform(
             label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand, dm
         )
-        sum_antennas(label, do_beamform.out.data.groupTuple())
+
+        // filter antenna to make sure non-empty data is being beamformed
+        filter_antenna(label, do_beamform.out.data)
+
+        // sum filtered antenna data together to get summed X and Y polarisation fine spectra -> beamforming
+        sum_antennas(label, filter_antenna.out.filtered_ant.groupTuple())
+
+        // calculate derriple coefficients
         coeffs = generate_deripple(do_beamform.out.fftlen.first())
+
+        // apply deripple coefficients
         deripple(label, sum_antennas.out, do_beamform.out.fftlen.first(), coeffs)
+
+        // coherently dedisperse fine spectra
         dedisperse(label, dm, centre_freq, deripple.out)
+
+        // inverse FFT back to complex time series data
         ifft(label, dedisperse.out, dm)
         xy = ifft.out.collect()
 
-        // if FRB, apply polcal solutions
+        // if FRB, apply polcal solutions to x and y data products
         if ((label == "${params.label}") && !params.nopolcal) {
             xy = apply_pol_cal_solns(label, xy, pol_cal_solns, centre_freq, dm).calib_data
             label="${params.label}_calib"
         }
 
+        // generate stokes I, Q, U and V dynamic spectra
         generate_dynspecs(label, xy, centre_freq, dm)
     
     emit:
@@ -676,4 +710,5 @@ workflow beamform {
         htr_data = generate_dynspecs.out.data
         xy
         pre_dedisp = deripple.out
+        bform_start_MJD = do_beamform.out.bform_start_MJD.first()
 }
