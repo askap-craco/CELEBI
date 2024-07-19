@@ -291,6 +291,11 @@ def plot_htr(args, stk, t_burst_bin):
         AX[f"{S}f"].yaxis.set_label_position("right")
         AX[f"{S}f"].set_ylabel(S, rotation = 0, fontsize = 20, labelpad = 20)
 
+    # re-calibrate ylim of time series plots on top of mosaic plot
+    ylim = AX[f"t{t_arr[-1]}"].get_ylim()
+    for t in t_arr:
+        AX[f"t{t}"].set_ylim(ylim)
+
     # remove corner axes
     AX[f"tf"].set_axis_off()
 
