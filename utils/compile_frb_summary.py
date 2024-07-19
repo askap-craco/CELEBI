@@ -79,18 +79,12 @@ def _compile(args):
         ofile.write("Geocentric delay: ".ljust(justlen) + f"{geo_delay}".ljust(justlen) + "".ljust(justlen) + "[s]\n")
 
     # beamforming MJD
-    antMJD_file = os.path.join(args.d, f"binconfigs/{args.l}_corrected_ant_MJD.txt")
+    antMJD_file = os.path.join(args.d, f"binconfigs/bform_start_MJD.txt")
     if isfile(antMJD_file):
         with open(antMJD_file) as file:
-            lines = file.readlines()
+            bf_MJD  = float(file.readline())
+        ofile.write("bform_MJD: ".ljust(justlen) + f"{bf_MJD}".ljust(justlen) + "".ljust(justlen) + "[days]\n")
     
-        # get max MJD start time
-        bf_MJD = []
-        for line in lines:
-            bf_MJD += [float(line.split(':')[1].strip())]
-        min_ind = bf_MJD.index(max(bf_MJD))
-        ofile.write("bform_MJD: ".ljust(justlen) + f"{bf_MJD[min_ind]}".ljust(justlen) + "".ljust(justlen) + "[days]\n")
-        ofile.write("bform_ref_ant: ".ljust(justlen) + f"{lines[min_ind].split(':')[0]}\n")
 
     # crop MJD
     cropMJD_file = os.path.join(args.d, f"binconfigs/frb_crop_MJD.txt")
