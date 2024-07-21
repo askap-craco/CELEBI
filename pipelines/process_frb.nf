@@ -631,48 +631,38 @@ workflow process_frb {
 
     main:
         if (!params.skip_ics && params.nbits > 1) {
-            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
-                                            antennas,fcm)
+            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, antennas,fcm)
             refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
             if ( new File(refined_candidate_path).exists()) {
                 refined_candidate = Channel.fromPath(refined_candidate_path)
             }
             else {
-                refine_candidate(params.label, coarse_ds.data.collect(), 
-                                 coarse_ds.time.first(), params.snoopy)
+                refine_candidate(params.label, coarse_ds.data.collect(), coarse_ds.time.first(), params.snoopy)
                 refined_candidate = refine_candidate.out.cand
             }
         }
         else {
             refined_candidate = Channel.fromPath(params.snoopy)
         }
+        
+        field_fits_path = "${params.out_dir}/loadfits/field/${params.label}_field.fits"
+        rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
+        finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
+        centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
+        
         binconfig = generate_binconfig(refined_candidate)
-        empty_file = create_empty_file("file")
+        
+        if( params.makeimage || params.corrcal ) {           
+            empty_file = create_empty_file("file")
 
-        if(!params.opt_gate){    
-            // Correlate finder
-            finder_fits_path = "${params.out_dir}/loadfits/finder/finderbin07.fits"
-            if(new File(finder_fits_path).exists()) {
-                finder_fits = Channel.fromPath(
-                    "${params.out_dir}/loadfits/finder/finderbin*.fits"
-                )
-                centre_bin_fits = Channel.fromPath(
-                    "${params.out_dir}/loadfits/finder/finderbin04.fits"
-                )
-            }
-            else {
+            if(!params.opt_gate){                    
+                // Correlate finder                
                 (finder_fits, centre_bin_fits) = corr_finder(
                     "finder", params.data_frb, params.ra_frb, params.dec_frb, 
                     binconfig.finder, binconfig.polyco, binconfig.int_time, "finder", fcm
-                )
-            }
+                )                
 
-            // Correlate RFI (if not directly flagging finder)
-            rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
-            if ( new File(rfi_fits_path).exists() ) {
-                rfi_fits = Channel.fromPath(rfi_fits_path)
-            }
-            else {
+                // Correlate RFI (if not directly flagging finder)                
                 if(!params.skiprfi) {
                     rfi_fits = corr_rfi(
                         "${params.label}_rfi", params.data_frb, params.ra_frb, 
@@ -681,57 +671,35 @@ workflow process_frb {
                     ).fits
                 }
             }
-        }
 
-        // Correlate field (if not using deep field image)
-        field_fits_path = "${params.out_dir}/loadfits/field/${params.label}_field.fits"
-        if((params.fieldimage != "") or new File(field_fits_path).exists() ) {
-            if(params.fieldimage == "") {
-                field_fits = Channel.fromPath(field_fits_path)
-            }
-            else {
-                field_fits = Channel.fromPath("${params.fieldimage}")
-            }
-        }
-        else {
+            // Correlate field (if not using deep field image)            
             beam_centre = get_beam_centre()
             field_fits = corr_field(
                 "${params.label}_field", params.data_frb, beam_centre.ra, 
                 beam_centre.dec, empty_file, empty_file, empty_file, "field", fcm
             ).fits
         }
-
-        // Flagging
-        if(params.autoflag) {
-            field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
+        else {
+            finder_fits = Channel.fromPath(finder_fits_path)
+            centre_bin_fits = Channel.fromPath(centre_bin_path)
+            rfi_fits = Channel.fromPath(rfi_fits_path)
+            field_fits = Channel.fromPath(field_fits_path)
+        }
         
-            if(new File(field_fits_flagged).exists()) {
-                    field_outfits = Channel.fromPath(field_fits_flagged)
-            }
-            else {
-                field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
+        if( params.makeimage || params.locfrb ) {       
+            // Flagging
+            if( !params.noflag ) {
+                field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
+                field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile           
+                field_fits = field_outfits
             }
 
-            if(params.fieldimage == "") {
-                    field_fits = field_outfits
-                        }
-            else {
-                field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile
-            }
-        }
-
-        // Calibrate (i.e. image finder and field)
-        frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
-        offset_path = "${params.out_dir}/position/offset0.dat"
-	    doffset_path = "${params.out_dir}/position/offsetfit.txt"
-        frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
-        if(new File(frb_jmfit_path).exists()) {
-            askap_frb_pos = Channel.fromPath(frb_jmfit_path)
-        }
-        if(new File(frb_pos_path).exists()) {
-            final_position = Channel.fromPath(frb_pos_path)
-        }
-        if(params.calibrate) {
+            // Calibrate (i.e. image finder and field)
+            frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
+            offset_path = "${params.out_dir}/position/offset0.dat"
+	        doffset_path = "${params.out_dir}/position/offsetfit.txt"
+            frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
+                        
             if(!params.opt_gate){
                 if(params.image_all_bins) {
                     bins_to_image = finder_fits
@@ -762,116 +730,40 @@ workflow process_frb {
                     bin_regs.collect(), bin_mss.collect()
                 ).peak_jmfit
             }
-            if(new File(frb_jmfit_path).exists()) {
-                askap_frb_pos = Channel.fromPath(frb_jmfit_path)
-            }
-            // else {
-            //     askap_frb_pos = empty_file
-            // }
-
-            if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
-                offset = Channel.fromPath(offset_path)
-		        doffset = Channel.fromPath(doffset_path)
-            }
-            else {
-                field_sources = image_field(
-                    field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
-                ).jmfit
-		
-        		offres = find_offset(field_sources)
-                offset = offres.offset
-                doffset = offres.doffset
-            }
+            
+            field_sources = image_field(
+                field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
+            ).jmfit
+    
+    		offres = find_offset(field_sources)
+            offset = offres.offset
+            doffset = offres.doffset                
 
             if(!params.opt_gate){
         		finalres = apply_offset(offset, doffset, askap_frb_pos)
                 final_position = finalres.final_position
         		// finalmap = finalres.hpmap
-            }
+            }            
         }
-        else if(new File(offset_path).exists()) {
-            offset = Channel.fromPath(offset_path)
-    }
+        else {
+            frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
+            askap_frb_pos = Channel.fromPath(frb_jmfit_path)
+        }
 
-        if(params.beamform) {
-            // crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
-            // crop_start_path = "${params.out_dir}/htr/50us_crop_start_s.txt"
-            // if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
-            //     crop_50us = Channel.fromPath(crop_50us_path)
-            //     crop_start = Channel.fromPath(crop_start_path)
-            // }
-            // else {
-                bform_frb(
-                    params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
-                    pol_cal_solns, params.dm_frb, params.centre_freq_frb,
-                    params.nants_frb, fcm
-                )
-                plot(
-                    params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                    coarse_ds.time.first(), refined_candidate
-                )
-                crops = plot.out.crops
-                crop_start = plot.out.crop_start
-                crop_50us = plot.out.crop_50us
-            // }
+        if( params.beamform || params.htrfrb ) {
             
-            // experimental high time res gating
-            // if(params.opt_DM) {
-            //     optimise_DM(
-            //         bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
-            //         "-ds -t -XYIQUV"
-            //     )
-            //     dm = optimise_DM.out.dm_opt
-            //     crops = optimise_DM.out.crops
-            //     crop_start = optimise_DM.out.crop_start
-            // }
-            // else {
-            //     dm = params.dm_frb
-            // }
-            //
-            // if(params.opt_gate) {
-            //     opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
-            //     htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
-            //     if(new File(htrgate_fits_path).exists()) {
-            //         htrgate_fits = Channel.fromPath(htrgate_fits_path)
-            //     }
-            //     else {
-            //         htrgate_fits = corr_htrgate(
-            //             "${params.label}_htrgate", params.data_frb, params.ra_frb, 
-            //             params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
-            //             binconfig.int_time, "htrgate"
-            //         ).fits
-            //     }
-            //     if(!params.skiprfi) {
-            //         htrrfi_fits_path = "${params.out_dir}/loadfits/htrrfi/${params.label}_htrrfi.fits"
-            //         if(new File(htrrfi_fits_path).exists()) {
-            //             htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
-            //         }
-            //         else {
-            //             htrrfi_fits = corr_htrrfi(
-            //                 "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
-            //                 params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
-            //                 binconfig.int_time, "htrrfi"
-            //             ).fits
-            //         }
-            //     }
-            //     if(params.skiprfi){
-            //         no_rfi_htrgate_fits = htrgate_fits
-            //     }
-            //     else {
-            //         no_rfi_htrgate_fits = sub_htrrfi(    
-            //             htrgate_fits, htrrfi_fits, empty_file
-            //         )                
-            //     }
-
-            //     image_htrgate(
-            //         no_rfi_htrgate_fits, flux_cal_solns
-            //     )
-
-            //     final_position = apply_offset_htr(
-            //         offset, image_htrgate.out.jmfit
-            //     )
-            // }
+            bform_frb(
+                params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
+                pol_cal_solns, params.dm_frb, params.centre_freq_frb,
+                params.nants_frb, fcm
+            )
+            plot(
+                params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
+                params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
+                coarse_ds.time.first(), refined_candidate
+            )
+            crops = plot.out.crops
+            crop_start = plot.out.crop_start
+            crop_50us = plot.out.crop_50us
         }
 }

@@ -333,7 +333,7 @@ process difx_to_fits {
 
     output:
         path "${label}*.fits", emit: fits
-        path "finderbin04.fits", emit: centre, optional: true
+        path "finderbin0${params.cenfinderbin}.fits", emit: centre, optional: true
 
     script:
         """
@@ -357,7 +357,7 @@ process difx_to_fits {
                 done
 
                 if [ "$mode" == "finder" ]; then
-                    for b in `seq 0 $params.numfinderbins`; do
+                    for b in `seq 0 ${params.numfinderbins}`; do
                         bin2="\$(printf "%02d" \$b)"
                         bin4="\$(printf "%04d" \$b)"
                         difx2fitscmd="difx2fits -v -v -u -B \$b \$D2Ds"
@@ -409,7 +409,7 @@ process difx_to_fits {
             chmod 775 doloadfits
             apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ./doloadfits'
         else
-            for i in `seq 0 $params.numfinderbins`; do
+            for i in `seq 0 ${params.numfinderbins}`; do
                 bin="\$(printf "%02d" \$i)"
                 args="-u \$aipsid"
                 #args="-u \${BASHPID: -4}"   # get randomly-generated user id
@@ -437,7 +437,7 @@ process difx_to_fits {
     stub:
         """
         if [ "$mode" == "finder" ]; then
-            for i in `seq 0 $params.numfinderbins`; do
+            for i in `seq 0 ${params.numfinderbins}`; do
                 touch finderbin0\${i}.fits
             done
         else

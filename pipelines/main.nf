@@ -9,8 +9,14 @@ include { create_empty_file as empty1; create_empty_file as empty2 } from './uti
 params.fluxflagfile = ""
 params.polflagfile = ""
 params.fieldflagfile = ""
-params.calibrate = false
+params.makeimage = false
 params.beamform = false
+params.shrine = false
+params.corrcal = false
+params.impcal = false
+params.beampcal = false
+params.locfrb = false
+params.htrfrb = false
 params.noflag = false       // don't automatically flag
 params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
@@ -19,6 +25,7 @@ params.out_dir = "${params.publish_dir}/${params.label}"
 params.psoln = ""
 params.nbits = 4
 params.numfinderbins = 7
+params.cenfinderbin = 4
 params.searchms = 70
 params.uselocalcatalog = false
 params.referencecatalog = "RACS"
@@ -26,15 +33,21 @@ params.nants = 2
 params.nants_fcal = params.nants
 
 workflow {
-    fcm_delayfix = fcal1(params.fcm).fcm_delayfix
-    //fcm_delayfix = fcal1("/fred/oz313/data/frb210912/fcm.txt.32063").fcm_delayfix
-    //println "TESTING"
-    println fcm_delayfix
-    println params.fcm
-    if(fcm_delayfix != "") {
-        flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
+    if( params.makeimage || params.corrcal ) {
+        fcm_delayfix = fcal1(params.fcm).fcm_delayfix
+        println fcm_delayfix
+        println params.fcm
+        if(fcm_delayfix != "") {
+            flux_cal_solns = fcal2(fcm_delayfix).flux_cal_solns
+        }
     }
-
+    else {
+        fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_*.tar.gz"
+        fcm_delayfix_path = "${params.out_dir}/fluxcal/fcm_delayfix.txt"
+        flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
+        fcm_delayfix = Channel.fromPath(fcm_delayfix_path)
+    }
+    
     if(params.nopolcal) {
         pol_cal_solns = empty1("polcal.dat")
     }

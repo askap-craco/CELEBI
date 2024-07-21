@@ -22,15 +22,12 @@ else {
 
 params.polcalimagesize = 128
 params.minbeamfrac = 0.05
-params.refant = 3   // reference antenna - index corresponds to ak name
-                    // i.e. refant = 3 corresponds to ak03
+//params.refant = 3   // reference antenna - index corresponds to ak name
+// i.e. refant = 3 corresponds to ak03
 
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
 params.out_dir = "${params.publish_dir}/${params.label}"
-
-
-
 
 process determine_flux_cal_solns {
     /*
@@ -602,6 +599,8 @@ process determine_pol_cal_solns {
             pol_cal_solns: path
                 A file containing the delay (in ns) and phase offset solutions
                 with errors
+            data: path
+                All .npy files created containing output Stokes dynamic spectra
             plots: path
                 A set of .png plots generated at various stages of polcal.py
                 for troubleshooting/verifying solutions
@@ -613,6 +612,7 @@ process determine_pol_cal_solns {
 
     output:
         path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
+        path "*.npy", emit: data
         path "*.png", emit: plots
     
     script:
@@ -629,11 +629,25 @@ process determine_pol_cal_solns {
         ml apptainer
         set -a
         set -o allexport
-
-        args="-i ${params.label}_polcal_I_dynspec_${params.dm_polcal}.npy"
-        args="\$args -q ${params.label}_polcal_Q_dynspec_${params.dm_polcal}.npy"
-        args="\$args -u ${params.label}_polcal_U_dynspec_${params.dm_polcal}.npy"
-        args="\$args -v ${params.label}_polcal_V_dynspec_${params.dm_polcal}.npy"        
+		
+		#	Find DM of polcal by maximizing S/N 
+		
+		args="${params.label}"
+        args="\$args ${params.dm_polcal}"
+        args="\$args 2.00"
+        args="\$args 0.01"
+        args="\$args 50"
+		args="\$args ${params.centre_freq_polcal}"
+		args="\$args ${params.bw}"
+		
+        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/getpolcaldm.py \$args'
+		
+		#	Find pol cal solutions using the S/N maximizing synamic spectra
+		
+        args="-i ${params.label}_polcal_I_dynspec_snmax.npy"
+        args="\$args -q ${params.label}_polcal_Q_dynspec_snmax.npy"
+        args="\$args -u ${params.label}_polcal_U_dynspec_snmax.npy"
+        args="\$args -v ${params.label}_polcal_V_dynspec_snmax.npy"        
         args="\$args --l_model $params.polcal_l_model"
         args="\$args --v_model $params.polcal_v_model"
         args="\$args --priors $params.polcal_priors"
@@ -653,7 +667,7 @@ process determine_pol_cal_solns {
         args="\$args --live $params.polcal_live"
 
         if [ '$params.polcal_ellipse' == 'true' ]; then
-            args="\$args --elipse"
+            args="\$args --ellipse"
         fi
 
         args="\$args --ofile ${params.label}_polcal_solutions.txt"

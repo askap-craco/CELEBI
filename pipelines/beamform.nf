@@ -21,6 +21,12 @@ params.out_dir = "${params.publish_dir}/${params.label}"
 
 params.bw = 336 /*Default value*/
 
+// dynspec params for FRB
+params.frb_dynspec_sigma = 5.0  // S/N threshold
+params.frb_baseline = 50.0      // width of rms crop for baseline correction
+params.frb_dynspec_tN = 50      //time averaging
+params.frb_dynspec_guard = 1.0
+
 
 process create_calcfiles {
     /*

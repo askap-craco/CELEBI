@@ -32,46 +32,41 @@ workflow process_pol_cal {
 
     main:
         label = "${params.label}_polcal"
+        
         empty_file = create_empty_file("file")
-
-        // Correlation
-        polcal_fits_path = "${params.out_dir}/loadfits/polcal/${params.label}_polcal.fits"
-        if(new File(polcal_fits_path).exists()) {
-            fits = Channel.fromPath(polcal_fits_path)
-        }
-        else {
+        polcal_fits_path = "${params.out_dir}/loadfits/polcal/${params.label}_polcal.fits" 
+        if( params.makeimage || params.corrcal ) {
+            // Correlation          
             fits = corr_pcal(
                 label, params.data_polcal, params.ra_polcal, params.dec_polcal, 
                 empty_file, empty_file, empty_file, "polcal", fcm
             ).fits
         }
-
-        // Flagging
-        if(!params.noflag) {
-            polcal_fits_flagged = "${params.out_dir}/loadfits/polcal/${params.label}_polcal_f.fits"
+        else {
+            fits = Channel.fromPath(polcal_fits_path)
+        }
         
-            if(new File(polcal_fits_flagged).exists()) {
-                    outfits = Channel.fromPath(polcal_fits_flagged)
+        polcal_jmfit_path = "${params.out_dir}/polcal/polcal.jmfit" 
+        if( params.makeimage || params.impcal ) {   
+            // Flagging
+            if(!params.noflag) {
+                polcal_fits_flagged = "${params.out_dir}/loadfits/polcal/${params.label}_polcal_f.fits"            
+                outfits = flagdat(fits,polcal_fits_flagged, "cal").outfile                
+                fits = outfits
             }
-            else {
-                outfits = flagdat(fits,polcal_fits_flagged, "cal").outfile
-            }
-            fits = outfits
-        }
 
-        // Calibration
-        polcal_jmfit_path = "${params.out_dir}/polcal/polcal.jmfit"
-        if(new File(polcal_jmfit_path).exists()) {
-            pos = Channel.fromPath(polcal_jmfit_path)
-        }
-        else if(params.calibrate) {
+            // Calibration
             pos = image_polcal(
                 fits, flux_cal_solns, params.polflagfile
-            ).jmfit
+            ).jmfit            
+        }
+        else {
+            pos = Channel.fromPath(polcal_jmfit_path)
         }
 
         // Beamforming
-        if(params.beamform) {
+        polcal_solns_path = "${params.out_dir}/polcal/${params.label}_polcal_solutions.txt"
+        if( params.beamform || params.beampcal ) {
             bform_pcal(
                 label, params.data_polcal, pos, flux_cal_solns, empty_file, 
                 params.dm_polcal, params.centre_freq_polcal,
@@ -80,9 +75,9 @@ workflow process_pol_cal {
             pol_cal_solns = get_cal_pcal(bform_pcal.out.htr_data).pol_cal_solns
         }   
         else {
-            pol_cal_solns = ""
+            pol_cal_solns = Channel.fromPath(polcal_solns_path)
         }
-
+        
     emit:
         pol_cal_solns
 }
