@@ -596,10 +596,10 @@ process generate_dynspecs {
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/make_dynspec.py \$args'
 
 
-        echo "${params.out_dir}/htr/${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
-        echo "${params.out_dir}/htr/${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${params.out_dir}/htr/${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${params.out_dir}/htr/${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
+        echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
 
         """
     
