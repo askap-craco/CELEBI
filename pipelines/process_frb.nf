@@ -692,7 +692,9 @@ workflow process_frb {
         
         if( params.makeimage || params.locfrb ) {    
 
-            binconfig = generate_binconfig(refined_candidate)
+            if( params.locfrb ) {
+                binconfig = generate_binconfig(refined_candidate)
+            }
 
             // Flagging
             if( !params.noflag ) {
