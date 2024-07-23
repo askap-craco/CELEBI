@@ -653,10 +653,10 @@ workflow process_frb {
         rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
         centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
-        
-        binconfig = generate_binconfig(refined_candidate)
-        
+                
         if( params.makeimage || params.corrcal ) {           
+
+            binconfig = generate_binconfig(refined_candidate)
             empty_file = create_empty_file("file")
 
             if(!params.opt_gate){                    
@@ -690,7 +690,10 @@ workflow process_frb {
             field_fits = Channel.fromPath(field_fits_path)
         }
         
-        if( params.makeimage || params.locfrb ) {       
+        if( params.makeimage || params.locfrb ) {    
+
+            binconfig = generate_binconfig(refined_candidate)
+
             // Flagging
             if( !params.noflag ) {
                 field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
