@@ -9,6 +9,7 @@ include { find_offset; apply_offset; apply_offset as apply_offset_htr;
     generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 include { flag_proper as flagdat } from './flagging'
+include { shrine as smdm } from './shrine'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -35,6 +36,9 @@ antennas = Channel
 beamform_dir = "$projectDir/../beamform/"
 localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
+
+params.usehtrmask = false	//	Use masked HTR outputs for SMDM ?
+params.timresus = 1			//	Input time resolution in us for SMDM
 
 process load_coarse_dynspec {
     /*
@@ -630,7 +634,7 @@ workflow process_frb {
         fcm
 
     main:
-        if (!params.skip_ics && params.nbits > 1) {
+        if ( !params.skip_ics && params.nbits > 1 ) {
             coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, antennas,fcm)
             refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
             if ( new File(refined_candidate_path).exists()) {
@@ -766,4 +770,18 @@ workflow process_frb {
             crop_start = plot.out.crop_start
             crop_50us = plot.out.crop_50us
         }
+        
+        if( params.shrine ) {
+        	
+        	if( params.usehtrmask ) {
+        		idspath		= "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_${params.timresus}us_masked_I.npy"
+        	}
+        	else {
+        		idspath		= "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_${params.timresus}us_I.npy"
+        	}
+        	
+        	idsdata	= Channel.fromPath(idspath)
+        	
+        	smdm(idsdata,params.timresus)        	
+        }             
 }

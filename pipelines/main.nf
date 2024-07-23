@@ -48,7 +48,7 @@ workflow {
         fcm_delayfix = Channel.fromPath(fcm_delayfix_path)
     }
     
-    if(params.nopolcal) {
+    if( params.nopolcal ) {
         pol_cal_solns = empty1("polcal.dat")
     }
     else if (params.psoln != "") {
