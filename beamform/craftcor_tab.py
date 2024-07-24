@@ -285,14 +285,14 @@ class AntennaSource:
         nsamp = (nsamp // 32) * 32 #
         if sampoff + nsamp > self.vfile.nsamps:
             # make sure these bounds are defined
-            nsamp -= 32
+            nsamp -= (((sampoff + nsamp) - self.vfile.nsamps)//32 + 1)*32
 
         ### Now do cropping ###
         if (mjd is not None) and (DM is not None):
             print("FRB cropping\n")
             
             # sample number of candidate position
-            cand_offset_samp = int((mjd - corr.refant.mjdstart) * 8.64e10 * 32/27) + sampoff
+            cand_offset_samp = int(round((mjd - corr.refant.mjdstart) * 8.64e10 * 32/27)) + sampoff
 
             print(f"Cand sample offset from refant: {cand_offset_samp - sampoff}")
             print(f"Cand sample offset: {cand_offset_samp}")
@@ -546,8 +546,6 @@ class AntennaSource:
             print("WARNING: Output contains NaNs. Calibration solutions not available?")
 
         print(f"data out shape: {data_out.shape}")
-        print(data_out)
-        print(np.mean(data_out))
         return data_out
 
     def do_ics(self, corr, an):

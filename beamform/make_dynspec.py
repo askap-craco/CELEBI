@@ -247,6 +247,7 @@ def make_ds(xpol, ypol, S = "I", nFFT = 336):
     ds = np.zeros((nFFT, nwind), dtype = np.float32)
 
     b_arr = np.empty((0,2), dtype = int)
+    i = -1
     for i in range(nblock):
         b_arr = np.append(b_arr, [[i*nwinb,(i+1)*nwinb]], axis = 0)
     # append extra block at end
@@ -469,7 +470,7 @@ def plot_bline_diagnostic(ds, rbounds, args):
     t_crop = np.mean(ds_crop, axis = 0)
 
     # get time axis in ms/ or 1000 x dt
-    x_crop = np.linspace(0, t_crop.size/1000*args.tN, t_crop.size)
+    x_crop = np.linspace(0, dt*args.tN*t_crop.size, t_crop.size)
 
 
     ## plot
