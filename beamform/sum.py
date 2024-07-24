@@ -43,8 +43,9 @@ def get_args():
 
 
 def find_files(f_dir, FRB, p):
-    glob_str = f"{f_dir}/{FRB}_*_{p}_f.npy"
+    glob_str = f"{f_dir}/{FRB}_*_{p}_f_filtered.npy"
     return glob.glob(glob_str)
+
 
 
 def do_sum(fnames):
@@ -56,6 +57,7 @@ def do_sum(fnames):
     # Initialise summation array with the shape of the first file
     print("Initialising sum array...")
     f = np.load(fnames[0])
+    print(f"f shape: {f.shape}")
     sum_arr = np.zeros(f.shape, dtype=f.dtype)
 
     n_antennas = 0
@@ -65,6 +67,7 @@ def do_sum(fnames):
         print(fname)
         # mmap_mode='r' keeps the loaded array on disk, instead of loading it into memory
         new_arr = np.load(fname, mmap_mode="r")
+        print(f"Array Size: {new_arr.shape}")
         if not np.isnan(new_arr).any():
             sum_arr += new_arr
             n_antennas += 1
