@@ -51,7 +51,7 @@ def _main():
     ax1 		= 	fig.add_axes([0.15, 0.10, 0.83,0.48])
     ax1.imshow(Iavg.T, origin='lower', interpolation='none', aspect='auto', cmap='plasma')	
     ax1.set_xlim([0,tlen])
-    ax1.set_xlabel(r'Time (us)')
+    ax1.set_xlabel(r'Time (%d us)'%dt)
     ax1.set_ylabel(r'Channel')
 
     plt.savefig("{}_idsmdm.png".format(args.label),	transparent=False, format='png', dpi=100)

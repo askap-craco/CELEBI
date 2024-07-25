@@ -299,28 +299,14 @@ class AntennaSource:
 
             # measure DM sweep
             kDM = 4149.377593
-            
-            #   AB: Allowing longer crop for FRBs
-            #   Using the same width for FRB -- Needs to be passed properly from the NF script
-            if (polcal_width_s > 0.0):
-                DM_sweep_samp = int(1e6 * polcal_width_s * 32/27)
-                
-                print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
-                print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
+            DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))) * 32/27)
 
-                # calculate sampoff and nsamp based on DM sweep and cand position
-                requested_sampoff = cand_offset_samp - int(DM_sweep_samp * 0.5) # 1.1 is extra buffer length
-                requested_nsamp = (int(DM_sweep_samp * 1.0) // nchan_coarse) * nchan_coarse
-                
-            else:
-                DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))) * 32/27)
-            
-                print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
-                print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
+            print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
+            print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
 
-                # calculate sampoff and nsamp based on DM sweep and cand position
-                requested_sampoff = cand_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
-                requested_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
+            # calculate sampoff and nsamp based on DM sweep and cand position
+            requested_sampoff = cand_offset_samp - int(DM_sweep_samp * 1.1) # 1.1 is extra buffer length
+            requested_nsamp = (int(DM_sweep_samp * 1.2) // nchan_coarse) * nchan_coarse
 
             # starting sample of crop must be an integer multiple of 32
             requested_sampoff = (requested_sampoff // 32) * 32

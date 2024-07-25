@@ -38,10 +38,8 @@ beamform_dir = "$projectDir/../beamform/"
 localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
 
-params.plot_mosaic_t_list = [3,10,30,100,300,1000]      //  Default set of plotting time resolution in us
-
-params.usehtrmask = false	//	Use masked HTR outputs for SMDM ?
 params.timresus = 1			//	Input time resolution in us for SMDM
+params.plot_mosaic_t_list = ""
 
 process load_coarse_dynspec {
     /*
@@ -774,13 +772,7 @@ workflow process_frb {
                 
         if( params.shrine ) {
         	
-        	if( params.usehtrmask ) {
-        		idspath		= "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_${params.timresus}us_masked_I.npy"
-        	}
-        	else {
-        		idspath		= "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_${params.timresus}us_I.npy"
-        	}
-        	
+        	idspath	= "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_dsI_crop.npy"        	
         	idsdata	= Channel.fromPath(idspath)
         	
         	smdm(idsdata,params.timresus)        	

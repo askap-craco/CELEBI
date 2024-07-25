@@ -29,7 +29,8 @@ params.frb_dynspec_tN = 50      //time averaging
 params.frb_dynspec_guard = 10.0
 
 params.polcal_crop_width_s = 3.0
-
+params.longdata = false
+params.frb_crop_width_s = 1.0
 
 process create_calcfiles {
     /*
@@ -180,8 +181,18 @@ process do_beamform {
         args="\$args -o ${label}_frb_${ant_idx}_${pol}_f.npy"
         args="\$args -i 1"
         args="\$args --cpus=16"
-        args="\$args --polcal_crop_width_s $params.polcal_crop_width_s"
-
+        
+        # Set cropping window        
+        if [[ $label == "${params.label}" ]]; then
+            if [[ "${params.longdata}" = "true" ]]; then
+                args="\$args --polcal_crop_width_s $params.frb_crop_width_s"
+            else
+                args="\$args --polcal_crop_width_s -1.0"
+            fi
+        else
+            args="\$args --polcal_crop_width_s $params.polcal_crop_width_s"
+        fi
+        
         # Candidate file for cropping
         if [[ $label == "${params.label}" ]]; then
             args="\$args --snoopy $cand"

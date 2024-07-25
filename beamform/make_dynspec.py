@@ -523,7 +523,7 @@ def _proc(args, pol):
 
         # make dynamic spectra
         ds = make_ds(pol['X'], pol['Y'], S, args.nFFT)
-        
+
         # remove first channel (zero it)
         ds[0] *= 1e-12
 
@@ -569,3 +569,7 @@ if __name__ == "__main__":
 
 
     print("Completed!")
+
+
+
+
