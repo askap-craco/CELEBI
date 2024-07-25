@@ -22,8 +22,7 @@ else {
 
 params.polcalimagesize = 128
 params.minbeamfrac = 0.05
-//params.refant = 3   // reference antenna - index corresponds to ak name
-// i.e. refant = 3 corresponds to ak03
+params.refant = 3   
 
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
@@ -599,8 +598,6 @@ process determine_pol_cal_solns {
             pol_cal_solns: path
                 A file containing the delay (in ns) and phase offset solutions
                 with errors
-            data: path
-                All .npy files created containing output Stokes dynamic spectra
             plots: path
                 A set of .png plots generated at various stages of polcal.py
                 for troubleshooting/verifying solutions
@@ -612,8 +609,8 @@ process determine_pol_cal_solns {
 
     output:
         path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
-        path "*.npy", emit: data
         path "*.png", emit: plots
+        path "polcal_name.txt"
     
     script:
         """
@@ -675,6 +672,9 @@ process determine_pol_cal_solns {
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/polcal.py \$args'
         
         cp polcal_sampler/polcal_corner.png .
+        
+        # make name txt file
+        echo "${params.polcal_name}" > polcal_name.txt
         """
     
     stub:

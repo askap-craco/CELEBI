@@ -616,11 +616,13 @@ def get_solutions(args, stk_s, freqs, l_model, v_model):
     
     # get posterior
     posterior = {}
+    posterior_err = {}
 
     for key in priors.keys():
         # get bestfit value
         par = result.get_one_dimensional_median_and_error_bar(key)
         posterior[key] = par.median
+        posterior_err[key] = (abs(par.plus) + abs(par.minus))/2
         print(f"{key}: {par.median}    +{par.plus}    -{par.minus}")
 
 
@@ -631,6 +633,7 @@ def get_solutions(args, stk_s, freqs, l_model, v_model):
     # add alpha if not fitting ellipticity
     if not args.ellipse:
         posterior['alpha'] = 0.0
+        posterior_err['alpha'] = 0.0
 
 
 
@@ -641,7 +644,7 @@ def get_solutions(args, stk_s, freqs, l_model, v_model):
     # save solutions to .txt file
     with open(path.join(args.odir, args.ofile), "w") as file:
         for key in posterior.keys():
-            file.write(f"{key}:{posterior[key]}\n")
+            file.write(f"{key}:{posterior[key]}:{posterior_err[key]}\n")
 
         if not args.ellipse:
             file.write("ELLIPTICITY:0\n")

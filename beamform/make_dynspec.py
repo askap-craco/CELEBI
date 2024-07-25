@@ -15,6 +15,7 @@ import numpy as np
 from copy import deepcopy
 from scipy.fft import fft
 from math import ceil
+import matplotlib.pyplot as plt
 
 ## import basic libraries
 import argparse, sys
@@ -246,6 +247,7 @@ def make_ds(xpol, ypol, S = "I", nFFT = 336):
     ds = np.zeros((nFFT, nwind), dtype = np.float32)
 
     b_arr = np.empty((0,2), dtype = int)
+    i = -1
     for i in range(nblock):
         b_arr = np.append(b_arr, [[i*nwinb,(i+1)*nwinb]], axis = 0)
     # append extra block at end
@@ -441,7 +443,63 @@ def baseline_correction(ds, sigma: float = 5.0, guard: float = 1.0,
 
 
 
+def plot_bline_diagnostic(ds, rbounds, args):
+    """
+    Generate plot of baseline correction performed
 
+    """
+
+    # create figure and axes
+    fig, AX = plt.subplots(2, 1, figsize = (8, 12))
+    AX = AX.flatten()
+    
+    ## calculate time resolution
+    dt = 1e-3 * (ds.shape[0]/336) 
+
+    ## ms/ or 1000 x dt -> ds time bin converter
+    get_units = lambda t : int(ceil(t/dt))
+
+    # get full rbounds and baseline crop as well as a bit of leg room
+    crop_start = rbounds[0] - get_units(args.guard + 1.2*args.baseline)
+    crop_end = rbounds[1] + get_units(args.guard + 1.2*args.baseline)
+
+    # crop
+    ds_crop = average(ds[:,crop_start:crop_end], axis = 1, N = args.tN)
+
+    # get time series
+    t_crop = np.mean(ds_crop, axis = 0)
+
+    # get time axis in ms/ or 1000 x dt
+    x_crop = np.linspace(0, dt*args.tN*t_crop.size, t_crop.size)
+
+
+    ## plot
+    AX[0].plot(x_crop, t_crop, color = 'k')
+    ylim = AX[0].get_ylim()
+    AX[0].plot([0.2*args.baseline, 0.2*args.baseline], ylim, 'r--')
+    AX[0].plot([1.2*args.baseline, 1.2*args.baseline], ylim, 'r--')
+    AX[0].plot([x_crop[-1] - 0.2*args.baseline, x_crop[-1] - 0.2*args.baseline], ylim, 'r--')
+    AX[0].plot([x_crop[-1] - 1.2*args.baseline, x_crop[-1] - 1.2*args.baseline], ylim, 'r--')
+    AX[0].get_xaxis().set_visible(False)
+    AX[0].get_yaxis().set_visible(False)
+    AX[0].set_xlim([x_crop[0], x_crop[-1]])
+    AX[0].set_ylim(ylim)
+
+    # dynspec plot
+    AX[1].imshow(ds_crop, aspect = 'auto', extent = [0, x_crop[-1], 0, 336])
+    AX[1].plot([0.2*args.baseline, 0.2*args.baseline], [0,  336], 'r--')
+    AX[1].plot([1.2*args.baseline, 1.2*args.baseline], [0, 336], 'r--')
+    AX[1].plot([x_crop[-1] - 0.2*args.baseline, x_crop[-1] - 0.2*args.baseline], [0, 336], 'r--')
+    AX[1].plot([x_crop[-1] - 1.2*args.baseline, x_crop[-1] - 1.2*args.baseline], [0, 336], 'r--')
+    AX[1].set_xlabel("Time [ms]")
+    AX[1].set_ylabel("Bandwidth [MHz]")
+
+    fig.tight_layout()
+    fig.subplots_adjust(hspace = 0)
+    
+
+    # save plot
+    plt.savefig(f"{args.ofile.split('@')[0]}_bline_plot.png")
 
 
 
@@ -465,7 +523,7 @@ def _proc(args, pol):
 
         # make dynamic spectra
         ds = make_ds(pol['X'], pol['Y'], S, args.nFFT)
-
+        
         # remove first channel (zero it)
         ds[0] *= 1e-12
 
@@ -478,6 +536,9 @@ def _proc(args, pol):
             ## get baseline corrections
             bs_mean, bs_std, rbounds = baseline_correction(ds, args.sigma, args.guard,
                                             args.baseline, args.tN, rbounds)
+
+            if S == "I":
+                plot_bline_diagnostic(ds, rbounds, args)
 
 
             ## Apply baseline corrections
@@ -508,7 +569,3 @@ if __name__ == "__main__":
 
 
     print("Completed!")
-
-
-
-

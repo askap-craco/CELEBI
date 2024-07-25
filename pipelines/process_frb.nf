@@ -3,13 +3,14 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_field; correlate as corr_htrgate; correlate as corr_htrrfi; 
-    subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi } from './correlate'
+    subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi; get_start_mjd as get_start_mjd } from './correlate'
 include { image_finder; image_field; get_peak; image_htrgate } from './calibration'
 include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
     generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 include { flag_proper as flagdat } from './flagging'
 include { shrine as smdm } from './shrine'
+include { compile_summary } from './utils'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -36,6 +37,8 @@ antennas = Channel
 beamform_dir = "$projectDir/../beamform/"
 localise_dir = "$projectDir/../localise/"
 params.out_dir = "${params.publish_dir}/${params.label}"
+
+params.plot_mosaic_t_list = [3,10,30,100,300,1000]      //  Default set of plotting time resolution in us
 
 params.usehtrmask = false	//	Use masked HTR outputs for SMDM ?
 params.timresus = 1			//	Input time resolution in us for SMDM
@@ -258,10 +261,8 @@ process plot {
                 Central frequency of fine spectrum (MHz)
             dm: val
                 Dispersion measure the data has been dedispersed to
-            xy: path
-                High-time resolution time series of X and Y pols
-            time: path
-                Time in MJD (1 ms steps) from coarse dynspecs
+            start_time: path
+                start mjd
             cand: path
                 Refined candidate for FRB from ICS search
         
@@ -279,15 +280,15 @@ process plot {
         path dynspecs
         val centre_freq
         val dm
-        path xy
-        path time
+        val start_time
         path cand
     
     output:
         path "*.png"
         path "crops", emit: crops
-        path "50us_crop_start_s.txt", emit: crop_start
-        path "crops/*50us_I.npy", emit: crop_50us
+        path "*_channel_mask.txt"
+        path "crops/*.npy", emit: crop_us
+        val "_compile", emit: _compile
     
     script:
         """
@@ -305,11 +306,10 @@ process plot {
         args="\$args -f $centre_freq"
         args="\$args -l $label"
         args="\$args -d $dm"
-        args="\$args -x ${label}*X_t*npy"
-        args="\$args -y ${label}*Y_t*npy"
-        args="\$args -t $time"
+        args="\$args -t $start_time"
         args="\$args -c $cand"
         args="\$args --chanlists $projectDir/../flagging"
+        args="\$args --t_panels $params.plot_mosaic_t_list"
 
         mkdir crops
 
@@ -320,8 +320,7 @@ process plot {
         """
         touch stub.png
         mkdir crops
-        touch crops/stub_50us_I.npy
-        touch 50us_crop_start_s.txt
+        touch crops/stub_I.npy
         """
 }
 
@@ -633,17 +632,12 @@ workflow process_frb {
         pol_cal_solns
         fcm
 
-    main:
+    main:        
         if ( !params.skip_ics && params.nbits > 1 ) {
             coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, antennas,fcm)
-            refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
-            if ( new File(refined_candidate_path).exists()) {
-                refined_candidate = Channel.fromPath(refined_candidate_path)
-            }
-            else {
-                refine_candidate(params.label, coarse_ds.data.collect(), coarse_ds.time.first(), params.snoopy)
-                refined_candidate = refine_candidate.out.cand
-            }
+            refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"            
+            refine_candidate(params.label, coarse_ds.data.collect(), coarse_ds.time.first(), params.snoopy)
+            refined_candidate = refine_candidate.out.cand           
         }
         else {
             refined_candidate = Channel.fromPath(params.snoopy)
@@ -653,12 +647,13 @@ workflow process_frb {
         rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
         centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
+        
+        empty_file = create_empty_file("file")
                 
-        if( params.makeimage || params.corrcal ) {           
-
-            binconfig = generate_binconfig(refined_candidate)
-            empty_file = create_empty_file("file")
-
+        if( params.makeimage || params.corrcal ) {   
+            
+            binconfig = generate_binconfig(refined_candidate)        
+            
             if(!params.opt_gate){                    
                 // Correlate finder                
                 (finder_fits, centre_bin_fits) = corr_finder(
@@ -690,12 +685,12 @@ workflow process_frb {
             field_fits = Channel.fromPath(field_fits_path)
         }
         
-        if( params.makeimage || params.locfrb ) {    
-
+        if( params.makeimage || params.locfrb ) {  
+            
             if( params.locfrb ) {
                 binconfig = generate_binconfig(refined_candidate)
             }
-
+                 
             // Flagging
             if( !params.noflag ) {
                 field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
@@ -758,24 +753,25 @@ workflow process_frb {
             frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
         }
+        
+        final_position_path = "${params.out_dir}/finder/${params.label}_final_position.txt"
+        final_position = Channel.fromPath(final_position_path)
 
         if( params.beamform || params.htrfrb ) {
-            
+                        
             bform_frb(
                 params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                 pol_cal_solns, params.dm_frb, params.centre_freq_frb,
-                params.nants_frb, fcm
-            )
+                params.nants_frb, fcm, params.snoopy
+            )            
             plot(
                 params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                coarse_ds.time.first(), refined_candidate
+                params.centre_freq_frb, params.dm_frb,
+                bform_frb.out.bform_start_MJD, refined_candidate
             )
-            crops = plot.out.crops
-            crop_start = plot.out.crop_start
-            crop_50us = plot.out.crop_50us
+            compile_summary(plot.out._compile, final_position)
         }
-        
+                
         if( params.shrine ) {
         	
         	if( params.usehtrmask ) {
