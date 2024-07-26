@@ -185,12 +185,12 @@ process do_beamform {
         # Set cropping window        
         if [[ $label == "${params.label}" ]]; then
             if [[ "${params.longdata}" = "true" ]]; then
-                args="\$args --polcal_crop_width_s $params.frb_crop_width_s"
+                args="\$args --crop_width_s $params.frb_crop_width_s"
             else
-                args="\$args --polcal_crop_width_s -1.0"
+                args="\$args --crop_width_s -1.0"
             fi
         else
-            args="\$args --polcal_crop_width_s $params.polcal_crop_width_s"
+            args="\$args --crop_width_s $params.polcal_crop_width_s"
         fi
         
         # Candidate file for cropping

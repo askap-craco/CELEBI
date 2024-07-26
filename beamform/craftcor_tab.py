@@ -193,7 +193,7 @@ def _main():
                 cand = parse_snoopy(values.snoopy)
                 mjd = float(cand[7])
 
-            temp = corr.do_tab(values.an, mjd, values.DM, values.polcal_crop_width_s)
+            temp = corr.do_tab(values.an, mjd, values.DM, values.crop_width_s)
             
             # save file
             fn = values.outfile
@@ -219,7 +219,7 @@ class AntennaSource:
         self.pol = self.vfile.pol.lower()
         print(f"antenna {self.antname} {self.vfile.freqconfig}")
 
-    def do_f_tab(self, corr, iant, mjd, DM, polcal_width_s):
+    def do_f_tab(self, corr, iant, mjd, DM, width_s):
 
         ##########################
         # calculate buffer offset
@@ -302,8 +302,8 @@ class AntennaSource:
             
             #   AB: Allowing longer crop for FRBs
             #   Using the same width for FRB -- Needs to be passed properly from the NF script
-            if (polcal_width_s > 0.0):
-                DM_sweep_samp = int(1e6 * polcal_width_s * 32/27)
+            if (width_s > 0.0):
+                DM_sweep_samp = int(1e6 * width_s * 32/27)
                 
                 print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
                 print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
@@ -398,7 +398,7 @@ class AntennaSource:
             # of pulses for polcal. NOTE: 3.21529s is arbitrarily chosen
             print("POLCAL cropping\n")
             old_nsamp = nsamp
-            nsamp = int(1e6 * polcal_width_s * 32/27)
+            nsamp = int(1e6 * width_s * 32/27)
             # if requested_nsamp >= requested_nsamp:
             #     nsamp = requested_nsamp
 
@@ -820,7 +820,7 @@ class Correlator:
         self.frdata_mid = self.get_calc_results(self.curr_mjd_mid)
         self.frdata_end = self.get_calc_results(self.curr_mjd_end)
 
-    def do_tab(self, an=None, mjd = None, DM = None, polcal_width_s = 3):
+    def do_tab(self, an=None, mjd = None, DM = None, width_s = -1.0):
         # Tied-array beamforming
 
         nsamp = self.nint
@@ -835,7 +835,7 @@ class Correlator:
         print("## Operate on only antenna #: " + str(an))
         ant = self.ants[an]
         iant = ant_map[ant.antname]
-        temp = ant.do_f_tab(self, iant, mjd, DM, polcal_width_s)
+        temp = ant.do_f_tab(self, iant, mjd, DM, width_s)
         print(f"do_f_tab (total): {timer()-start} s")
         return temp
 
@@ -1013,7 +1013,7 @@ def parse_args():
     # need to add in snoopy file for the rough MDJ time of the burst for better cropping
     parser.add_argument("--snoopy", default = None, help = "Snoopy file with rough pulse MJD")
     parser.add_argument("--DM", help = "DM of FRB", type = float, default = None)
-    parser.add_argument("--polcal_crop_width_s", help = "width of polcal crop from starting sample in seconds", default = 3.0, type = float)
+    parser.add_argument("--crop_width_s", help = "width of crop from starting sample in seconds", default = -1.0, type = float)
 
     parser.add_argument(
         "-d",
