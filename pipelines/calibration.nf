@@ -5,6 +5,8 @@
 localise_dir = "$projectDir/../localise"
 beamform_dir = "$projectDir/../beamform"
 
+params.usefield = false
+params.fieldimage = ""
 params.finderimagesize = 1024
 params.finderpixelsize = 1
 params.fieldimagesize = 5000
@@ -367,7 +369,7 @@ process image_field {
         args="\$args --minbeamfrac=$params.minbeamfrac"
 
         # if we have an already-made field image, skip imaging
-        if [ "$params.fieldimage" == "null" ]; then
+        if [ "$params.usefield" = "false" ]; then
             args="\$args --targetonly"
             args="\$args -t $target_fits"
             args="\$args --cleanmfs"

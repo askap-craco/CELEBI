@@ -15,6 +15,7 @@ include { compile_summary } from './utils'
 params.fieldimage = ""
 params.flagfinder = ""
 params.skiprfi = false
+params.usefield = false
 params.image_all_bins = false
 params.ICS_DMrange = 100
 params.ICS_DMstep = 0.1
@@ -668,13 +669,18 @@ workflow process_frb {
                     ).fits
                 }
             }
-
-            // Correlate field (if not using deep field image)            
-            beam_centre = get_beam_centre()
-            field_fits = corr_field(
-                "${params.label}_field", params.data_frb, beam_centre.ra, 
-                beam_centre.dec, empty_file, empty_file, empty_file, "field", fcm
-            ).fits
+            
+            if( !params.usefield ) {
+                // Correlate field (if not using deep field image)            
+                beam_centre = get_beam_centre()
+                field_fits = corr_field(
+                    "${params.label}_field", params.data_frb, beam_centre.ra, 
+                    beam_centre.dec, empty_file, empty_file, empty_file, "field", fcm
+                ).fits
+            }
+            else {
+                field_fits = Channel.fromPath(field_fits_path)
+            }
         }
         else {
             finder_fits = Channel.fromPath(finder_fits_path)
@@ -690,7 +696,7 @@ workflow process_frb {
             }
                  
             // Flagging
-            if( !params.noflag ) {
+            if( !params.noflag && !params.usefield ) {
                 field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
                 field_outfits = flagdat(field_fits,field_fits_flagged, "field").outfile           
                 field_fits = field_outfits
@@ -736,7 +742,7 @@ workflow process_frb {
             field_sources = image_field(
                 field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
             ).jmfit
-    
+              
     		offres = find_offset(field_sources)
             offset = offres.offset
             doffset = offres.doffset                
@@ -751,7 +757,7 @@ workflow process_frb {
             frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
             askap_frb_pos = Channel.fromPath(frb_jmfit_path)
         }
-        
+                
         final_position_path = "${params.out_dir}/finder/${params.label}_final_position.txt"
         final_position = Channel.fromPath(final_position_path)
 

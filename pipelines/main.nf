@@ -17,7 +17,6 @@ params.impcal = false
 params.beampcal = false
 params.locfrb = false
 params.htrfrb = false
-params.oldynspec = false
 params.noflag = false       // don't automatically flag
 params.nofrb = false        // can be convenient to not run frb processes
 params.nopolcal = false     // some FRBs have no good pol cal
