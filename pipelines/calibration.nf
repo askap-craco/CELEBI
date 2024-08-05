@@ -30,6 +30,8 @@ params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
 params.out_dir = "${params.publish_dir}/${params.label}"
 
+params.polcal_chanflag = ""
+
 process determine_flux_cal_solns {
     /*
         Determine flux calibration solutions
@@ -656,6 +658,7 @@ process determine_pol_cal_solns {
         args="\$args --tN $params.polcal_tN"
         args="\$args --fN $params.polcal_fN"
         args="\$args --RFIguard $params.polcal_guard"
+        args="\$args --chanflag $params.polcal_chanflag"
         
         args="\$args --pa0 $params.polcal_pa0"
         args="\$args --f0 $params.polcal_f0"
@@ -668,6 +671,8 @@ process determine_pol_cal_solns {
         if [ '$params.polcal_ellipse' == 'true' ]; then
             args="\$args --ellipse"
         fi
+
+
 
         args="\$args --ofile ${params.label}_polcal_solutions.txt"
 
