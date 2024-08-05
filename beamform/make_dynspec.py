@@ -320,18 +320,21 @@ def pulse_fold(ds, DM, cfreq, bw, MJD0, MJD1, F0, F1, sphase = None):
     print(f"DM sweep: {DM_sweep} [ms]")
     print(f"Culling {P_sweep} Periods to the left due to DM sweep")
 
-
-
-    # find index of peak in second period, then get starting phase
     if sphase is None:
-        search_crop = ds[:,P_sweep*fold_w:(P_sweep + 1)*fold_w]
-        search_crop = (search_crop - ds_mean)/ds_std
-        pulse2i = np.mean(search_crop, axis = 0).argmax()
-        pulse2i += P_sweep * fold_w
-        sphase = pulse2i - int(fold_w/2)
+        # do first run of folding and find maximum, take as starting phase
+        fold_n = int((ds.shape[1] - P_sweep * fold_w)/fold_w)
+        ts = np.mean(ds[:, P_sweep * fold_w : (P_sweep + fold_n) * fold_w], axis = 0)
+        ts_f = np.mean(ts.reshape(fold_n, fold_w), axis = 0)
+
+        # find phase of maximum given this is enough signal
+        phase_max = np.argmax(ts_f)/ts_f.size
+        phase_diff = (phase_max - 0.5)
+        sphase = int((P_sweep + phase_diff) * fold_w)
+
     else:
         # put in sample units
         sphase = int(sphase*ds.shape[1])
+
 
     # calculate number of folds
     fold_n = int((ds.shape[1]-(sphase+1))/fold_w)     # number of folds
@@ -342,6 +345,8 @@ def pulse_fold(ds, DM, cfreq, bw, MJD0, MJD1, F0, F1, sphase = None):
     # ignore side periods due to dedispersing
     ds_r = ds[:,sphase:sphase + fold_w * (fold_n)].copy()
     ds_f = np.mean(ds_r.reshape(ds_r.shape[0], (fold_n), fold_w), axis = 1)
+
+    print(ds_f.shape)
 
     
     return ds_f, sphase / ds.shape[1]
@@ -462,6 +467,8 @@ def plot_bline_diagnostic(ds, rbounds, args):
     # get full rbounds and baseline crop as well as a bit of leg room
     crop_start = rbounds[0] - get_units(args.guard + 1.2*args.baseline)
     crop_end = rbounds[1] + get_units(args.guard + 1.2*args.baseline)
+
+    print(crop_start, crop_end)
 
     # crop
     ds_crop = average(ds[:,crop_start:crop_end], axis = 1, N = args.tN)
