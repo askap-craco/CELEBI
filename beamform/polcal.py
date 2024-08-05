@@ -2,7 +2,7 @@
 # Author:   Tyson Dial                           #
 # Email:    tdial@swin.edu.au                    #
 # Date (created):     11/11/2023                 #
-# Date (updated):     18/12/2023                 #
+# Date (updated):     05/08/2024                 #
 ##################################################
 # Polarisation Calibration [polcal.py]           #
 #                                                #
@@ -13,11 +13,6 @@
 # This uses a given polarisation calibrator      #
 # (for example the VELA pulsar) with well        #
 # known polarisation properties to solve for.    #
-##################################################
-# KNOWN BUGS/THINGS TO DO (TODO)                 #
-#                                                #
-# 1. Upper-Sideband??                            #
-# 2. Add channel zapping                         #
 ##################################################
 
 ## Imports 
@@ -32,8 +27,8 @@ import inspect
 
 
 ## import basic libraries
-import argparse, sys
-from os import path, mkdir, getcwd
+import argparse
+from os import path, mkdir
 import shutil
 
 
@@ -48,8 +43,6 @@ default_col = plt.rcParams['axes.prop_cycle'].by_key()['color']
 # GLOBAL container for holding data for plotting purposes
 class GLOBAL_():
     pass
-
-
 
 
 ##-------------------------##
@@ -126,6 +119,7 @@ def get_args():
     parser.add_argument("--fN", help = "Factor to scrunch in frequency", type = int, default = 1)
     parser.add_argument("--RFIguard", help = "Total phase of pulse period between pulse peak and RFI windows",
                         type = float, default = 0.1)
+    parser.add_argument("--chanflag", help = "string of channels to flag", type = str, default = None)
 
 
     ## calibrator arguments
@@ -270,7 +264,7 @@ def get_spectra(args, stk, freqs, l_model, v_model):
             shape_new[-1] = t_new // N
             shape_new.append(N)
 
-            return np.mean(x[...,:t_new].reshape(shape_new), axis = -1)
+            return np.nanmean(x[...,:t_new].reshape(shape_new), axis = -1)
         
         elif axis == 0:
             # frequency
@@ -279,12 +273,70 @@ def get_spectra(args, stk, freqs, l_model, v_model):
             shape_new[-1] = f_new // N
             shape_new.append(N)
 
-            return np.mean(x.T[...,:f_new].reshape(shape_new), axis = -1).T
+            return np.nanmean(x.T[...,:f_new].reshape(shape_new), axis = -1).T
 
         else:
             print("invalid scrunching axis")
             return x
+        
 
+    
+    def flag_chan(f, chanflag):
+        """
+        Mask channels based on string in format...
+        chanflag = "a:b,c,d" -> channels a to b, channel c and channel d will be masked
+
+        NOTE: frequency channels are assumed to be at 1MHz resolution to begin with, and in descending order
+
+        ##====== inputs ======##
+        f:              freq array
+        chanflag:       str for channel masking
+
+        ##====== outputs ======##
+        flagged_chans:             indicies for channel masking 
+
+        """
+
+        flagged_chans = []
+
+        # split flag string into segments using the ',' delimeter
+        chan_segments = chanflag.split(',')
+        for i, segment in enumerate(chan_segments):
+            # check if a channel range was given based on if ':' is present
+            if ":" in segment:
+                # start and end of range will be in ascending order, so just reverse it
+                seg_start = float(segment.split(':')[0])
+                seg_end = float(segment.split(':')[1])
+
+                # check if within bounds
+                if (seg_end < f[0] - 0.5) or (seg_start > f[-1] + 0.5):
+                    # outside bounds
+                    continue
+                # snap to bounds of bandwidth
+                if (seg_start < f[0] - 0.5):
+                    seg_start = f[0] - 0.5
+
+                if (seg_end > f[-1] + 0.5):
+                    seg_end = f[-1] + 0.5
+
+                segid_start = int(seg_start - (f[0] - 0.5))
+                segid_end = int(seg_end - (f[0] - 0.5))
+
+                flagged_chans += list(range(segid_start, segid_end + 1))
+
+            else:
+                seg_chan = float(segment)
+                if (seg_chan < f[0] - 0.5) or (seg_chan > f[-1] + 0.5):
+                    # outside bounds
+                    continue
+                flagged_chans += [int(seg_chan - (f[0] - 0.5))]
+
+        
+        return flagged_chans
+
+                 
+
+        
 
     ## plot data for diagnostics ##
     PLOTDATA.ds = {}
@@ -306,6 +358,13 @@ def get_spectra(args, stk, freqs, l_model, v_model):
     tN     = args.tN
     fN     = args.fN
 
+
+    ## channel flagging
+    if (args.chanflag is None) or (args.chanflag == ""):
+        chan_flag = []
+    else:
+        chan_flag = flag_chan(freqs, args.chanflag)
+
     ## scrunch freq array to match stokes_spec resolution
     freqs = scrunch(freqs, fN, -1)      
     l_model = scrunch(l_model, fN, -1)    # L/I model
@@ -318,17 +377,20 @@ def get_spectra(args, stk, freqs, l_model, v_model):
 
         ## scrunch dynamic spectra
         ds_r = scrunch(stk[S], tN, -1)        # Time
+
+        ## mask (flag) dynspec in freq
+        ds_r = ds_r[::-1]
+        ds_r[chan_flag] = np.nan
+        
         # flip band
-        ds_r = scrunch(ds_r[::-1], fN, 0)     # Frequency
-
-
+        ds_r = scrunch(ds_r, fN, 0)     # Frequency
+        
         ## get peak of mean pulse in time (using power dynspec)
         if S == "I":
-            peak = np.argmax(np.mean(ds_r, axis = 0))
+            peak = np.argmax(np.nanmean(ds_r, axis = 0))
             rfi_guard = int(ds_r.shape[1] * args.RFIguard)
 
-        ## get on pulse spectra
-        stk_s[S] = np.mean(ds_r[:,peak-peak_w:peak+peak_w+1], axis = 1)
+        stk_s[S] = np.nanmean(ds_r[:,peak-peak_w:peak+peak_w+1], axis = 1)
 
         # get offpulse spectra rms by taking bins of either windows of off-pulse
         # on either side
@@ -338,7 +400,7 @@ def get_spectra(args, stk, freqs, l_model, v_model):
 
         # Error accounts for sampling in time along with ratio of off-pulse region to on-pulse region
         # in time.
-        off_rms    = np.std(off_pulseT, axis = 1)/(off_pulseT.shape[1]**0.5) * ((2*rms_w + 1)/(peak_w + 1))**0.5
+        off_rms    = np.nanstd(off_pulseT, axis = 1)/(off_pulseT.shape[1]**0.5) * ((2*rms_w + 1)/(peak_w + 1))**0.5
         # account for added noise when doing RFI subtraction
         stk_s[f"{S}err"] = off_rms * (1 + 1/(4*rms_w + 2)**0.5)
 
@@ -346,7 +408,12 @@ def get_spectra(args, stk, freqs, l_model, v_model):
         # being done over a much larger range than what could be allowed when
         # approximating the RFI to be constant. So this step may be added just
         # in case. 
-        stk_s[S] -= np.mean(off_pulseT, axis = 1)
+        stk_s[S] -= np.nanmean(off_pulseT, axis = 1)
+
+        # get rid of flagged stuff (np.nan)
+        freq_mask = ~np.isnan(stk_s[S])
+        stk_s[S] = stk_s[S][freq_mask]
+        stk_s[f"{S}err"] = stk_s[f"{S}err"][freq_mask]
 
 
         ##=================##
@@ -356,13 +423,19 @@ def get_spectra(args, stk, freqs, l_model, v_model):
         ## plot data for diagnostics ##
         PLOTDATA.r_raw_spec[S] = stk_s[S].copy()
         PLOTDATA.r_raw_spec[f"{S}err"] = stk_s[f"{S}err"].copy()
-        PLOTDATA.off_pulse[S] = np.mean(off_pulseT, axis = 1)
+        PLOTDATA.off_pulse[S] = np.nanmean(off_pulseT, axis = 1)[freq_mask]
         PLOTDATA.ds[S] = ds_r.copy()
         PLOTDATA.peak = peak
         PLOTDATA.rfi_guard = rfi_guard
+        PLOTDATA.freq_mask = freq_mask.copy()
+        PLOTDATA.freqs = freqs.copy()
 
 
-    
+    ## mask freqs
+    freqs = freqs[freq_mask]
+    l_model = l_model[freq_mask]
+    v_model = v_model[freq_mask]
+
     ## calculate Stokes Ratios
     for S in "QUV":
         stk_s[S], stk_s[f"{S}err"] = calc_ratio(stk_s['I'], stk_s[S],
@@ -737,7 +810,7 @@ def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
 
         filename_ext = ""
         if i > 3:
-            ds -= PLOTDATA.off_pulse[S][:,None]
+            ds[PLOTDATA.freq_mask] -= PLOTDATA.off_pulse[S][:,None]
             spec -= PLOTDATA.off_pulse[S]
             filename_ext = "_RFIsub"
 
@@ -748,7 +821,7 @@ def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
 
         # plot dynamic spectrum
         im_xlim = [.0, ds.shape[1] - 1]
-        im_ylim = [freqs[0], freqs[-1]]
+        im_ylim = [PLOTDATA.freqs[0], PLOTDATA.freqs[-1]]
         ax1.imshow(X = ds[::-1], aspect = 'auto', extent = [*im_xlim, *im_ylim])
         # region markers
         ax1.plot([peak - peak_w, peak - peak_w], im_ylim, 'r--')
@@ -761,7 +834,7 @@ def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
         ax1.set(xlim = im_xlim, ylim = im_ylim, xlabel = "Time [samples]", ylabel = "Frequency [MHz]")
 
         # plot time series
-        ax2.plot(np.linspace(*im_xlim, ds.shape[1]), np.mean(ds, axis = 0), 'k')
+        ax2.plot(np.linspace(*im_xlim, ds.shape[1]), np.nanmean(ds, axis = 0), 'k')
         t_ylim = ax2.get_ylim()
         # region markers
         ax2.plot([peak - peak_w, peak - peak_w], t_ylim, 'r--')
@@ -1026,15 +1099,15 @@ def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
         elif S == "V":
             lfrac = params['Vfrac']
         # plot de-faraday measured data
-        ax1.scatter(freqs, stk_meas[S], s = 20, marker = "+", c = default_col[i])
+        ax1.plot(freqs, stk_meas[S], linestyle = "--", color = default_col[i])
         ax1.plot(freqs, lfrac * stk_m[S], color = default_col[i])
 
         # plot de-faraday corrected data
-        ax2.scatter(freqs, stk_corr[S], s = 20, marker = "+", c = default_col[i])
+        ax2.plot(freqs, stk_corr[S], linestyle = "--", color= default_col[i])
         ax2.plot(freqs, lfrac * stk_m[S], color = default_col[i])
 
         # plot predicted data
-        ax3.scatter(freqs, stk_s[S], s = 20, marker = "+", c = default_col[i])
+        ax3.plot(freqs, stk_s[S], linestyle = "--", color = default_col[i])
         ax3.plot(freqs, stk_pred[S], color = default_col[i], label = S)
 
 
@@ -1051,6 +1124,34 @@ def plot_diagnostics(args, stk_s, freqs, l_model, v_model):
     ax3.legend(loc = "center left", bbox_to_anchor=(1.15, 0.5))
 
     plt.savefig(path.join(args.odir,f"polcal_stokes_corrected.png"))
+
+
+    ##=========================================================##
+    ## 6. measured/corrected data VS model data, seperate axes ##
+    ##=========================================================##
+
+    fig, AX = plt.subplots(2, 2, figsize = (10,10))
+    AX = AX.flatten()
+
+    for i, S in enumerate("QUVL"):
+        AX[i].set_title(f"S = {S}")
+        AX[i].plot(freqs, stk_s[S], linestyle = "--", color = default_col[i])
+        AX[i].plot(freqs, stk_pred[S], color = 'k')
+
+        if i == 0:
+            AX[i].plot([], [], linestyle = "--", color = 'k', label = "data")
+            AX[i].plot([], [], color = 'k', label = "model")
+            AX[i].legend()
+    
+    AX[0].set_ylabel("S/I")
+    AX[2].set_ylabel("S/I")
+    AX[2].set_xlabel("Freq [MHz]")
+    AX[3].set_xlabel("Freq [MHz]")
+
+    plt.savefig(path.join(args.odir, "polcal_stokes_predicted.png"))
+
+
+
 
 
     ##======================##
