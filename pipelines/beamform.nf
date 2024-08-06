@@ -60,6 +60,7 @@ process create_calcfiles {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         # Why isn't this passed as an arg?
         startmjd=`python3 $localise_dir/get_start_mjd.py $data` 
@@ -151,6 +152,7 @@ process do_beamform {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         mkdir delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
@@ -226,6 +228,8 @@ process sum_antennas {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/sum.py \
                 --f_dir . \
                 -f ${label}_frb \
@@ -266,6 +270,8 @@ process generate_deripple {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
 
         """
@@ -317,6 +323,8 @@ process deripple {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/deripple.py \
                 -f $spectrum \
                 -l \$FFTLEN \
@@ -372,6 +380,8 @@ process dedisperse {
     script:
         """
         source /opt/setup_proc_container 
+        set -xu
+
         python3 $beamform_dir/dedisperse.py \
                 -f $spectrum \
                 --DM $dm \
@@ -484,6 +494,7 @@ process generate_dynspecs {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         if [[ $label == "${params.label}_polcal" ]]; then
             type="polcal"

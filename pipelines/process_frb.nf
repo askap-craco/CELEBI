@@ -81,6 +81,8 @@ process load_coarse_dynspec {
         """
         export CRAFTCATDIR="."
         source /opt/setup_proc_container 
+        set -xu
+
         startmjd=`python3 $localise_dir/get_start_mjd.py $data` 
 
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is written
@@ -153,8 +155,8 @@ process refine_candidate {
 
     script:
         """
-    
         source /opt/setup_proc_container
+        set -xu
         
         python3 $localise_dir/sum_ics.py ${label}_ICS.npy ${label}_ICS_*.npy
 
@@ -198,6 +200,7 @@ process get_beam_centre {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         # find a header file
         ant_pattern="${params.data_frb}/ak*"
@@ -283,6 +286,7 @@ process plot {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         mkdir crops
 
@@ -306,63 +310,6 @@ process plot {
         touch 50us_crop_start_s.txt
         """
 }
-
-/*
-process npy_to_archive {
-    /*
-        Convert X and Y numpy time series to a PSRCHIVE archive
-
-        Input
-            label: val
-                FRB name and context of process instance as a string (no
-                spaces)
-            crops: path
-                Directory containing cropped numpy files to convert
-            startmjd: val
-                Earliest data start time in Modified Julian Day (MJD) 
-            centre_freq: val
-                Central frequency of fine spectrum (MHz)
-            final_position: path
-                Text file containing final position and error
-            
-        Output:
-            fils: path
-                Directory containing converted filterbank files
-    
-    publishDir "${params.publish_dir}/${params.label}/htr/fils", mode: "copy"
-
-    input:
-        val label
-        path crops
-        val startmjd
-        val centre_freq
-        path final_position
-    
-    output:
-        path "*fil"
-    
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            module load anaconda3/5.1.0
-            source activate $launchDir/envs/psrchive
-        fi
-        #OBSOLETE PROCESS - NOT CALLED ANYWHERE.
-
-        #convert_addpol
-        #fill_header
-        #cat outputs of ^ into outfile
-
-        #dspsr
-        #pam
-        """
-
-    stub:
-        """
-        touch stub.fil
-        """
-}
-*/
 
 process find_DM_opt {
     /*
@@ -398,6 +345,8 @@ process find_DM_opt {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/opt_DM.py \
                 -x $crops/${params.label}_${dm}_X.npy \
                 -y $crops/${params.label}_${dm}_Y.npy \
@@ -482,6 +431,8 @@ process mjd_prof {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         python3 $beamform_dir/mjd_prof.py $params.data_frb $crop_50us $crop_start
         """
 
@@ -514,6 +465,8 @@ process update_polyco {
     
     script:
         """
+        set -xu
+
         head -1 $polyco | awk '\$5="$dm"' > craftfrb.polyco
         head -2 $polyco | tail -1 | awk '\$6="1104.000"' >> craftfrb.polyco
         tail -1 $polyco >> craftfrb.polyco
@@ -556,6 +509,8 @@ process htr_to_binconfig {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+        
         python3 $beamform_dir/htr2binconfig.py $prof $polyco
         """
     

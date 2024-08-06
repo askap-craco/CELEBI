@@ -59,8 +59,9 @@ process determine_flux_cal_solns {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         export PATH=\$PATH:$params.casapath
-        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -143,8 +144,9 @@ process image_finder {
     script:
         """
         source /opt/setup_proc_container 
+        set -xu
+
         export PATH=\$PATH:$params.casapath
-        set -xu 
 
         aipsid="\$((RANDOM%8192))"
 
@@ -242,6 +244,8 @@ process get_peak {
 
     script:
         """
+        set -xu
+
         # Remove empty .jmfit and .reg files
         find *jmfit -type f -empty -print -delete
         find *reg -type f -empty -print -delete
@@ -347,8 +351,9 @@ process image_field {
     script:
         """
         source /opt/setup_proc_container
-        export PATH=\$PATH:$params.casapath
         set -xu 
+
+        export PATH=\$PATH:$params.casapath
 
         aipsid="\$((RANDOM%8192))"
 
@@ -446,8 +451,9 @@ process image_polcal {
     script:
         """
         source /opt/setup_proc_container
-        export PATH=\$PATH:$params.casapath
         set -xu 
+
+        export PATH=\$PATH:$params.casapath
 
         aipsid="\$((RANDOM%8192))"
 
@@ -538,8 +544,9 @@ process image_htrgate {
     script:
         """
         source /opt/setup_proc_container
-        export PATH=\$PATH:$params.casapath
         set -xu
+
+        export PATH=\$PATH:$params.casapath
 
         aipsid="\$((RANDOM%8192))"
 
@@ -692,6 +699,7 @@ process apply_pol_cal_solns {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
 
         fast=' '
         if [ '$params.polcal_fast' == 'true' ]; then

@@ -55,6 +55,7 @@ process flag_proper {
     
     script:
         """
+        set -xu
 	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
 
         export ANKDIR=$params.ankdir

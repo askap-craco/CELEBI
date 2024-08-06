@@ -20,6 +20,7 @@ process create_empty_file {
 
     script:
         """
+        set -xu
         touch $filename
         """
 }

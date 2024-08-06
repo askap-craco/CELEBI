@@ -41,6 +41,7 @@ process get_start_mjd {
 
     script:
         """    
+        set -xu
         python3 $localise_dir/get_start_mjd.py $data
         """
     
@@ -108,9 +109,9 @@ process do_ref_correlation {
 
     script:
         """
-        export CRAFTCATDIR="."  # necessary?
-
+        export CRAFTCATDIR="."
         source /opt/setup_proc_container
+        set -xu
 
         # create .bat0
         bat0.pl `find $data/*/*/*vcraft | head -1`
@@ -228,6 +229,8 @@ process do_correlation {
         """
         export CRAFTCATDIR="."
         source /opt/setup_proc_container 
+        set -xu
+
         bat0.pl `find $data/*/*/*vcraft | head -1`
 
         freqlabel="c${card}_f${fpga}"
@@ -326,7 +329,7 @@ process difx_to_fits {
     script:
         """
         source /opt/setup_proc_container
-        set -x 
+        set -xu
 
         for c in `seq 1 7`; do
             D2Ds=""
@@ -438,6 +441,7 @@ process subtract_rfi {
     
     script:
         """
+        set -xu
 
         # subtractions not empty: finder mode
         if [ `wc -c $subtractions | awk '{print \$1}'` != 0 ]; then

@@ -42,6 +42,7 @@ process flag_proper {
 
     script:
         """	
+        set -xu
         askap_band="low"
 
         if [ \$(echo "$params.centre_freq_frb > 1500.0" |bc -l) -gt 0 ] 
@@ -102,6 +103,7 @@ process flag_initial {
     
     script:
         """
+        set -xu
         
         askapband = low
             

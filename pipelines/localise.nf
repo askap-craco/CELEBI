@@ -43,8 +43,10 @@ process generate_binconfig {
 
     script:
         """
-        tmp_file=".TMP_\$BASHPID"
         source /opt/setup_proc_container 
+        set -xu
+
+        tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file
 
         sl2f_cmd=`tail -1 \$tmp_file`
@@ -102,6 +104,8 @@ process find_offset {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+
         hostname >> hostname.txt
         python3 $localise_dir/RACS_lookup.py \
                -o ${params.label}_RACS.dat \
@@ -167,6 +171,8 @@ process apply_offset {
     script:
         """
         source /opt/setup_proc_container
+        set -xu
+        
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/apply_rotated_offset.py \
                 --frbname ${params.label} \
