@@ -283,9 +283,13 @@ class AntennaSource:
         # difference can be used to skip ahead in the geometric delays.
         
         nsamp = (nsamp // 32) * 32 #
+        old_nsamp = nsamp
+        print(f"nsamp 1: {nsamp}")
         if sampoff + nsamp > self.vfile.nsamps:
             # make sure these bounds are defined
             nsamp -= (((sampoff + nsamp) - self.vfile.nsamps)//32 + 1)*32
+
+            print(f"nsamp 2: {nsamp}")
 
         ### Now do cropping ###
         if (mjd is not None) and (DM is not None):
@@ -404,6 +408,9 @@ class AntennaSource:
 
             # get next 5-smooting nsamp for optimal FFT algorithm
             nsamp, nfine, corr.nguard_chan = next_biggest_fftlen(nsamp, corr.ncoarse_chan)
+
+            if nsamp > old_nsamp:
+                nsamp, nfine, corr.nguard_chan = next_smallest_fftlen(old_nsamp, corr.ncoarse_chan)
             
             # recalculate fine channel bandwidth
             corr.fine_chanbw = 1.0/float(nfine)
