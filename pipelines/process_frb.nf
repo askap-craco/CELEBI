@@ -606,8 +606,9 @@ workflow process_frb {
     main:
         coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, 
                                         antennas,fcm )
-        refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
         if (!params.skip_ics) {
+            refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"
+
             if ( new File(refined_candidate_path).exists()) {
                 refined_candidate = Channel.fromPath(refined_candidate_path)
             }
@@ -736,12 +737,11 @@ workflow process_frb {
                     bin_regs.collect(), bin_mss.collect()
                 ).peak_jmfit
             }
+            // This seems to negate the need for the get_peak that is done above (in some cases)
             if(new File(frb_jmfit_path).exists()) {
                 askap_frb_pos = Channel.fromPath(frb_jmfit_path)
             }
-            // else {
-            //     askap_frb_pos = empty_file
-            // }
+
 
             if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
                 offset = Channel.fromPath(offset_path)
@@ -768,13 +768,6 @@ workflow process_frb {
     }
 
         if(params.beamform) {
-            // crop_50us_path = "${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_50us_I.npy"
-            // crop_start_path = "${params.out_dir}/htr/50us_crop_start_s.txt"
-            // if(new File(crop_50us_path).exists() && new File(crop_start_path).exists()) {
-            //     crop_50us = Channel.fromPath(crop_50us_path)
-            //     crop_start = Channel.fromPath(crop_start_path)
-            // }
-            // else {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb,
@@ -788,64 +781,5 @@ workflow process_frb {
                 crops = plot.out.crops
                 crop_start = plot.out.crop_start
                 crop_50us = plot.out.crop_50us
-            // }
-            
-            // experimental high time res gating
-            // if(params.opt_DM) {
-            //     optimise_DM(
-            //         bform_frb.out.pre_dedisp, plot.out.crops, pol_cal_solns, 
-            //         "-ds -t -XYIQUV"
-            //     )
-            //     dm = optimise_DM.out.dm_opt
-            //     crops = optimise_DM.out.crops
-            //     crop_start = optimise_DM.out.crop_start
-            // }
-            // else {
-            //     dm = params.dm_frb
-            // }
-            //
-            // if(params.opt_gate) {
-            //     opt_gate = optimise_gate(crop_50us, crop_start, binconfig.polyco, dm)
-            //     htrgate_fits_path = "${params.out_dir}/loadfits/htrgate/${params.label}_htrgate.fits"
-            //     if(new File(htrgate_fits_path).exists()) {
-            //         htrgate_fits = Channel.fromPath(htrgate_fits_path)
-            //     }
-            //     else {
-            //         htrgate_fits = corr_htrgate(
-            //             "${params.label}_htrgate", params.data_frb, params.ra_frb, 
-            //             params.dec_frb, opt_gate.htrgate, opt_gate.polyco, 
-            //             binconfig.int_time, "htrgate"
-            //         ).fits
-            //     }
-            //     if(!params.skiprfi) {
-            //         htrrfi_fits_path = "${params.out_dir}/loadfits/htrrfi/${params.label}_htrrfi.fits"
-            //         if(new File(htrrfi_fits_path).exists()) {
-            //             htrrfi_fits = Channel.fromPath(htrrfi_fits_path)
-            //         }
-            //         else {
-            //             htrrfi_fits = corr_htrrfi(
-            //                 "${params.label}_htrrfi", params.data_frb, params.ra_frb, 
-            //                 params.dec_frb, opt_gate.htrrfi, opt_gate.polyco, 
-            //                 binconfig.int_time, "htrrfi"
-            //             ).fits
-            //         }
-            //     }
-            //     if(params.skiprfi){
-            //         no_rfi_htrgate_fits = htrgate_fits
-            //     }
-            //     else {
-            //         no_rfi_htrgate_fits = sub_htrrfi(    
-            //             htrgate_fits, htrrfi_fits, empty_file
-            //         )                
-            //     }
-
-            //     image_htrgate(
-            //         no_rfi_htrgate_fits, flux_cal_solns
-            //     )
-
-            //     final_position = apply_offset_htr(
-            //         offset, image_htrgate.out.jmfit
-            //     )
-            // }
         }
 }
