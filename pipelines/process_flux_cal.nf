@@ -30,13 +30,10 @@ workflow process_flux_cal {
     main:
         label = "${params.label}_fluxcal"
         // Correlation
-        fluxcal_fits_path = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
-        // if(new File(fluxcal_fits_path).exists()) {
-        //     fits = Channel.fromPath(fluxcal_fits_path)
-        // }
-        // else {
-        empty_file = create_empty_file("binconfig")
+        // fluxcal_fits_path = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits"
+
         if(params.binconfig_fluxcal == "") {
+          empty_file = create_empty_file("binconfig")
           binconfigpath = empty_file
           polycopath = empty_file
           inttimepath = empty_file
@@ -50,30 +47,21 @@ workflow process_flux_cal {
             label, params.data_fluxcal, params.ra_fluxcal, params.dec_fluxcal, 
             binconfigpath, polycopath, inttimepath, "fluxcal", fcm
         ).fits
-        // }
-        fits.view()
+
+        
         // Flagging
         if(!params.noflag) {
             fluxcal_fits_flagged = "${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits"
-        
-            // if(new File(fluxcal_fits_flagged).exists()) {
-            //         outfits = Channel.fromPath(fluxcal_fits_flagged)
-            // }
-            // else {
+
             outfits = flagdat(fits,fluxcal_fits_flagged,"cal").outfile
-            // }
-            
+           
             fits = outfits
         }
 
         // Calibration
-        fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
-        fcm_delayfix_path = "${params.out_dir}/fluxcal/fcm_delayfix.txt"
-        // if(new File(fluxcal_solns_path).exists() and new File(fcm_delayfix_path).exists()) {
-        //     flux_cal_solns = Channel.fromPath(fluxcal_solns_path)
-        //     fcm_delayfix = Channel.fromPath(fcm_delayfix_path)
-        // }
-        // else if(params.calibrate) {
+        // fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
+        // fcm_delayfix_path = "${params.out_dir}/fluxcal/fcm_delayfix.txt"
+
         if(params.calibrate) {
             cal_fcal(fits, params.fluxflagfile, fcm)
             flux_cal_solns = cal_fcal.out.solns
