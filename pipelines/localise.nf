@@ -47,9 +47,11 @@ process generate_binconfig {
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file
 
-        sl2f_cmd=`tail -1 \$tmp_file`
-        sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
-        \$sl2f_cmd > sl2f.out
+        # sl2f_cmd=`tail -1 \$tmp_file`
+        # sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
+        # \$sl2f_cmd > sl2f.out
+
+        python3 $localise_dir/\$(tail -1 \$tmp_file) > sl2f.out
         cat sl2f.out | tail -1 > int_time
         """
     
