@@ -65,14 +65,7 @@ process determine_flux_cal_solns {
 
         aipsid="\$((RANDOM%8192))"
 
-        args="--calibrateonly"
-        args="\$args -c $cal_fits"
-        args="\$args --uvsrt"
-        args="\$args -u \$aipsid"
-        args="\$args --src=$params.target"
-        args="\$args --cpasspoly=$params.cpasspoly"
-        args="\$args -f 15"
-        args="\$args --refant=$params.refant"
+        args=""
         if [ "$flagfile" != "" ]; then
             args="\$args --flagfile=$flagfile"
         fi
@@ -90,7 +83,16 @@ process determine_flux_cal_solns {
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --calibrateonly \
+            -c $cal_fits \
+            --uvsrt \
+            -u \$aipsid \
+            --src=$params.target \
+            --cpasspoly=$params.cpasspoly \
+            -f 15 \
+            --refant=$params.refant \
+            \$args 
         """
     
     stub:
@@ -154,33 +156,35 @@ process image_finder {
         target_fits=$target_fits
         bin=\${target_fits:9:2}
 
-        args="--targetonly"
-        args="\$args -t $target_fits"
-        args="\$args -r $params.refant"
-        args="\$args -i"
-        args="\$args -j"
-        args="\$args --cleanmfs"
-        args="\$args --pols=I"
-        args="\$args --imagename=fbin\${bin}"
-        args="\$args --imagesize=$params.finderimagesize"
-        args="\$args --pixelsize=$params.finderpixelsize"
-        args="\$args -a 16"
-        args="\$args -u \$aipsid"
-        args="\$args --skipplot"
-        args="\$args --src=$params.target"
-        args="\$args --nmaxsources=1"
-        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
-        args="\$args --refant=$params.refant"
-
         if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
-            args="\$args --tarflagfile=$params.finderflagfile"
+            args=" --tarflagfile=$params.finderflagfile"
+        else
+            args=""
         fi
 
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -r $params.refant \
+            -i \
+            -j \
+            --cleanmfs \
+            --pols=I \
+            --imagename=fbin\${bin} \
+            --imagesize=$params.finderimagesize \
+            --pixelsize=$params.finderpixelsize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --refant=$params.refant \
+            \$args
 
         for f in `ls fbin\${bin}*jmfit`; do
             echo \$f
@@ -357,40 +361,38 @@ process image_field {
 
         tar -xzvf $cal_solns
 
-        args="--imagename=field"
-        args="\$args -j"
-        args="\$args -i"
-        args="\$args --pols=I"
-        args="\$args -u \$aipsid"
-        args="\$args --imagesize=$params.fieldimagesize"
-        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
-        args="\$args --nmaxsources=$params.nfieldsources"
-        args="\$args --src=$params.target"
-        args="\$args --refant=$params.refant"
-        args="\$args --minbeamfrac=$params.minbeamfrac"
-
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == "null" ]; then
-            args="\$args --targetonly"
-            args="\$args -t $target_fits"
-            args="\$args -r 3"
-            args="\$args --cleanmfs"
-            args="\$args -a 16"
-            args="\$args --skipplot"
-            args="\$args --pixelsize=4"
-            args="\$args --tarflagfile=$flagfile"
+            args="--targetonly -t $target_fits -r 3"
+            args="\$args --cleanmfs -a 16 --skipplot --pixelsize=4 --tarflagfile=$flagfile"
+
             if [ "$flagfile" != "" ]; then
                 args="\$args --tarflagfile=$flagfile"
             fi
         else
-            args="\$args --image=$params.fieldimage"
+            args="--image=$params.fieldimage"
         fi
 
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --imagename=field \
+            -j \
+            -i \
+            --pols=I \
+            -u \$aipsid \
+            --imagesize=$params.fieldimagesize \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --nmaxsources=$params.nfieldsources \
+            --src=$params.target \
+            --refant=$params.refant \
+            --minbeamfrac=$params.minbeamfrac \
+            \$args
+
+
+
         i=1
         for f in `ls *jmfit`; do
             echo \$f
@@ -457,31 +459,34 @@ process image_polcal {
 
         tar -xzvf $cal_solns
         
-        args="--targetonly"
-        args="\$args -t $target_fits"
-        args="\$args -r 3"
-        args="\$args -i"
-        args="\$args -j"
-        args="\$args --cleanmfs"
-        args="\$args --pols=I"
-        args="\$args --imagename=polcal"
-        args="\$args --imagesize=$params.polcalimagesize"
-        args="\$args -a 16"
-        args="\$args -u \$aipsid"
-        args="\$args --skipplot"
-        args="\$args --src=$params.target"
-        args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
-            args="\$args --tarflagfile=$flagfile"
+            args="--tarflagfile=$flagfile"
+        else
+            args=""
         fi
-        args="\$args --nmaxsources=1"
-        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
 
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -r 3 \
+            -i \
+            -j \
+            --cleanmfs \
+            --pols=I \
+            --imagename=polcal \
+            --imagesize=$params.polcalimagesize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --refant=$params.refant \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            \$args
 
         i=1
         for f in `ls *jmfit`; do
@@ -551,29 +556,28 @@ process image_htrgate {
         tar -xzvf $cal_solns
         target_fits=$target_fits
 
-        args="--targetonly"
-        args="\$args -t $target_fits"
-        args="\$args -r 3"
-        args="\$args -i"
-        args="\$args -j"
-        args="\$args --cleanmfs"
-        args="\$args --pols=I"
-        args="\$args --imagename=fbin\${bin}"
-        args="\$args --imagesize=$params.finderimagesize"
-        args="\$args --pixelsize=$params.finderpixelsize"
-        args="\$args -a 16"
-        args="\$args -u \$aipsid"
-        args="\$args --skipplot"
-        args="\$args --src=$params.target"
-        args="\$args --nmaxsources=1"
-        args="\$args --findsourcescript=$localise_dir/get_pixels_from_field.py"
-        args="\$args --findsourcescript2=$localise_dir/get_pixels_from_field2.py"
-        args="\$args --refant=$params.refant"
-
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
-        ParselTongue $localise_dir/calibrateFRB.py \$args
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -r 3 \
+            -i \
+            -j \
+            --cleanmfs \
+            --pols=I \
+            --imagename=fbin\${bin} \
+            --imagesize=$params.finderimagesize \
+            --pixelsize=$params.finderpixelsize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --refant=$params.refant
 
         for f in `ls *jmfit`; do
             echo \$f

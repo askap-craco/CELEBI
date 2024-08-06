@@ -371,29 +371,26 @@ process difx_to_fits {
 
         aipsid="\$((RANDOM%8192))"
         if [ "$mode" != "finder" ]; then
-            args="-u \$aipsid"
-            #args="-u \${BASHPID: -4}"   # get randomly-generated user id
-            args="\$args --antlist=\$antlist"
-            args="\$args -s 27"
-            args="\$args -f ${label}.fits"
-            args="\$args -o \$label"
-            args="\$args CRAFT_CARD?.FITS"
+            loadfits.py \
+                -u \$aipsid \
+                --antlist=\$antlist \
+                -s 27 \
+                -f ${label}.fits \
+                -o \$label \
+                CRAFT_CARD?.FITS
 
-            echo "loadfits.py \$args"
-            loadfits.py \$args
         else
             for i in `seq 0 7`; do
                 bin="\$(printf "%02d" \$i)"
-                args="-u \$aipsid"
-                #args="-u \${BASHPID: -4}"   # get randomly-generated user id
-                args="\$args --antlist=\$antlist"
-                args="\$args -s 27"
-                args="\$args -f ${label}bin\${bin}.fits"
-                args="\$args -o \${label}bin\${bin}"
-                args="\$args CRAFT_CARD?_BIN\${bin}.FITS"
 
-                echo "loadfits.py \$args"
-                loadfits.py \$args
+                loadfits.py \
+                    -u \$aipsid \
+                    --antlist=\$antlist \
+                    -s 27 \
+                    -f ${label}bin\${bin}.fits \
+                    -o \${label}bin\${bin} \
+                    CRAFT_CARD?_BIN\${bin}.FITS
+
             done
         fi
         """
