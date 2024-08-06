@@ -55,10 +55,6 @@ process flag_proper {
     
     script:
         """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi   
-
 	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
 
         export ANKDIR=$params.ankdir

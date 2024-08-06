@@ -41,9 +41,6 @@ process get_start_mjd {
 
     script:
         """    
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi
         python3 $localise_dir/get_start_mjd.py $data
         """
     
@@ -330,10 +327,6 @@ process difx_to_fits {
         """
         source /opt/setup_proc_container
         set -x 
-        
-        # if [ "$params.ozstar" == "true" ]; then
-        #     . $launchDir/../setup_proc
-        # fi
 
         for c in `seq 1 7`; do
             D2Ds=""

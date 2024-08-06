@@ -42,11 +42,6 @@ process flag_proper {
 
     script:
         """	
-        #if [ $params.ozstar == "true" ] 
-        #then
-        #    . $launchDir/../setup_proc
-        #fi   
-        
         askap_band="low"
 
         if [ \$(echo "$params.centre_freq_frb > 1500.0" |bc -l) -gt 0 ] 
