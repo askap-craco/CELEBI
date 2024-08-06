@@ -358,9 +358,8 @@ def get_spectra(args, stk, freqs, l_model, v_model):
     tN     = args.tN
     fN     = args.fN
 
-
     ## channel flagging
-    if (args.chanflag is None) or (args.chanflag == ''):
+    if (args.chanflag is None) or (args.chanflag == '') or (args.chanflag == "''"):
         chan_flag = []
     else:
         chan_flag = flag_chan(freqs, args.chanflag)
