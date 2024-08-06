@@ -27,8 +27,6 @@ process generate_binconfig {
     */
     publishDir "${params.out_dir}/binconfigs", mode: "copy"
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -87,8 +85,6 @@ process find_offset {
                 troubleshooting
     */
     publishDir "${params.out_dir}/position", mode: "copy"
-
-    container "file://$params.container"
 
     label 'python'
 
@@ -155,8 +151,6 @@ process apply_offset {
                 Healpix map in FITS format
     */
     publishDir "${params.out_dir}/position", mode: "copy"
-    
-    container "file://$params.container"
 
     label 'python'
 
@@ -172,7 +166,7 @@ process apply_offset {
         """
         source /opt/setup_proc_container
         set -xu
-        
+
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/apply_rotated_offset.py \
                 --frbname ${params.label} \

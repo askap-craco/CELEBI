@@ -226,8 +226,6 @@ process get_peak {
     */
     publishDir "${params.out_dir}/finder", mode: "copy"
     
-    container "file://$params.container"
-
     label 'python'
 
     input:
