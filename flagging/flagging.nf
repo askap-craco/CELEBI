@@ -72,49 +72,6 @@ process flag_proper {
         """
 }
 
-process flag_initial {
-    /*
-        Flag known bad channels only 
-
-        Input
-            infitsfile: path    		(Input FITS file)     
-	    askapband: val			(ASKAP band - low / mid / high)
-	    src: val                            (cal / field)
-			
-        Output
-            outfitsfile: path    		(Output FITS file)
-            logfile: path               (Text file with logs/ may be useful if things go wrong)
-     
-    */
-    
-    input:
-        path infitsfile
-        val askapband
-	val src
-    
-    output:
-        path 'outfitsfile.fits'
-        path 'logfile.txt'
-    
-    script:
-        """
-        if [ "$params.ozstar" == "true" ]; then
-            . $launchDir/../setup_proc
-        fi   
-
-	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
-
-        export ANKDIR=$params.ankdir
-
-        python3 ${flagDir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} initital logfile.txt none
-        """
-    
-    stub:
-        """
-        touch test_flagging_initial.txt
-        """
-}
-
 
 
 
