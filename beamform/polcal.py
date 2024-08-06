@@ -360,7 +360,7 @@ def get_spectra(args, stk, freqs, l_model, v_model):
 
 
     ## channel flagging
-    if (args.chanflag is None) or (args.chanflag == ""):
+    if (args.chanflag is None) or (args.chanflag == ''):
         chan_flag = []
     else:
         chan_flag = flag_chan(freqs, args.chanflag)
