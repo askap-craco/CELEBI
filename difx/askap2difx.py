@@ -878,7 +878,7 @@ def write_runsched(craftcatalogdir: str) -> None:
     runsched.write(f"export CATDIR={craftcatalogdir}\n")
     runsched.write("sched < craftfrb.key\n")
     runsched.close()
-    os.chmod("runshced.sh", 0o775)
+    os.chmod("runsched.sh", 0o775)
 
 
 def write_v2d(
