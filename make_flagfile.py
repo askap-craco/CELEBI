@@ -1,5 +1,5 @@
-import sys
-import os
+# import sys
+# import os
 from glob import glob
 
 workdir = raw_input("Enter work directory containing .fits visibility file to be flagged: ")

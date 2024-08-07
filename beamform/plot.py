@@ -13,7 +13,7 @@ from mmap import mmap
 import matplotlib as mpl
 mpl.use('agg')
 
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import ArgumentParser #, ArgumentDefaultsHelpFormatter
 import matplotlib.gridspec as gs
 import matplotlib.pyplot as plt
 import numpy as np

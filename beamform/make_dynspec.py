@@ -18,9 +18,9 @@ from math import ceil
 import matplotlib.pyplot as plt
 
 ## import basic libraries
-import argparse, sys
-from os import path, mkdir
-import shutil
+import argparse#, sys
+# from os import path, mkdir
+# import shutil
 
 
 # stokes functions
