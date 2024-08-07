@@ -26,6 +26,10 @@ def _main():
     print(f"Geocentric delay is {geocentricdelay}")
     print(f"Lowest frequency is {minfreq}")
 
+    # write geocentric delay into text file
+    with open("geo_delay.txt", "w") as file:
+        file.write(f"{geocentricdelay}\n")
+
     # Determine and print snoopylog2frbgate.py command to be run
     print(get_sl2fg_cmd(minfreq, geocentricdelay, corrstartmjd, snoopy_file))
 

@@ -3,12 +3,13 @@ nextflow.enable.dsl=2
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_field; correlate as corr_htrgate; correlate as corr_htrrfi; 
-    subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi } from './correlate'
+    subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi; get_start_mjd as get_start_mjd } from './correlate'
 include { image_finder; image_field; get_peak; image_htrgate } from './calibration'
 include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
     generate_binconfig } from './localise'
 include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './beamform'
 include { flag_proper as flagdat } from './flagging'
+include { compile_summary } from './utils'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -254,10 +255,8 @@ process plot {
                 Central frequency of fine spectrum (MHz)
             dm: val
                 Dispersion measure the data has been dedispersed to
-            xy: path
-                High-time resolution time series of X and Y pols
-            time: path
-                Time in MJD (1 ms steps) from coarse dynspecs
+            start_time: path
+                start mjd
             cand: path
                 Refined candidate for FRB from ICS search
         
@@ -275,15 +274,15 @@ process plot {
         path dynspecs
         val centre_freq
         val dm
-        path xy
-        path time
+        val start_time
         path cand
     
     output:
         path "*.png"
         path "crops", emit: crops
-        path "50us_crop_start_s.txt", emit: crop_start
-        path "crops/*50us_I.npy", emit: crop_50us
+        path "*_channel_mask.txt"
+        path "crops/*.npy", emit: crop_us
+        val "_compile", emit: _compile
     
     script:
         """
@@ -301,11 +300,10 @@ process plot {
         args="\$args -f $centre_freq"
         args="\$args -l $label"
         args="\$args -d $dm"
-        args="\$args -x ${label}*X_t*npy"
-        args="\$args -y ${label}*Y_t*npy"
-        args="\$args -t $time"
+        args="\$args -t $start_time"
         args="\$args -c $cand"
         args="\$args --chanlists $projectDir/../flagging"
+        args="\$args --t_panels $params.plot_mosaic_t_list"
 
         mkdir crops
 
@@ -316,8 +314,7 @@ process plot {
         """
         touch stub.png
         mkdir crops
-        touch crops/stub_50us_I.npy
-        touch 50us_crop_start_s.txt
+        touch crops/stub_I.npy
         """
 }
 
@@ -804,16 +801,18 @@ workflow process_frb {
                 bform_frb(
                     params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb,
-                    params.nants_frb, fcm
+                    params.nants_frb, fcm, params.snoopy
                 )
+                // frb_start_mjd = get_start_mjd(params.data_frb)
                 plot(
                     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                    coarse_ds.time.first(), refined_candidate
+                    params.centre_freq_frb, params.dm_frb,
+                    bform_frb.out.bform_start_MJD, refined_candidate
                 )
-                crops = plot.out.crops
-                crop_start = plot.out.crop_start
-                crop_50us = plot.out.crop_50us
+
+                // crops = plot.out.crops
+                // crop_start = plot.out.crop_start
+                // crop_50us = plot.out.crop_50us
             // }
             
             // experimental high time res gating
@@ -873,5 +872,9 @@ workflow process_frb {
             //         offset, image_htrgate.out.jmfit
             //     )
             // }
+        }
+
+        if (params.beamform && params.calibrate && !params.opt_gate) {
+            compile_summary(plot.out._compile, finalres.final_position)
         }
 }
