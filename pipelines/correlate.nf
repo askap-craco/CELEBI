@@ -262,7 +262,7 @@ process do_correlation {
         # Only include inttime if non-zero
         int_time=`cat $inttime`
         if [ "\$int_time" != "" ]; then
-            int_time="\$args -i \$int_time"
+            int_time="-i \$int_time"
         else
             int_time=""
         fi
