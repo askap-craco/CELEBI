@@ -283,13 +283,14 @@ class AntennaSource:
         # difference can be used to skip ahead in the geometric delays.
         
         nsamp = (nsamp // 32) * 32 #
+        nsamp -= 64             # insurance
         old_nsamp = nsamp
-        print(f"nsamp 1: {nsamp}")
-        if sampoff + nsamp > self.vfile.nsamps:
-            # make sure these bounds are defined
-            nsamp -= (((sampoff + nsamp) - self.vfile.nsamps)//32 + 1)*32
+        # print(f"nsamp 1: {nsamp}")
+        # if sampoff + nsamp > self.vfile.nsamps:
+        #     # make sure these bounds are defined
+        #     nsamp -= (((sampoff + nsamp) - self.vfile.nsamps)//32 + 1)*32
 
-            print(f"nsamp 2: {nsamp}")
+        #     print(f"nsamp 2: {nsamp}")
 
         ### Now do cropping ###
         if (mjd is not None) and (DM is not None):
@@ -841,6 +842,10 @@ class Correlator:
         start = timer()
         print("## Operate on only antenna #: " + str(an))
         ant = self.ants[an]
+
+        with open("ant_vcraft_lengths.txt", "w") as file:
+            [file.write(f"Antenna: {i}, Nsamps: {ant_.vfile.nsamps}\n") for i, ant_ in enumerate(self.ants)]
+
         iant = ant_map[ant.antname]
         temp = ant.do_f_tab(self, iant, mjd, DM, width_s)
         print(f"do_f_tab (total): {timer()-start} s")
