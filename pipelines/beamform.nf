@@ -236,6 +236,10 @@ process do_beamform {
             cp corrected_start_MJD.txt ${params.out_dir}/htr/info/bform_start_MJD.txt
         fi
 
+        if [ $ant_idx == 0 ]; then
+            cp ant_vcraft_lengths.txt ${params.out_dir}/htr/info/${label}_ant_vcraft_lengths.txt
+        fi
+
         # save txt file with cropping information of each antenna 
         cp ant_crop.txt ${params.out_dir}/htr/info/${label}_antcrop_${ant_idx}_${pol}_crop.txt
         """
