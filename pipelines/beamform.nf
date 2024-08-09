@@ -44,7 +44,6 @@ process create_calcfiles {
                 The .im and .calc files that are used by craftcor_tab.py to 
                 calculate geometric delays for beamforming
     */
-    container "file://$params.container"
 
     label 'python'
 
@@ -132,7 +131,6 @@ process do_beamform {
                 The polarisation is included to be able to group outputs by 
                 their polarisation
     */
-    container "file://$params.container"
 
     label 'python'
 
@@ -214,8 +212,6 @@ process sum_antennas {
                 their polarisation
     */
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -257,7 +253,6 @@ process generate_deripple {
             coeffs: path
                 Derippling coefficients
     */
-    container "file://$params.container"
 
     label 'python'
 
@@ -306,8 +301,6 @@ process deripple {
                 The polarisation is included to be able to group outputs by 
                 their polarisation
     */
-
-    container "file://$params.container"
 
     label 'python'
 
@@ -364,8 +357,6 @@ process dedisperse {
                 their polarisation
     */
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -413,8 +404,6 @@ process ifft {
             pol_time_series: path
                 ~3 ns dedispersed time series in a single polarisation    
     */
-
-    container "file://$params.container"
 
     label 'python'
 

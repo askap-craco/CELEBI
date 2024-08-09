@@ -62,8 +62,6 @@ process load_coarse_dynspec {
                 Time axis in MJD
     */
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -138,8 +136,6 @@ process refine_candidate {
      */
     publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -188,8 +184,6 @@ process get_beam_centre {
         dec: env
             Beam centre declination (dms)
      */
-
-    container "file://$params.container"
 
     label 'python'
 
@@ -263,8 +257,6 @@ process plot {
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -329,8 +321,6 @@ process find_DM_opt {
                 max(I) vs DM plot
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
-
-    container "file://$params.container"
 
     label 'python'
 
@@ -417,8 +407,6 @@ process mjd_prof {
                 respectively
     */
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -493,9 +481,6 @@ process htr_to_binconfig {
             htr gate binconfig: path
                 Binconfig containing matched filter for high time res gate
     */
-
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -510,7 +495,7 @@ process htr_to_binconfig {
         """
         source /opt/setup_proc_container
         set -xu
-        
+
         python3 $beamform_dir/htr2binconfig.py $prof $polyco
         """
     

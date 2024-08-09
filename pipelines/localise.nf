@@ -27,8 +27,6 @@ process generate_binconfig {
     */
     publishDir "${params.out_dir}/binconfigs", mode: "copy"
 
-    container "file://$params.container"
-
     label 'python'
 
     input:
@@ -49,9 +47,11 @@ process generate_binconfig {
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/getGeocentricDelay.py $params.data_frb $cand > \$tmp_file
 
-        sl2f_cmd=`tail -1 \$tmp_file`
-        sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
-        \$sl2f_cmd > sl2f.out
+        # sl2f_cmd=`tail -1 \$tmp_file`
+        # sl2f_cmd="python3 $localise_dir/\$sl2f_cmd"
+        # \$sl2f_cmd > sl2f.out
+
+        python3 $localise_dir/\$(tail -1 \$tmp_file) > sl2f.out
         cat sl2f.out | tail -1 > int_time
         """
     
@@ -87,8 +87,6 @@ process find_offset {
                 troubleshooting
     */
     publishDir "${params.out_dir}/position", mode: "copy"
-
-    container "file://$params.container"
 
     label 'python'
 
@@ -155,8 +153,6 @@ process apply_offset {
                 Healpix map in FITS format
     */
     publishDir "${params.out_dir}/position", mode: "copy"
-    
-    container "file://$params.container"
 
     label 'python'
 
@@ -172,7 +168,7 @@ process apply_offset {
         """
         source /opt/setup_proc_container
         set -xu
-        
+
         tmp_file=".TMP_\$BASHPID"
         python3 $localise_dir/apply_rotated_offset.py \
                 --frbname ${params.label} \

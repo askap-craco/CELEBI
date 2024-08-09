@@ -9,12 +9,19 @@
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-import os
+import os, sys
 import math
 import numpy as np
 from astropy import units as un
 from astropy.io import fits
 from astropy.coordinates import SkyCoord as sc
+import subprocess
+
+def run(cmd):
+    ret = subprocess.run(cmd, shell=True).returncode
+    if ret != 0:
+        print("ERR:FAILED COMMAND:{cmd}")
+        sys.exit(ret)
 
 parser = ArgumentParser(
     description="Apply the systematic offset calculated "
@@ -279,7 +286,7 @@ print("The systematic uncertainty (which was {0:.2f} x {1:.2f}) had a scale fact
 print("\nGenerating Healpix map using craco_fu_hp .....")
 #print("export PATH=$PATH:/fred/oz002/askap/craft/craco/anaconda/anaconda3/bin; unset PYTHONPATH; conda run -n cracofubase craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
 
-os.system("export PATH=/fred/oz002/askap/craft/craco/anaconda/anaconda3/bin:$PATH; unset PYTHONPATH; conda run -n cracofubase craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
+run("export PATH=/fred/oz002/askap/craft/craco/anaconda/anaconda3/bin:$PATH; unset PYTHONPATH; conda run -n cracofubase craco_fu_hp FRB{0} --coord {1},{2} --siga {3} --sigb {4} --PA {5} --clobber --outfile {6}".format(args.frbname,frbresult.rarad*RADtoDEG,frbresult.decrad*RADtoDEG,totalmaj_unc/1000.0,totalmin_unc/1000.0,posangle*180.0/np.pi,args.hpfits)) 
 
 
 
