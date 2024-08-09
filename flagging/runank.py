@@ -1,7 +1,6 @@
 import os,sys
 import numpy as np
 import time as tm
-sys.path.insert(0,'/fred/oz313/src/ankflag_craft')
 from convertfits import *
 from inputs import *
 
@@ -16,7 +15,7 @@ outfilename		=	sys.argv[2]					#	Name of the output file
 flagstage		=	int(sys.argv[3])			#	stage - 1/2/3/4
 allbadchanfile	=	sys.argv[4]					#	list of bad channels
 FLAGAUTOCORR	=	int(sys.argv[5])
-ANKDIR          =       '/fred/oz313/src/ankflag_craft'
+ANKDIR          =   os.path.split(os.path.abspath(__file__))[0]
 scratchfitsname	=	'scratchfits.fits'
 
 print("runank running with -- "+infilename+" "+outfilename+" "+str(flagstage)+" "+allbadchanfile+" "+str(flagautocorr))

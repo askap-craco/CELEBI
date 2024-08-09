@@ -2,7 +2,6 @@ import sys
 import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
-sys.path.insert(0,'/fred/oz002/askap/craft/craco/ankflag_craft')
 from inputs import *
 
 

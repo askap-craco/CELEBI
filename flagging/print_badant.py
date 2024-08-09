@@ -1,6 +1,5 @@
 import os,sys
 import numpy as np
-sys.path.insert(0,'/fred/oz002/askap/craft/craco/ankflag_craft')
 from convertfits import *
 
 ANTS		=	36
