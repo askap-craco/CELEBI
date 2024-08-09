@@ -58,7 +58,6 @@ process flag_proper {
         badchanfile="${flagging_dir}badchannels_askap_\${askap_band}_${src}.txt"
         echo "Bad channel file \${badchanfile}"
 
-        export ANKDIR=$params.ankdir
         /fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py infitsfile.fits outfitsfile.fits \${badchanfile} proper logfile.txt bad_ant_file.txt
 
         cp outfitsfile.fits ${outfitsfilepub}
@@ -120,7 +119,6 @@ process flag_initial {
         badchanfile = ${flagging_dir}badchannels_askap_${askapband}_${src}.txt
         echo "Bad channel file ${badchanfile}"
 
-        export ANKDIR=$params.ankdir
         /fred/oz313/anaconda/anaconda3/bin/conda run -n cracofunew python3 ${flagging_dir}doflag.py ${infitsfile} ${outfitsfile}.fits ${badchanfile} initital logfile.txt none
         """
     
