@@ -11,7 +11,8 @@ if(len(sys.argv)<7):
     sys.exit()
 
 # Read the ankdir from the environment or use a default for ozstar
-ankdir = os.environ.get("ANKDIR", "/fred/oz313/src/ankflag_craft/")
+# ankdir = os.environ.get("ANKDIR", "/fred/oz313/src/ankflag_craft/")
+ankdir = os.path.split(os.path.abspath(__file__))[0]
 
 infits		= sys.argv[1]
 outfits		= sys.argv[2]
