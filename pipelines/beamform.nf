@@ -45,7 +45,7 @@ process create_calcfiles {
                 calculate geometric delays for beamforming
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -132,7 +132,7 @@ process do_beamform {
                 their polarisation
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -212,7 +212,7 @@ process sum_antennas {
                 their polarisation
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -254,7 +254,7 @@ process generate_deripple {
                 Derippling coefficients
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         env FFTLEN
@@ -302,7 +302,7 @@ process deripple {
                 their polarisation
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -357,7 +357,7 @@ process dedisperse {
                 their polarisation
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -405,7 +405,7 @@ process ifft {
                 ~3 ns dedispersed time series in a single polarisation    
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -468,7 +468,7 @@ process generate_dynspecs {
     */
     publishDir "${params.out_dir}/htr", mode: "copy"
     
-    label 'python'
+    label 'celebi'
 
     input:
         val label

@@ -89,7 +89,7 @@ process do_ref_correlation {
                 without completing.
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -207,7 +207,7 @@ process do_correlation {
                 without completing.
     */
 
-    label 'python'
+    label 'celebi'
     
     input:
         val label

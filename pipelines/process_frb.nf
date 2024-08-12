@@ -62,7 +62,7 @@ process load_coarse_dynspec {
                 Time axis in MJD
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -136,7 +136,7 @@ process refine_candidate {
      */
     publishDir "${params.publish_dir}/${params.label}/ics", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -185,7 +185,7 @@ process get_beam_centre {
             Beam centre declination (dms)
      */
 
-    label 'python'
+    label 'celebi'
 
     output:
         env ra, emit: ra
@@ -257,7 +257,7 @@ process plot {
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         val label
@@ -322,7 +322,7 @@ process find_DM_opt {
     */
     publishDir "${params.publish_dir}/${params.label}/htr", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         path crops
@@ -407,7 +407,7 @@ process mjd_prof {
                 respectively
     */
 
-    label 'python'
+    label 'celebi'
 
     input:
         path crop_50us
@@ -481,7 +481,7 @@ process htr_to_binconfig {
             htr gate binconfig: path
                 Binconfig containing matched filter for high time res gate
     */
-    label 'python'
+    label 'celebi'
 
     input:
         path prof
