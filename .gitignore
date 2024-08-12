@@ -650,4 +650,4 @@ flagging/process_frb_ab.nf.3feb23
 beamform/craftcor_tab_ad.py
 
 # binaries
-flagging/anflag
+flagging/ankflag
