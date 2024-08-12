@@ -115,7 +115,7 @@ process flag_initial {
         fi
 
         echo "FRB detected in ASKAP ${askapband}"
-
+        mkdir -p scratch
         badchanfile = ${flagging_dir}badchannels_askap_${askapband}_${src}.txt
         echo "Bad channel file ${badchanfile}"
 
