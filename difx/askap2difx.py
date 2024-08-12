@@ -9,7 +9,7 @@ from astropy.time import Time
 def run(cmd):
     ret = subprocess.run(cmd, shell=True).returncode
     if ret != 0:
-        print("ERR:FAILED COMMAND:{cmd}")
+        print(f"ERR:FAILED COMMAND:{cmd}")
         sys.exit(ret)
 
 
