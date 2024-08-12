@@ -147,6 +147,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+env/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -651,3 +652,6 @@ beamform/craftcor_tab_ad.py
 
 # binaries
 flagging/ankflag
+
+# Ignore singularity images
+*.sif
