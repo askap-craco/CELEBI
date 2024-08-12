@@ -648,3 +648,6 @@ flagging/process_flux_cal_ab.nf.3feb23
 flagging/main_ab.nf.3feb23
 flagging/process_frb_ab.nf.3feb23
 beamform/craftcor_tab_ad.py
+
+# binaries
+flagging/ankflag

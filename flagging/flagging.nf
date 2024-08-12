@@ -56,9 +56,7 @@ process flag_proper {
     script:
         """
         set -xu
-	    badchanfile = ${flagging_dir}+"badchannels_askap_"+askapband+"_"+src+".txt"
-
-        export ANKDIR=$params.ankdir
+	    badchanfile = ${flagging_dir}+"badchannels_askap_"+$askapband+"_"+src+".txt"
 
         python3 ${flagging_dir}/doflag.py ${infitsfile} outfitsfile.fits ${badchanfile} proper logfile.txt bad_ant_file.txt
         """
