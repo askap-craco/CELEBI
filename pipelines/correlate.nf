@@ -313,7 +313,7 @@ process difx_to_fits {
     */
     publishDir "${params.out_dir}/loadfits/${mode}", mode: "copy"
 
-    label "python"
+    label 'celebi'
     label "aips"
 
     input:
