@@ -1,0 +1,11 @@
+name: base
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.11
+  - pip
+  - pip:
+      - astropy==5.2.1
+      - numpy==1.24.2
+      - matplotlib==3.9
