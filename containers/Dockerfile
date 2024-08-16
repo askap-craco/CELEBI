@@ -4,7 +4,7 @@ FROM condaforge/mambaforge:latest as cracofunew
 LABEL description = "Container for running CELEBI python scripts"
 
 # Install curl
-RUN apt-get -y update && apt install -y bc
+RUN apt-get -y update && apt install -y bc make gcc libgsl23 libgsl-dev
 
 # set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
