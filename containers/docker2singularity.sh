@@ -1,5 +1,5 @@
 docker run -v /var/run/docker.sock:/var/run/docker.sock \
--v .:/output \
+-v ./out:/output \
 --privileged -t --rm \
 quay.io/singularity/docker2singularity \
--name cracofunew cracofunew:latest
+--name cracofunew-$(date +%Y-%m-%d) cracofunew:latest
