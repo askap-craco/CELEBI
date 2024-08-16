@@ -42,7 +42,7 @@ process determine_flux_cal_solns {
     */
     publishDir "${params.out_dir}/fluxcal", mode: "copy"
 
-    label 'python'
+    label 'celebi'
     label 'aips'
 
     input:
@@ -130,7 +130,7 @@ process image_finder {
     publishDir "${params.out_dir}/finder", mode: "copy"
     maxForks 1
 
-    label 'python'
+    label 'celebi'
     label 'aips'
 
     input:
@@ -230,7 +230,7 @@ process get_peak {
     */
     publishDir "${params.out_dir}/finder", mode: "copy"
     
-    label 'python'
+    label 'celebi'
 
     input:
         path jmfit
@@ -335,7 +335,7 @@ process image_field {
     */
     publishDir "${params.out_dir}/field", mode: "copy"
 
-    label 'python'
+    label 'celebi'
     label 'aips'
 
     input:
@@ -434,7 +434,7 @@ process image_polcal {
                 DS9 region of source fit    
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
-    label 'python'
+    label 'celebi'
     label 'aips'
 
     input:
@@ -531,7 +531,7 @@ process image_htrgate {
     publishDir "${params.out_dir}/htrgate", mode: "copy"
     maxForks 1
     
-    label 'python'
+    label 'celebi'
     label 'aips'
 
     input:
@@ -614,7 +614,7 @@ process determine_pol_cal_solns {
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         path htr_data
@@ -686,7 +686,7 @@ process apply_pol_cal_solns {
 
     publishDir "${params.out_dir}/htr", mode: "copy"
     
-    label 'python'
+    label 'celebi'
 
     input: 
         val label

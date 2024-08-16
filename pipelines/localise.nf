@@ -27,7 +27,7 @@ process generate_binconfig {
     */
     publishDir "${params.out_dir}/binconfigs", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         path cand
@@ -88,7 +88,7 @@ process find_offset {
     */
     publishDir "${params.out_dir}/position", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         path field_sources
@@ -154,7 +154,7 @@ process apply_offset {
     */
     publishDir "${params.out_dir}/position", mode: "copy"
 
-    label 'python'
+    label 'celebi'
 
     input:
         path offset
