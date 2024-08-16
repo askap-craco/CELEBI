@@ -8,10 +8,16 @@ import subprocess
 #-----------------------------------------------------------------------------------------------
 
 def run(cmd):
-    ret = subprocess.run(cmd, shell=True).returncode
-    if ret != 0:
+    print(f'doflag - {cmd}')
+    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
         print(f"ERR:FAILED COMMAND:{cmd}")
-        sys.exit(ret)
+        print(" -- STDOUT -- ")
+        print(result.stdout.decode('utf-8'))
+        print(" -- STDERR -- ")
+        print(result.stderr.decode('utf-8'))
+        print(" ---- ")
+        sys.exit(result.returncode)
 
 
 if(len(sys.argv)<7):
@@ -31,19 +37,14 @@ badantfile	= sys.argv[6]
 
 print("doflag running with -- "+infits+" "+outfits+" "+badchanfile+" "+flagmode+" "+logfile+" "+badantfile+"\n")
 
-print("copying goutfile -- cp "+ankdir+"glogout.dat .")
+print("copying goutfile")
 run("cp "+ankdir+"glogout.dat .")
 
 if(flagmode=='proper'):
-    print("doflag - python3 "+ankdir+"runank.py "+infits+" temp_1.fits 1 "+badchanfile+" 1 >> "+logfile)
     run("python3 "+ankdir+"runank.py "+infits+" temp_1.fits 1 "+badchanfile+" 1 >> "+logfile)
-    print("doflag - python3 "+ankdir+"runank.py temp_1.fits temp_2.fits 2 none 0 >> "+logfile)
     run("python3 "+ankdir+"runank.py temp_1.fits temp_2.fits 2 none 0 >> "+logfile)
-    print("doflag - python3 "+ankdir+"runank.py temp_2.fits temp_3.fits 3 none 0 >> "+logfile)
     run("python3 "+ankdir+"runank.py temp_2.fits temp_3.fits 3 none 0 >> "+logfile)
-    print("doflag -python3 "+ankdir+"runank.py temp_3.fits "+outfits+" 4 none 0 >> "+logfile )
     run("python3 "+ankdir+"runank.py temp_3.fits "+outfits+" 4 none 0 >> "+logfile)
-    print("doflag - python3 "+ankdir+"print_badant.py "+outfits+" "+badantfile+" >> "+logfile)
     run("python3 "+ankdir+"print_badant.py "+outfits+" "+badantfile+" >> "+logfile)
     run("rm -rf temp_*.fits")
 else:
