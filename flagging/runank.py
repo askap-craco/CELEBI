@@ -1,8 +1,22 @@
 import os,sys
 import numpy as np
 import time as tm
+import subprocess
 from convertfits import *
 from inputs import *
+
+
+def run(cmd):
+    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(f"ERR:FAILED COMMAND:{cmd}")
+        print(" -- STDOUT -- ")
+        print(result.stdout.decode('utf-8'))
+        print(" -- STDERR -- ")
+        print(result.stderr.decode('utf-8'))
+        print(" ---- ")
+        sys.exit(result.returncode)
+    return result.returncode
 
 #	----------------------------------------------
 
@@ -119,7 +133,7 @@ start1	=	tm.time()
 
 if (DOFLAG):
     print("runank - running core flagging")
-    status	=	os.system('module load gcc/12.2.0 && module load gsl/2.7 && '+ANKDIR+'/ankflag')	
+    status	=	run('ankflag')	
     print("\nFlagging done in 		%d seconds\n"%(tm.time()-start1))
 	
 #	------------------------------		Convert back binary files to FITS	
@@ -184,7 +198,7 @@ if (READBACK):
 
 if (CLEARSCRATCH):
     print('\nClearing scratch directory....\n')
-    os.system('rm -rf '+scratchdir)
+    run('rm -rf '+scratchdir)
 
 
 
