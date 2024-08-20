@@ -122,7 +122,7 @@ def dedisperse_ic(I0_ds, DM, freqs, dtus):
     Output
         I_ds    - De-dispersed dynamic spectrum
     """
-    k_dm    = 4.149
+    k_dm    = 4.149377593361
     f_ref   = np.nanmedian(freqs)/1.0e3         #   Converting to GHz
     fghz    = freqs/1.0e3
 
