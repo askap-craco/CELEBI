@@ -18,10 +18,28 @@ from astropy.coordinates import SkyCoord as sc
 import subprocess
 
 def run(cmd):
-    ret = subprocess.run(cmd, shell=True).returncode
-    if ret != 0:
-        print(f"ERR:FAILED COMMAND:{cmd}")
-        sys.exit(ret)
+    """
+    A drop in replacement for os.system, that will check the return code of the
+    executed command and report failure/quit if the command fails
+
+    cmd : str
+       The system command to run.
+    """
+    print(f'{__file__}$> {cmd}')
+    # Run the command and capture all the relevant details
+    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # forward stdout/stderr to the relelevant streams
+    if result.stdout:
+        print(result.stdout, end='')
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end='')
+
+    # quit if the return code is not zero, with a note
+    if result.returncode != 0:
+        print(f"{__file__}$> ERR:FAILED:exitcode:{result.returncode}", file=sys.stderr)
+        sys.exit(result.returncode)
+
 
 parser = ArgumentParser(
     description="Apply the systematic offset calculated "
