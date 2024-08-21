@@ -41,14 +41,14 @@ print("copying goutfile")
 run("cp "+ankdir+"glogout.dat .")
 
 if(flagmode=='proper'):
-    run("python3 "+ankdir+"runank.py "+infits+" temp_1.fits 1 "+badchanfile+" 1 >> "+logfile)
-    run("python3 "+ankdir+"runank.py temp_1.fits temp_2.fits 2 none 0 >> "+logfile)
-    run("python3 "+ankdir+"runank.py temp_2.fits temp_3.fits 3 none 0 >> "+logfile)
-    run("python3 "+ankdir+"runank.py temp_3.fits "+outfits+" 4 none 0 >> "+logfile)
-    run("python3 "+ankdir+"print_badant.py "+outfits+" "+badantfile+" >> "+logfile)
+    run("python3 "+ankdir+"runank.py "+infits+" temp_1.fits 1 "+badchanfile+" 1  | tee -a "+logfile)
+    run("python3 "+ankdir+"runank.py temp_1.fits temp_2.fits 2 none 0  | tee -a "+logfile)
+    run("python3 "+ankdir+"runank.py temp_2.fits temp_3.fits 3 none 0  | tee -a "+logfile)
+    run("python3 "+ankdir+"runank.py temp_3.fits "+outfits+" 4 none 0  | tee -a "+logfile)
+    run("python3 "+ankdir+"print_badant.py "+outfits+" "+badantfile+"  | tee -a "+logfile)
     run("rm -rf temp_*.fits")
 else:
-    run("python3 "+ankdir+"runank.py "+infits+" "+outfits+" "+badchanfile+" 1 >> "+logfile)
+    run("python3 "+ankdir+"runank.py "+infits+" "+outfits+" "+badchanfile+" 1  | tee -a "+logfile)
 
 
 
