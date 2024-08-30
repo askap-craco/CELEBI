@@ -517,7 +517,7 @@ workflow correlate {
             label, data, ra, dec, 
             binconfig.first(), 
             polyco.first(), 
-            inttime,  // .first(),
+            inttime.first(),
             startmjd, 
             ref_correlation.combine(card_fpgas),
             fcm
