@@ -371,23 +371,23 @@ def getfirst_unc(src_info):
     # Grab all the relevant values from the source info
     # Peak flux density: mJy/beam
     pflux = [
-        np.float(src_info[i].split(",")[2]) for i in np.arange(len(src_info))
+        np.float64(src_info[i].split(",")[2]) for i in np.arange(len(src_info))
     ]
     # Flux denisity RMS: mJy/beam
     rms = [
-        np.float(src_info[i].split(",")[3]) for i in np.arange(len(src_info))
+        np.float64(src_info[i].split(",")[3]) for i in np.arange(len(src_info))
     ]
     # Measured major axis: arcsec
     fmaj = [
-        np.float(src_info[i].split(",")[7]) for i in np.arange(len(src_info))
+        np.float64(src_info[i].split(",")[7]) for i in np.arange(len(src_info))
     ]
     # Measured minor axis: arcsec
     fmin = [
-        np.float(src_info[i].split(",")[8]) for i in np.arange(len(src_info))
+        np.float64(src_info[i].split(",")[8]) for i in np.arange(len(src_info))
     ]
     # Measured position angle: degrees
     fpa = [
-        np.float(src_info[i].split(",")[9]) for i in np.arange(len(src_info))
+        np.float64(src_info[i].split(",")[9]) for i in np.arange(len(src_info))
     ]
 
     # Project FWHM major and minor axes onto RA, Dec axes
@@ -481,13 +481,13 @@ def getradec_unc(
     if (askap is True) or (nvss is True) or (vlass is True) or (racs is True):
         # TEMP: RA_err expected to be arcseconds
         ra_unc_arcsec = [
-            np.float(src_info[i].split(",")[1])
+            np.float64(src_info[i].split(",")[1])
             for i in np.arange(len(src_info))
         ]
 
         """
         # NVSS default RA_err unit: s
-        ra_unc_s = [np.float(src_info[i].split(',')[1]) for i in np.arange(len(src_info))]
+        ra_unc_s = [np.float64(src_info[i].split(',')[1]) for i in np.arange(len(src_info))]
         print(ra_unc_s)
         # Convert to arcsec: s * 15cos(dec_rad)
         ra_unc_arcsec = [ra_unc_s[i] * 15 * np.cos(dec_rad[i]) for i in np.arange(len(ra_unc_s))]
@@ -496,21 +496,21 @@ def getradec_unc(
         """
 
         ### Old: RA_err default unit: ms
-        ### ra_unc_ms = [np.float(src_info[i].split(',')[1]) for i in np.arange(len(src_info))]
+        ### ra_unc_ms = [np.float64(src_info[i].split(',')[1]) for i in np.arange(len(src_info))]
         ### Convert to arcsec: ms * 15cos(dec_rad) / 1000
         ### ra_unc_arcsec = [ra_unc_ms[i] * 15 * np.cos(dec_rad[i]) / 1000. for i in np.arange(len(ra_unc_ms))]
     if (askap is True) or (vlass is True):
         # Dec_err default unit: mas
-        # dec_unc_mas = [np.float(src_info[i].split(',')[3]) for i in np.arange(len(src_info))]
+        # dec_unc_mas = [np.float64(src_info[i].split(',')[3]) for i in np.arange(len(src_info))]
         # dec_unc_arcsec = [dec_unc_mas[i]/1000. for i in np.arange(len(src_info))]
         dec_unc_arcsec = [
-            np.float(src_info[i].split(",")[3])
+            np.float64(src_info[i].split(",")[3])
             for i in np.arange(len(src_info))
         ]
     if (nvss is True) or (sumss is True) or (racs is True):
         # Dec_err default unit: arcsec
         dec_unc_arcsec = [
-            np.float(src_info[i].split(",")[3])
+            np.float64(src_info[i].split(",")[3])
             for i in np.arange(len(src_info))
         ]
     if first is True:
