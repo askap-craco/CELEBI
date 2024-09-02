@@ -428,6 +428,9 @@ process subtract_rfi {
     */
     maxForks 1
 
+    label 'celebi'
+    label 'aips'
+
     input:
         each path(target_fits)
         path rfi_fits
@@ -438,6 +441,7 @@ process subtract_rfi {
     
     script:
         """
+        source /opt/setup_proc_container
         set -xu
 
         # subtractions not empty: finder mode
