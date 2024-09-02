@@ -363,7 +363,7 @@ process image_field {
         tar -xzvf $cal_solns
 
         # if we have an already-made field image, skip imaging
-        if [ "$params.fieldimage" == "null" ]; then
+        if [ "$params.fieldimage" == '' ]; then
             args="--targetonly -t $target_fits -r 3"
             args="\$args --cleanmfs -a 16 --skipplot --pixelsize=4 --tarflagfile=$flagfile"
 
