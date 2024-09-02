@@ -150,7 +150,8 @@ process apply_offset {
     */
     publishDir "${params.out_dir}/position", mode: "copy"
 
-    label 'celebi'
+    // label 'celebi'
+    label 'conda'
 
     input:
         path offset
@@ -172,7 +173,7 @@ process apply_offset {
                 --offset $offset \
                 --doffset $doffset \
                 --frbfits ${params.out_dir}/finder/${params.label}.fits  \
-                > ${params.label}_final_position.txt
+                | tee ${params.label}_final_position.txt
         """
 
     
