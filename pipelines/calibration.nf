@@ -247,6 +247,7 @@ process get_peak {
 
     script:
         """
+        source /opt/setup_proc_container 
         set -xu
 
         # Remove empty .jmfit and .reg files
@@ -259,7 +260,6 @@ process get_peak {
         beamBMIN=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$4}'`
         beamBMAX=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$5}'`
 
-        source /opt/setup_proc_container 
         python3 $localise_dir/argBeamExceed.py \
                 "\$(echo \$BMINs)" \
                 "\$(echo \$BMAXs)" \
