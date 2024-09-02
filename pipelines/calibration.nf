@@ -5,6 +5,7 @@
 localise_dir = "$projectDir/../localise"
 beamform_dir = "$projectDir/../beamform"
 
+params.finderflagfile = ""
 params.finderimagesize = 1024
 params.finderpixelsize = 1
 params.fieldimagesize = 3000
