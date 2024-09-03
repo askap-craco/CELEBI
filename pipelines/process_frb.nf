@@ -283,7 +283,7 @@ process plot {
 
         mkdir crops
 
-        python3 $beamform_dir/plot.py \$args
+        python3 $beamform_dir/plot.py \
                 -s $fnames_file \
                 -f $centre_freq \
                 -l $label \
