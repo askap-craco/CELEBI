@@ -714,13 +714,13 @@ workflow process_frb {
                     pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                     params.nants_frb, fcm
                 )
-                plot(
-                    params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
-                    params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
-                    coarse_ds.time.first(), refined_candidate
-                )
-                crops = plot.out.crops
-                crop_start = plot.out.crop_start
-                crop_50us = plot.out.crop_50us
+                // plot(
+                //     params.label, bform_frb.out.dynspec_fnames, bform_frb.out.htr_data,
+                //     params.centre_freq_frb, params.dm_frb, bform_frb.out.xy,
+                //     coarse_ds.time.first(), refined_candidate
+                // )
+                // crops = plot.out.crops
+                // crop_start = plot.out.crop_start
+                // crop_50us = plot.out.crop_50us
         }
 }
