@@ -615,16 +615,16 @@ workflow process_frb {
         }
 
         // Calibrate (i.e. image finder and field)
-        frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
-        offset_path = "${params.out_dir}/position/offset0.dat"
-        doffset_path = "${params.out_dir}/position/offsetfit.txt"
-        frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
-        if(new File(frb_jmfit_path).exists()) {
-            askap_frb_pos = Channel.fromPath(frb_jmfit_path)
-        }
-        if(new File(frb_pos_path).exists()) {
-            final_position = Channel.fromPath(frb_pos_path)
-        }
+        // frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
+        // offset_path = "${params.out_dir}/position/offset0.dat"
+        // doffset_path = "${params.out_dir}/position/offsetfit.txt"
+        // frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
+        // if(new File(frb_jmfit_path).exists()) {
+        //     askap_frb_pos = Channel.fromPath(frb_jmfit_path)
+        // }
+        // if(new File(frb_pos_path).exists()) {
+        //     final_position = Channel.fromPath(frb_pos_path)
+        // }
         if(params.calibrate) {
             if(!params.opt_gate){
                 if(params.image_all_bins) {
@@ -657,16 +657,16 @@ workflow process_frb {
                 ).peak_jmfit
             }
             // This seems to negate the need for the get_peak that is done above (in some cases)
-            if(new File(frb_jmfit_path).exists()) {
-                askap_frb_pos = Channel.fromPath(frb_jmfit_path)
-            }
+            // if(new File(frb_jmfit_path).exists()) {
+            //     askap_frb_pos = Channel.fromPath(frb_jmfit_path)
+            // }
 
 
-            if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
-                offset = Channel.fromPath(offset_path)
-                doffset = Channel.fromPath(doffset_path)
-            }
-            else {
+            // if((new File(offset_path).exists()) && (new File(doffset_path).exists())) {
+            //     offset = Channel.fromPath(offset_path)
+            //     doffset = Channel.fromPath(doffset_path)
+            // }
+            // else {
                 field_sources = image_field(
                     field_fits, flux_cal_solns, params.fieldflagfile, askap_frb_pos
                 ).jmfit
@@ -674,7 +674,7 @@ workflow process_frb {
                 offres = find_offset(field_sources)
                 offset = offres.offset
                 doffset = offres.doffset
-            }
+            // }
 
             if(!params.opt_gate){
                 finalres = apply_offset(offset, doffset, askap_frb_pos)
@@ -682,9 +682,9 @@ workflow process_frb {
                 // finalmap = finalres.hpmap
             }
         }
-        else if(new File(offset_path).exists()) {
-            offset = Channel.fromPath(offset_path)
-    }
+        // else if(new File(offset_path).exists()) {
+        //     offset = Channel.fromPath(offset_path)
+        // }
 
         if(params.beamform) {
                 bform_frb(
