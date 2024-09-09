@@ -567,47 +567,25 @@ workflow process_frb {
 
         if(!params.opt_gate){    
             // Correlate finder
-            finder_fits_path = "${params.out_dir}/loadfits/finder/finderbin07.fits"
-            if(new File(finder_fits_path).exists()) {
-                finder_fits = Channel.fromPath(
-                    "${params.out_dir}/loadfits/finder/finderbin*.fits"
-                )
-                centre_bin_fits = Channel.fromPath(
-                    "${params.out_dir}/loadfits/finder/finderbin04.fits"
-                )
-            }
-            else {
-                (finder_fits, centre_bin_fits) = corr_finder(
-                    "finder", params.data_frb, params.ra_frb, params.dec_frb, 
-                    binconfig.finder, binconfig.polyco, binconfig.int_time, "finder", fcm
-                )
-            }
+            (finder_fits, centre_bin_fits) = corr_finder(
+                "finder", params.data_frb, params.ra_frb, params.dec_frb, 
+                binconfig.finder, binconfig.polyco, binconfig.int_time, "finder", fcm
+            )
 
-            // Correlate RFI (if not directly flagging finder)
-            rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
-            if ( new File(rfi_fits_path).exists() ) {
-                rfi_fits = Channel.fromPath(rfi_fits_path)
+            // Correlate RFI
+            if(!params.skiprfi) {
+                rfi_fits = corr_rfi(
+                    "${params.label}_rfi", params.data_frb, params.ra_frb, 
+                    params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi",
+                    fcm
+                ).fits
             }
-            else {
-                if(!params.skiprfi) {
-                    rfi_fits = corr_rfi(
-                        "${params.label}_rfi", params.data_frb, params.ra_frb, 
-                        params.dec_frb, binconfig.rfi, binconfig.polyco, binconfig.int_time, "rfi",
-                        fcm
-                    ).fits
-                }
-            }
+            else { rfi_fits = "" }
         }
 
-        // Correlate field (if not using deep field image)
-        field_fits_path = "${params.out_dir}/loadfits/field/${params.label}_field.fits"
-        if((params.fieldimage != "") or new File(field_fits_path).exists() ) {
-            if(params.fieldimage == "") {
-                field_fits = Channel.fromPath(field_fits_path)
-            }
-            else {
-                field_fits = Channel.fromPath("${params.fieldimage}")
-            }
+        // Correlate field
+        if (params.fieldimage != "") {
+            field_fits = Channel.fromPath("${params.fieldimage}")
         }
         else {
             beam_centre = get_beam_centre()
