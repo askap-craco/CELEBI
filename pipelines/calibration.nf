@@ -132,7 +132,7 @@ process image_finder {
     maxForks 1
 
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         each path(target_fits)
@@ -142,7 +142,7 @@ process image_finder {
         path "fbin*.jmfit", emit: jmfit
         path "fbin*.fits", emit: fits_image
         path "fbin*.reg", emit: reg
-        path "*_calibrated_uv.ms", emit: ms
+        path "*_calibrated_uv.ms.tar", emit: mstar
 
     script:
         """
@@ -153,7 +153,13 @@ process image_finder {
 
         aipsid="\$((RANDOM%8192))"
 
+        cp $target_fits /JOBFS/.
+        cp $cal_solns /JOBFS/.
+        cd /JOBFS
+
         tar -xzvf $cal_solns
+        #create a bash variable that mirrors the nextflow variable
+        # since nextflow doesn't do fancy string operations like slicing.
         target_fits=$target_fits
         bin=\${target_fits:9:2}
 
@@ -186,11 +192,19 @@ process image_finder {
             --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
             --refant=$params.refant \
             \$args
+        ls -lh
+        tar -cvf ${target_fits}_calibrated_uv.ms.tar \${target_fits%.fits}_calibrated_uv.ms
+        cd - 
 
-        for f in `ls fbin\${bin}*jmfit`; do
+        cp -r /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+
+        for f in `ls /JOBFS/fbin\${bin}*jmfit`; do
             echo \$f
             python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
         done
+
+        cp /JOBFS/fbin*.fits .
+        cp /JOBFS/fbin*.jmfit .
         """
         
     stub:
@@ -232,18 +246,19 @@ process get_peak {
     publishDir "${params.out_dir}/finder", mode: "copy"
     
     label 'celebi'
+    label 'tempfs'
 
     input:
         path jmfit
         path fits_image
         path reg
-        path ms
+        path ms_tar
     
     output:
         path "${params.label}.jmfit", emit: peak_jmfit
         path "${params.label}.fits", emit: peak_fits_image
         path "${params.label}.reg", emit: peak_reg
-        path "${params.label}_calibrated_uv.ms", emit: peak_ms
+        path "${params.label}_calibrated_uv.ms.tar", emit: peak_ms_tar
 
     script:
         """
@@ -289,11 +304,24 @@ process get_peak {
         peak="\${peak_jmfit%.*}"
         peakbin=\${peak:4:2}
 
+
         echo "\$peak determined to be peak bin"
         cp \$peak_jmfit ${params.label}.jmfit
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
+        
+        # expand the ms
+        cp *.ms.tar /JOBFS/.
+        cd /JOBFS
+        tar -xvf *bin\${peakbin}*calibrated_uv.ms.tar
+
+        # copy the required files
         cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
+
+        # recompress the output ms and copy back to our work dir
+        tar -cf ${params.label}_calibrated_uv.ms.tar ${params.label}_calibrated_uv.ms
+        cd -
+        cp /JOBFS/${params.label}_calibrated_uv.ms.tar .
         """    
 
     stub:
@@ -337,7 +365,7 @@ process image_field {
     publishDir "${params.out_dir}/field", mode: "copy"
 
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         path target_fits
@@ -347,7 +375,8 @@ process image_field {
 
     output:
         path "f*.fits", emit: fitsimage, optional: true
-        path "*_calibrated_uv.ms", emit: ms, optional: true
+        // path "*_calibrated_uv.ms", emit: ms, optional: true
+        path "*_calibrated_uv.ms.tar", emit: mstar, optional: true
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
 
@@ -362,9 +391,11 @@ process image_field {
 
         tar -xzvf $cal_solns
 
+        cp $target_fits /JOBFS/.
+
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == '' ]; then
-            args="--targetonly -t $target_fits -r 3"
+            args="--targetonly -t /JOBFS/$target_fits -r 3"
             args="\$args --cleanmfs -a 16 --skipplot --pixelsize=4 --tarflagfile=$flagfile"
 
             if [ "$flagfile" != "" ]; then
@@ -392,6 +423,10 @@ process image_field {
             --minbeamfrac=$params.minbeamfrac \
             \$args
 
+        if [[ -e "/JOBFS/${target_fits}_calibrated_uv.ms"]]; then
+            tar -cf ${target_fits}_calibrated_uv.ms.tar /JOBFS/${target_fits}_calibrated_uv.ms
+            # cp -r "/JOBFS/${target_fits}_calibrated_uv.ms" .
+        fi
 
 
         i=1

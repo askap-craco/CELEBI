@@ -649,7 +649,7 @@ workflow process_frb {
                 bin_jmfits = bins_out.jmfit
                 bin_fits_images = bins_out.fits_image
                 bin_regs = bins_out.reg
-                bin_mss = bins_out.ms
+                bin_mss = bins_out.mstar
 
                 askap_frb_pos = get_peak(
                     bin_jmfits.collect(), bin_fits_images.collect(), 
