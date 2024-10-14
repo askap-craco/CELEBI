@@ -389,13 +389,15 @@ process image_field {
 
         aipsid="\$((RANDOM%8192))"
 
-        tar -xzvf $cal_solns
-
         cp $target_fits /JOBFS/.
+        cp $cal_solns /JOBFS/.
+        cd /JOBFS
+
+        tar -xzvf $cal_solns
 
         # if we have an already-made field image, skip imaging
         if [ "$params.fieldimage" == '' ]; then
-            args="--targetonly -t /JOBFS/$target_fits -r 3"
+            args="--targetonly -t $target_fits -r 3"
             args="\$args --cleanmfs -a 16 --skipplot --pixelsize=4 --tarflagfile=$flagfile"
 
             if [ "$flagfile" != "" ]; then
@@ -423,9 +425,8 @@ process image_field {
             --minbeamfrac=$params.minbeamfrac \
             \$args
 
-        if [[ -e "/JOBFS/${target_fits}_calibrated_uv.ms"]]; then
-            tar -cf ${target_fits}_calibrated_uv.ms.tar /JOBFS/${target_fits}_calibrated_uv.ms
-            # cp -r "/JOBFS/${target_fits}_calibrated_uv.ms" .
+        if [[ -e "${target_fits}_calibrated_uv.ms" ]]; then
+            tar -cvf ${target_fits}_calibrated_uv.ms.tar ${target_fits}_calibrated_uv.ms
         fi
 
 
@@ -435,6 +436,12 @@ process image_field {
             python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
+
+        cd - 
+        cp /JOBFS/f*.fits .
+        cp /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+        cp /JOBFS/*.reg .
+        cp /JOBFS/*jmfit .
         """    
     
     stub:
