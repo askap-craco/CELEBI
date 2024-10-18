@@ -104,8 +104,7 @@ process compile_summary {
     publishDir "${params.out_dir}", mode: "copy"
 
     input:
-        val _compile
-        val _finalpos
+        path outputs
 
     output:
         path "*.txt"
@@ -120,6 +119,8 @@ process compile_summary {
         args="\$args -l ${params.label}"
         args="\$args --cfreq ${params.centre_freq_frb}"
         args="\$args --bw ${params.bw}"
+        args="\$args --dm ${params.dm_frb}"
+        args="\$args -d ${params.out_dir}"
 
         ls ${params.out_dir}/*
 

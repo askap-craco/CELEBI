@@ -1,9 +1,5 @@
 nextflow.enable.dsl=2
 
-// Strictly FRB related params
-params.dm_low = -5
-params.dm_high = 5
-params.dm_step = 0.1
 //these are wide and coarse values, respectively
 params.dm_count = 0
 params.crop_dur = 100   // length of crop in ms
@@ -11,12 +7,6 @@ params.force_peak = 0   // force peak to a given timestep (ms). 0 to disable
 
 params.timescale = 1		//	SMDM time resolution in us
 params.bandwidth = 336      //  Bandwidth in MHz
-
-//Debugging/diagnosis params
-params.force_kc = 0
-params.do_vary_kc = false
-params.do_sn = false
-params.do_uncertainty_min = false
 
 //Output Params
 params.saving = true

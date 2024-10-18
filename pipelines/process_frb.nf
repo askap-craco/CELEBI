@@ -11,6 +11,7 @@ include { beamform as bform_frb; dedisperse; ifft; generate_dynspecs } from './b
 include { flag_proper as flagdat } from './flagging'
 include { shrine as smdm } from './shrine'
 include { compile_summary } from './utils'
+include { mf_image } from './mfimage'
 
 params.fieldimage = ""
 params.flagfinder = ""
@@ -285,9 +286,8 @@ process plot {
     output:
         path "*.png"
         path "crops", emit: crops
-        path "*_channel_mask.txt"
         path "crops/*.npy", emit: crop_us
-        val "_compile", emit: _compile
+        path "*IQUV*.png", emit: plot_file
     
     script:
         """
@@ -307,7 +307,6 @@ process plot {
         args="\$args -d $dm"
         args="\$args -t $start_time"
         args="\$args -c $cand"
-        args="\$args --chanlists $projectDir/../flagging"
         args="\$args --t_panels $params.plot_mosaic_t_list"
 
         mkdir crops
@@ -551,48 +550,6 @@ process update_polyco {
         """
 }
 
-process htr_to_binconfig {
-    /*
-        Write a binconfig file with a matched filter for a provided profile
-        as a function of MJD
-
-        Input
-            prof: path
-                High time resolution profile as function of MJD
-            polyco: path
-                Polyco file
-        
-        Output:
-            htr gate binconfig: path
-                Binconfig containing matched filter for high time res gate
-    */
-    input:
-        path prof
-        path polyco
-    
-    output:
-        path "craftfrb.htrgate.binconfig", emit: htrgate
-        path "craftfrb.htrrfi.binconfig", emit: htrrfi
-    
-    script:
-        """
-        #if [ "$params.ozstar" == "true" ]; then
-        #    module load gcc/9.2.0
-        #    module load openmpi/4.0.2
-        #    module load python/3.7.4
-        #    module load numpy/1.18.2-python-3.7.4
-        #    module load matplotlib/3.2.1-python-3.7.4
-        #fi
-        ml apptainer
-        apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/htr2binconfig.py $prof $polyco'
-        """
-    
-    stub:
-        """
-        touch craftfrb.htrgate.binconfig
-        touch craftfrb.htrrfi.binconfig
-        """
-}
 
 workflow optimise_gate {
     /*
@@ -651,7 +608,7 @@ workflow process_frb {
                 
         if( params.makeimage || params.corrcal ) {   
             
-            binconfig = generate_binconfig(refined_candidate)        
+            binconfig = generate_binconfig(refined_candidate)      
             
             if(!params.opt_gate){                    
                 // Correlate finder                
@@ -689,7 +646,7 @@ workflow process_frb {
             field_fits = Channel.fromPath(field_fits_path)
         }
         
-        if( params.makeimage || params.locfrb ) {  
+        if( params.makeimage || params.locfrb) {  
             
             if( params.locfrb ) {
                 binconfig = generate_binconfig(refined_candidate)
@@ -773,7 +730,6 @@ workflow process_frb {
                 params.centre_freq_frb, params.dm_frb,
                 bform_frb.out.bform_start_MJD, refined_candidate
             )
-            compile_summary(plot.out._compile, final_position)
         }
                 
         if( params.shrine ) {
@@ -783,4 +739,59 @@ workflow process_frb {
         	
         	smdm(idsdata,params.timresus)        	
         }             
+
+
+        if( params.mfimage ) {
+
+            // paths to required files
+            ids_label = "${params.label}_calib"
+            if( params.nopolcal ) {
+                ids_label = "${params.label}"
+            }
+            idspath = "${params.out_dir}/htr/${ids_label}_I_dynspec_${params.dm_frb}.npy"
+            binconfig = "${params.out_dir}/binconfigs/craftfrb.finder.binconfig"
+            polyco = "${params.out_dir}/binconfigs/craftfrb.polyco"
+            summary = "${params.out_dir}/${params.label}_summary.txt"
+
+            // do mf imaging
+            mf_final_position = mf_image(idspath, binconfig, polyco, 
+                                    summary, flux_cal_solns, fcm).mf_final_position
+
+        }
+
+
+        // Code to compile output files into a single summary .txt file
+        compile_out = Channel.empty()
+
+        // If Imaging and Beamforming is being done
+        if ( ( params.makeimage || params.locfrb ) & (params.beamform || params.htrfrb ) ) {
+            params.do_compile_summary = true
+            compile_out = compile_out.concat(finalres.final_position, plot.out.plot_file)
+
+
+        } // else if only imaging is being done
+        else if ( params.makeimage || params.locfrb ) {
+            params.do_compile_summary = true
+            compile_out = compile_out.concat(finalres.final_position)
+
+        } // else if only beamforming is being done
+        else if ( params.beamform || params.htrfrb ) {
+            params.do_compile_summary = true
+            compile_out = compile_out.concat(plot.out.plot_file)
+
+        } // else if matched filter imaging is being done
+        else if ( params.mfimage ) {
+            params.do_compile_summary = true
+            compile_out = compile_out.concat(mf_final_position)
+
+        }
+        else { // skip if none of the above
+            params.do_compile_summary = false
+        }
+
+        if ( params.do_compile_summary ) {
+
+            compile_summary(compile_out)
+        }
+
 }

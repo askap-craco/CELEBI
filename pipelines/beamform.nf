@@ -20,18 +20,6 @@ beamform_dir = "$projectDir/../beamform"
 params.uppersideband = false
 params.out_dir = "${params.publish_dir}/${params.label}"
 
-params.bw = 336 /*Default value*/
-
-// dynspec params for FRB
-params.frb_dynspec_sigma = 5.0  // S/N threshold
-params.frb_baseline = 50.0      // width of rms crop for baseline correction
-params.frb_dynspec_tN = 50      //time averaging
-params.frb_dynspec_guard = 10.0
-
-params.polcal_crop_width_s = 3.0
-params.longdata = false
-params.frb_crop_width_s = 1.0
-
 process create_calcfiles {
     /*
         Create the files that contain the delays required for 
@@ -563,9 +551,10 @@ process generate_dynspecs {
         val dm
 
     output:
-        path "*.npy", emit: data
-        path "*.txt", emit: dynspec_fnames
+        path "*dynspec*.npy", emit: data
+        path "*fnames.txt", emit: dynspec_fnames
         path "*.png"
+        path "*.npy"
 
     script:
         """
@@ -581,12 +570,17 @@ process generate_dynspecs {
         args="\$args -y ${label}_Y_t_${dm}.npy"
         args="\$args --bline"
         args="\$args --ofile ${label}_@_dynspec_${dm}.npy"
+        args="\$args --chanlists $projectDir/../flagging"
 
         if [[ $label == "${params.label}_polcal" ]]; then
             type="polcal"
         else
             type="frb"
         fi
+
+        if [ "$params.bform_autoflag" == "true" ]; then
+            args="\$args --do_chanflag"
+        fi 
         
 
         if [ \$type == "polcal" ]; then 
@@ -618,11 +612,20 @@ process generate_dynspecs {
         echo "python3 $beamform_dir/make_dynspec.py \$args"
         apptainer exec -B /fred/oz313/:/fred/oz313/ $params.container bash -c 'source /opt/setup_proc_container && python3 $beamform_dir/make_dynspec.py \$args'
 
+        # copy flagging files
+        cp flagged_channels.npy ${label}_flagged_channels.npy
 
         echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
         echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
         echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
         echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+
+        # saving files
+        if [ -f fail_bline.png ]; then
+            cp fail_bline.png ${params.out_dir}/htr/${label}_fail_bline.png
+            cp fail_bline.npy ${params.out_dir}/htr/${label}_fail_bline.npy
+            echo "BASELINE CORRECTION FAILED for ${label}, CHECK ${label}_fail_bline files in htr directory"
+        fi
 
         """
     
