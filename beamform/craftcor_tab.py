@@ -168,6 +168,7 @@ def _main():
         AntennaSource(mux)
         for mux in vcraft.mux_by_antenna(vcraftfiles, delaymap)
     ]
+
     print(f"Parse antennas: {timer()-start} s")
     print(("NUMBER OF ANTENNAS TO BE BEAMFORMED", len(antennas)))
 
@@ -688,12 +689,16 @@ class Correlator:
         # with open("fftlen", "w") as f:
         #     f.write(f"{nsamp}")
 
+        print(f"vfile.nsamps refant = {self.refant.vfile.nsamps}")
         print(f"nfft = {self.nfft}")
         print(f"nguard_chan = {self.nguard_chan}")
 
         # old way: user specified
         # self.nfft = 64 * values.fft_size
         # self.nguard_chan = 5 * values.fft_size
+
+        for i, ant in enumerate(self.ants):
+            print(f"vfile.nsamps ant {ant.antno} = {ant.vfile.nsamps}, {ant.trigger_frame}, {trigger_offsets[i]}, {sample_offsets[i]}")
 
         self.calcresults = ResultsFile(values.calcfile)
         self.dutc = 0
