@@ -2,6 +2,7 @@ nextflow.enable.dsl=2
 
 // Include nessesary scripts
 include {do_ref_correlation; do_correlation; get_start_mjd} from '../pipelines/correlate'
+include {correlate_frb} from '../pipelines/mfimage'
 
 
 // Cards and FPGAs to be processed. Override these in a config file to cut out
@@ -18,6 +19,7 @@ ref_card_fpga = cards.min().combine(fpgas.min())
 // defaults for parameters
 params.binconfig = ''
 params.polyco = ''
+params.fcm = ''
 params.data = ''
 // params.outdir = './output'
 params.publishDir = './output'
@@ -86,25 +88,9 @@ workflow {
 
     */
 
-    // get int_time
-    get_inttime(1.3824)
+    // correlate frb
 
-
-    // Get start mjd
-    startmjd = get_start_mjd(params.data_frb)
-
-    // Reference correlation
-    ref_correlation = do_ref_correlation(params.label, params.data_frb, params.ra_frb, params.dec_frb, 
-                        params.binconfig, params.polyco, get_inttime.out.int_time, startmjd, ref_card_fpga,
-                        params.fcm).cx_fy
-    
-    // Do rest of correlations
-    correlated_data = do_correlation(params.label, params.data_frb, params.ra_frb, params.dec_frb, 
-                        params.binconfig, params.polyco, get_inttime.out.int_time, startmjd, ref_correlation.combine(card_fpgas),
-                        params.fcm).cx_fy
-
-    // Combine correlations
-    all_correlations = ref_correlation.concat(correlated_data).collect()
+    correlate_frb(params.binconfig, params.polyco, params.fcm)
 
     // save outputs
     save_outputs(all_correlations, params.binconfig, params.polyco)
