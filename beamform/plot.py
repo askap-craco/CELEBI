@@ -43,9 +43,6 @@ def get_args():
     parser.add_argument("-c", type=str, help="Optimal FRB candidate")
     parser.add_argument("-t", type=float, help="MJD start time")
 
-    # chan flagging
-    parser.add_argument("--chanlists", help = "path to dir of files for static channel masking", type = str)
-
     # mosaic options
     parser.add_argument("--t_panels", help = "Time resolutions to process for HTR mosaic",
                         nargs='+', default = [1, 3, 10, 30, 100, 300, 1000], type = int)
@@ -104,62 +101,62 @@ def load_data(args):
     for i, S in enumerate("IQUV"):
         stk[S] = np.load(fnames[i], mmap_mode = "r")
 
-    # convert us time -> bin
-    t_burst_bin = int(t_elapsed_us)
+    # # convert us time -> bin
+    # t_burst_bin = int(t_elapsed_us)
 
-    return stk, t_burst_bin
-
-
+    return stk
 
 
 
 
 
 
-def flag_chan(dsI, on_pulse, flag_thresh, tN):
-    """
-    zap channels dynamicall based on RMS
-    NOTE: Code developed by Apurba Bera (2 Apr 2023) and cleaned by Tyson Dial (26 Apr 2024)
+
+
+# def flag_chan(dsI, on_pulse, flag_thresh, tN):
+#     """
+#     zap channels dynamicall based on RMS
+#     NOTE: Code developed by Apurba Bera (2 Apr 2023) and cleaned by Tyson Dial (26 Apr 2024)
     
-    Paramters
-    ---------
-    stk          -> dictionary of stokes dynspec
-    on_pulse     -> Slice object of on-pulse region
-    flag_thresh  -> Outlier threshold in units of SD
-    tN           -> Averaging factor in time (integer)
-    """
+#     Paramters
+#     ---------
+#     stk          -> dictionary of stokes dynspec
+#     on_pulse     -> Slice object of on-pulse region
+#     flag_thresh  -> Outlier threshold in units of SD
+#     tN           -> Averaging factor in time (integer)
+#     """
     
-    # crop out on-pulse region
-    dsI[:, on_pulse] = np.nan
+#     # crop out on-pulse region
+#     dsI[:, on_pulse] = np.nan
 
-    # use stokes I dynamic spectrum
-    dsI = t_average(dsI, tN)
+#     # use stokes I dynamic spectrum
+#     dsI = t_average(dsI, tN)
     
-    # channel mask, this is used to mask out bad channels (False entries)
-    chanmask = np.ones(dsI.shape[0], dtype = bool)
+#     # channel mask, this is used to mask out bad channels (False entries)
+#     chanmask = np.ones(dsI.shape[0], dtype = bool)
 
-    # flag based on noise in each channel
-    fI_std = np.nanstd(dsI, axis = 1)
-    med_rms = np.nanmedian(fI_std)
-    mad_rms = 1.48 * np.nanmedian(np.abs(fI_std - med_rms))
-    chan2flag = np.where(fI_std > (med_rms + flag_thresh*mad_rms))[0]
-    chanmask[chan2flag] = False
+#     # flag based on noise in each channel
+#     fI_std = np.nanstd(dsI, axis = 1)
+#     med_rms = np.nanmedian(fI_std)
+#     mad_rms = 1.48 * np.nanmedian(np.abs(fI_std - med_rms))
+#     chan2flag = np.where(fI_std > (med_rms + flag_thresh*mad_rms))[0]
+#     chanmask[chan2flag] = False
 
-    # instrumentation zapping 
-    # get flag file for given bandwidth, NOTE: This could be put in the nextflow script instead??
-    askap_badchan_file = path.join(args.chanlists, "htrchanlist_low.txt")
-    if args.f > 1100.0:
-        askap_badchan_file = path.join(args.chanlists, "htrchanlist_mid.txt")
-    if args.f > 1500.0:
-        askap_badchan_file = path.join(args.chanlists, "htrchanlist_high.txt")
+#     # instrumentation zapping 
+#     # get flag file for given bandwidth, NOTE: This could be put in the nextflow script instead??
+#     askap_badchan_file = path.join(args.chanlists, "htrchanlist_low.txt")
+#     if args.f > 1100.0:
+#         askap_badchan_file = path.join(args.chanlists, "htrchanlist_mid.txt")
+#     if args.f > 1500.0:
+#         askap_badchan_file = path.join(args.chanlists, "htrchanlist_high.txt")
 
-    # flag bad channels within bandwidth
-    askap_chan2flag = np.loadtxt(askap_badchan_file)
-    if askap_chan2flag.shape[0] > 2:
-        for i in range(2, askap_chan2flag.shape[0]):
-            chanmask[int(round(askap_chan2flag[i,0])):int(round(askap_chan2flag[i,1]))+1] = False
+#     # flag bad channels within bandwidth
+#     askap_chan2flag = np.loadtxt(askap_badchan_file)
+#     if askap_chan2flag.shape[0] > 2:
+#         for i in range(2, askap_chan2flag.shape[0]):
+#             chanmask[int(round(askap_chan2flag[i,0])):int(round(askap_chan2flag[i,1]))+1] = False
     
-    return chanmask
+#     return chanmask
 
 
 
@@ -170,7 +167,7 @@ def flag_chan(dsI, on_pulse, flag_thresh, tN):
 
 
 
-def plot_htr(args, stk, t_burst_bin):
+def plot_htr(args, stk):
     """
     create mosaic of frb burst at different t resolutions for 
     IQUV stokes dynamic spectra
@@ -179,7 +176,6 @@ def plot_htr(args, stk, t_burst_bin):
     ----------
     args        - > function arguments
     stk         - > dictionary of stokes dynspec
-    tburst_bin  - > finder bin index (where the burst is approximately to 1ms resolution)
     """
 
     # can change later
@@ -197,13 +193,13 @@ def plot_htr(args, stk, t_burst_bin):
     fig, AX = plt.subplot_mosaic(axes_handles, figsize = (18,12),
             gridspec_kw = {"height_ratios": [1,2,2,2,2], "width_ratios": [x_plot_w]*num+[1]})
 
-    # channel zap 
-    rough_on_pulse = slice(t_burst_bin - int(1.2*1000*nsamp), t_burst_bin + int(1.2*1000*nsamp) + 1)
-    chanmask = flag_chan(stk['I'].copy(), rough_on_pulse, 10.0, 1000)
+    # # channel zap 
+    # rough_on_pulse = slice(t_burst_bin - int(1.2*1000*nsamp), t_burst_bin + int(1.2*1000*nsamp) + 1)
+    # chanmask = flag_chan(stk['I'].copy(), rough_on_pulse, 10.0, 1000)
 
     # preprocess stokes dynspec
     # find robust peak in data
-    tI = np.mean(stk['I'][chanmask], axis = 0)
+    tI = np.nanmean(stk['I'], axis = 0)
     tI = t_average(tI.reshape(1, tI.size), pmax).flatten()
     peak = np.argmax(tI) * pmax
 
@@ -213,9 +209,19 @@ def plot_htr(args, stk, t_burst_bin):
     for S in "IQUV":
         stk_data[S] = stk[S][:,on_pulse].copy()
 
-    # flag stokes data
-    for S in "IQUV":
-        stk_data[S][~chanmask] = np.nan
+    # crop MJD timestamp
+    MJD_offset_to_1stsamp = (peak - int(1.2*pmax*nsamp))/8.64e10
+    MJD_offset_to_peak = peak/8.64e10
+
+    with open("crops/peak_MJD_offset_from_1stsamp.txt", "w") as file:
+        file.write(str(MJD_offset_to_peak))
+    
+    with open("crops/start_MJD_offset_from_1stsamp.txt", "w") as file:
+        file.write(str(MJD_offset_to_1stsamp))
+
+    # # flag stokes data
+    # for S in "IQUV":
+    #     stk_data[S][~chanmask] = np.nan
 
     
     # loop through t factors
@@ -310,8 +316,8 @@ def plot_htr(args, stk, t_burst_bin):
     plt.savefig(plot_filename)
 
 
-    # save flagged channels to file
-    np.savetxt(f"{args.label}_channel_mask.txt", chanmask, fmt='%d')
+    # # save flagged channels to file
+    # np.savetxt(f"{args.label}_channel_mask.txt", chanmask, fmt='%d')
 
 
     # saved cropped data to file
@@ -334,7 +340,7 @@ if __name__ == "__main__":
     args = get_args()
 
     # get burst starting time and load in stokes dynspecs
-    stk, t_burst_bin = load_data(args)
+    stk = load_data(args)
 
     # plot data
-    plot_htr(args, stk, t_burst_bin)
+    plot_htr(args, stk)

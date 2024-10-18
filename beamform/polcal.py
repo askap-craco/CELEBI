@@ -154,6 +154,16 @@ def get_args():
     if args.odir is None:
         args.odir = ""
 
+    # channel flagging
+    if args.chanflag is not None:
+        if len(args.chanflag) > 0:
+            if (args.chanflag[0] == "'") and (args.chanflag[-1] == "'"):
+                if len(args.chanflag) > 2:
+                    args.chanflag = args.chanflag[1:-1]
+                else:
+                    args.chanflag = ""
+    
+
     return args
 
 
@@ -379,7 +389,7 @@ def get_spectra(args, stk, freqs, l_model, v_model):
 
         ## mask (flag) dynspec in freq
         ds_r = ds_r[::-1]
-        ds_r[chan_flag] = np.nan
+        ds_r[chan_flag] = np.nan               # will just compound with other flagging in make_dynspec step
         
         # flip band
         ds_r = scrunch(ds_r, fN, 0)     # Frequency
