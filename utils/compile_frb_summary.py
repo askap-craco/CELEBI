@@ -14,6 +14,7 @@ def get_args():
     parser.add_argument("-l", help = "FRB label", type = str)
     parser.add_argument("--cfreq", help = "Central frequency", type = float, default = None)
     parser.add_argument("--bw", help = "Bandwidth", type = float, default = None)
+    parser.add_argument("--dm", help = "HTR DM (ideally structure maximised)", type = float, default = None)
 
     return parser.parse_args()
 
@@ -61,6 +62,11 @@ def _compile(args):
         ofile.write("DM_ref_freq: ".ljust(justlen) + f"{args.cfreq-args.bw/2}".ljust(justlen) + "".ljust(justlen) + "[MHz]\n")
     else:
         ofile.write("DM_ref_freq: ".ljust(justlen) + "NONE".ljust(justlen) + "".ljust(justlen) + "[MHz]\n")
+    
+    if args.dm is None:
+        ofile.write("htr_DM: ".ljust(justlen) + "NONE".ljust(justlen) + "".ljust(justlen) + "[pc/cm^3]\n")
+    else:
+        ofile.write("htr_DM: ".ljust(justlen) + f"{args.dm}".ljust(justlen) + "".ljust(justlen) + "[pc/cm^3]\n")
 
     # polyco file
     polyco_file = os.path.join(args.d, "binconfigs/craftfrb.polyco")
@@ -79,7 +85,7 @@ def _compile(args):
         ofile.write("Geocentric delay: ".ljust(justlen) + f"{geo_delay}".ljust(justlen) + "".ljust(justlen) + "[s]\n")
 
     # beamforming MJD
-    antMJD_file = os.path.join(args.d, f"binconfigs/bform_start_MJD.txt")
+    antMJD_file = os.path.join(args.d, f"htr/info/bform_start_MJD.txt")
     if isfile(antMJD_file):
         with open(antMJD_file) as file:
             bf_MJD  = float(file.readline())
@@ -87,12 +93,18 @@ def _compile(args):
     
 
     # crop MJD
-    cropMJD_file = os.path.join(args.d, f"binconfigs/frb_crop_MJD.txt")
+    cropMJD_file = os.path.join(args.d, f"htr/info/frb_crop_MJD.txt")
     if isfile(cropMJD_file):
         with open(cropMJD_file) as file:
             crop_MJD = file.readline()
             ofile.write("crop_MJD: ".ljust(justlen) + crop_MJD.ljust(justlen) + "".ljust(justlen) + "[days]\n")
 
+        peakMJD_file = os.path.join(args.d, "htr/crops/peak_MJD_offset_from_1stsamp.txt")
+        if isfile(peakMJD_file):
+            with open(peakMJD_file) as file:
+                peak_MJD_offset = file.readline()
+                peak_MJD = float(crop_MJD) + float(peak_MJD_offset)
+                ofile.write("peak_MJD: ".ljust(justlen) + str(peak_MJD).ljust(justlen) + "".ljust(justlen) + "[days]\n")
 
 
     # position information
