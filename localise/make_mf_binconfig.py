@@ -218,7 +218,7 @@ def crop_frb(args):
     """
 
     MAX_BINS = 140
-    TN_ITERATION = 50
+    TN_ITERATION = 108
     RMS_THRES = 1.5
 
     # Find on-pulse and off-pulse regions for FRB and rfi respectivley.
