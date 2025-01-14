@@ -105,6 +105,14 @@ process generate_mf_binconfig {
         args="\$args --rfi_w $params.mf_rfi_w"
         args="\$args --rfi_g $params.mf_rfi_g"
 
+        if [ $params.mf_tw == 'true' ]; then
+            args="\$args --tw"
+        fi
+
+        if [ $params.mf_fw == 'true' ]; then
+            args="\$args --fw"
+        fi
+
 
         # create new binconfig, polyco and wmask
 
