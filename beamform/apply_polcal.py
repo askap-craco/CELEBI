@@ -38,7 +38,7 @@ def get_args():
     ## data arguments
     parser.add_argument("-x", help = "X polarisation Time series", type = str)
     parser.add_argument("-y", help = "Y polarisation Time series", type = str)
-    parser.add_argument("--soln", help = ".npy file containing solutions", type = str)
+    parser.add_argument("--soln", help = ".txt file containing solutions", type = str)
 
 
     ## observation arguments
