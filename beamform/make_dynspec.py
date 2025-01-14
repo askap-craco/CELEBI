@@ -356,7 +356,6 @@ def pulse_fold(ds, DM, cfreq, bw, MJD0, MJD1, F0, F1, chanflag, sphase = None, )
     ds_r = ds[:,sphase:sphase + fold_w * (fold_n)].copy()
     ds_f = np.mean(ds_r.reshape(ds_r.shape[0], (fold_n), fold_w), axis = 1)
 
-    print(ds_f.shape)
 
     
     return ds_f, sphase / ds.shape[1]
