@@ -39,7 +39,7 @@ def _compile(args):
         with open(htr_file, "r") as file:
             lines = file.readlines()
         for i, S in enumerate("IQUV"):
-            ofile.write(f"ds{S}: ".ljust(justlen) + f"{lines[i]}")
+            ofile.write(f"ds{S}: ".ljust(justlen) + f"{os.path.join(os.path.join(os.path.abspath(args.d), 'htr'),lines[i])}")
 
     # General data
     ofile.write("\n# GENERAL DATA #\n")
