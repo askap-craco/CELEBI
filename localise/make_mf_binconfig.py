@@ -117,6 +117,10 @@ def get_args():
     parser.add_argument("--rfi_w", help = "Width of rfi region in ms", type = float, default = 4.0)
     parser.add_argument("--rfi_g", help = "Width of guard region between on-pulse and off-pulse in ms", type = float, default = 1.0)
 
+    # weights
+    parser.add_argument("--tw", help = "Calculate time-dependent weights to apply", action = "store_true")
+    parser.add_argument("--fw", help = "Calculate freq-dependent weights to apply", action = "store_true")
+
     return parser.parse_args()
 
 
@@ -217,7 +221,7 @@ def crop_frb(args):
         cropped dynamic spectra
     """
 
-    MAX_BINS = 140
+    MAX_BINS = 120
     TN_ITERATION = 108
     RMS_THRES = 1.5
 
@@ -343,8 +347,15 @@ def make_binconfig(ds, args):
     tw = np.zeros(ds.shape[1])
     fw = np.zeros(ds.shape[0])
 
-    tw[args.finder_start:args.finder_end] = np.nanmean(ds[:,args.finder_start:args.finder_end], axis = 0)
-    fw = np.mean(ds[:,args.finder_start:args.finder_end], axis = 1)
+    if args.tw:
+        tw[args.finder_start:args.finder_end] = np.nanmean(ds[:,args.finder_start:args.finder_end], axis = 0)
+    else:
+        tw[args.finder_start:args.finder_end] = 1.0
+
+    if args.fw:
+        fw = np.mean(ds[:,args.finder_start:args.finder_end], axis = 1)
+    else:
+        fw = np.ones(ds.shape[0])
 
     # set any flagged channels to zero weights
     fw[np.isnan(fw)] = 0.0
@@ -370,7 +381,6 @@ def make_binconfig(ds, args):
     # add time(freq-)weights to container, also add zeroth bin for 
     wmask.tw = tw.copy()
     wmask.fw = fw.copy()
-
     
     # create finder, rfi and field masks
     # just make finder bin the ds with padded zeroth bin (NOTE: may be removed later)
@@ -514,21 +524,38 @@ def diagnostics(ds, args, wmask):
 
     # Make figure of time series with rms marker and rfi bounds
     fig3, ax3 = plt.subplots(figsize = (10,10), layout = "constrained")
-    ax3.plot(np.nanmean(ds, axis = 0))
-    ax3.plot([0, ds.shape[1]-1], [args.t_rms]*2, 'k--')
+
+    tMAX = np.max(np.nanmean(ds, axis = 0))
+
+    ax3.plot(np.nanmean(ds, axis = 0) / tMAX)
+    ax3.plot([0, ds.shape[1]-1], [args.t_rms / tMAX]*2, 'k--', label = "rms")
     ylim = ax3.get_ylim()
+    xlim = ax3.get_xlim()
 
     # rfi bin markers
     ax3.plot([1, 1], ylim, 'r--')
-    ax3.plot([args.rfi_nsamp]*2, ylim, 'r--')
+    ax3.plot([args.rfi_nsamp]*2, ylim, 'r--', label = "RFI bins")
     ax3.plot([args.finder_end + args.guard_nsamp]*2, ylim, 'r--')
-    ax3.plot([args.finder_end + args.guard_nsamp + args.rfi_nsamp - 1]*2, ylim, 'r--')
+    ax3.plot([args.finder_end + args.guard_nsamp + args.rfi_nsamp - 1]*2, ylim, 'r--')    
     
     # finder bin markers
-    ax3.plot([args.finder_start]*2, ylim, 'm--')
+    ax3.plot([args.finder_start]*2, ylim, 'm--', label = "FINDER bins")
     ax3.plot([args.finder_end]*2, ylim, 'm--')
 
+    # S/N markers
+    ax3.plot(xlim, [0.8, 0.8], label = "mf_thres = 0.8", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.5, 0.5], label = "mf_thres = 0.5", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.3, 0.3], label = "mf_thres = 0.3", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.2, 0.2], label = "mf_thres = 0.2", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.15, 0.15], label = "mf_thres = 0.15", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.1, 0.1], label = "mf_thres = 0.1", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.05, 0.05], label = "mf_thres = 0.05", alpha = 0.8, linestyle = ':')
+    ax3.plot(xlim, [0.03, 0.03], label = "mf_thres = 0.03", alpha = 0.8, linestyle = ':')
+
+    ax3.legend()
+
     ax3.set_ylim(ylim)
+    ax3.set_xlim(xlim)
     ax3.set_xlabel("Time Bins", fontsize = 16)
     ax3.set_ylabel("(arb.)")
 
@@ -553,6 +580,8 @@ def diagnostics(ds, args, wmask):
         file.write(f"Start MJD of mf binconfig file: {args.bin0_MJD}\n")
         file.write(f"Width of binconfig file: {args.tN * ds.shape[1] * 1e-3} ms\n")
         file.write(f"Number of bins: {ds.shape[1]}\n")
+        file.write(f"Number of FINDER bins: {args.finder_end - args.finder_start}\n")
+        file.write(f"Number of RFI bins: {2 * args.rfi_nsamp}\n")
         file.write(f"Geometric delay: {args.geodelay_ms} ms\n")
         file.write(f"DM delay (due to difference in DM reference frequency used between correlation and beamforming): {args.DM_delay_ms} ms\n")
         file.write(f"Pulsar period: {args.pulsar_period} s\n")

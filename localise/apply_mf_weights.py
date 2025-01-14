@@ -268,6 +268,8 @@ def weight_scrunch(args,wmask):
 
     #get frequency corrections
     f_correction = np.zeros(args.fbins)
+    print(wmask.findp)
+    print(wmask.tmask)
     for i,fweight in enumerate(wmask.findp):
         if fweight <= 0:
             f_correction[i] = 0
