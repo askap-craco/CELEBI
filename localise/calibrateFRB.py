@@ -151,6 +151,9 @@ def _main():
         snversion += 1
         clversion += 1
 
+    # Run setjy to put the appropriate flux scale in in the SU table
+    run_setjy(caldata, args.sourcename, args.fluxcalfluxcoeffs)
+
     # Run bandpass correction
     if do_calibrate:
         run_bandpass(
@@ -159,6 +162,7 @@ def _main():
             bpfname,
             args.cpasspoly,
             args.bpass,
+            args.fluxcalfluxcoeffs,
         )
         # Plot the bandpass table
         if do_plot:
@@ -174,7 +178,7 @@ def _main():
             caldata,
             args.sourcename,
             args.refant,
-            args.flux,
+            args.fluxcalfluxcoeffs,
             selfcalsnfname,
         )
 
@@ -533,11 +537,11 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-f",
-        "--flux",
-        type=float,
-        default=9.5,  # 0407 flux
-        help="Calibrator flux in Jy,  Defaulted to correct value for 0407",
-    )
+        "--fluxcalfluxcoeffs",
+        type=str,
+        default="15.0",
+        help="Calibrator flux in polynomial form (Jy). Reference to 1 GHz, coeffs are log(nu)^N",
+    ) 
     parser.add_argument(
         "-i",
         "--imagecube",
@@ -1045,12 +1049,30 @@ def correct_leakage(
     vlbatasks.applysntable(caldata, snversion, "2PT", clversion, refant)
 
 
+def run_setjy(
+    caldata,
+    sourcename: str,
+    fluxcalfluxcoeffs: str
+) -> None:
+    """ Run SETJY to put calibrator flux in SU table
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param sourcename: Source name
+    :type sourcename: str
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficienys
+    :type fluxcalfluxcoeffs: str
+    """
+    fluxcoeffs = [int(f) for f in fluxcalfluxcoeffs.split(',')]
+    vlbatasks.setjy(caldata, sourcename, fluxcoeffs)
+
 def run_bandpass(
     caldata,
     sourcename: str,
     bpfname: str,
     cpasspoly: int,
     bpass: bool,
+    fluxcalfluxcoeffs: str
 ) -> None:
     """Run bandpass correction. Defaults to using CPASS unless --bpass
     is specified.
@@ -1065,10 +1087,13 @@ def run_bandpass(
     :type cpasspoly: int
     :param bpass: If True, use BPASS instead of CPASS
     :type bpass: bool
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficients
+    :type fluxcalfluxcoeffs: str
     """
     scannumber = 1
+    fluxcoeffs = [int(f) for f in fluxcalfluxcoeffs.split(',')]
     if bpass:
-        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True)
+        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True, fluxcoeffs)
     else:
         vlbatasks.cpass(
             caldata,
@@ -1078,6 +1103,7 @@ def run_bandpass(
             None,
             cpasspoly,
             True, # Use the whole scan
+            fluxcoeffs,
         )
 
     # Write BP table to disk
@@ -1108,7 +1134,7 @@ def run_selfcal(
     caldata,
     sourcename: str,
     refant: int,
-    flux: float,
+    fluxcalfluxcoeffs: str,
     selfcalsnfname: str,
 ) -> None:
     """Run selfcal
@@ -1119,8 +1145,8 @@ def run_selfcal(
     :type sourcename: str
     :param refant: Reference antenna
     :type refant: int
-    :param flux: Calibrator flux in Jy
-    :type flux: float
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficienys
+    :type fluxcalfluxcoeffs: str
     :param selfcalsnfname: File to save selfcal solutions to
     :type selfcalsnfname: str
     """
@@ -1130,6 +1156,8 @@ def run_selfcal(
     soltype = "L1R"
     selfcalsnr = 5
     splitcaldata = AIPSUVData(sourcename, OUTKLASS, 1, 1)
+    fluxcoeffs = [float(f) for f in fluxcalfluxcoeffs.split(",")]
+    flux = 0 # Set to zero to ensure that SU table flux density, set by SETJY, is used by CALIB
     if splitcaldata.exists():
         splitcaldata.zap()
     vlbatasks.split(caldata, clversion, OUTKLASS, sourcename)

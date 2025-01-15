@@ -81,7 +81,7 @@ process determine_flux_cal_solns {
         args="\$args -u \$aipsid"
         args="\$args --src=$params.target"
         args="\$args --cpasspoly=$params.cpasspoly"
-        args="\$args -f 15"
+        args="\$args --fluxcalfluxcoeffs=$params.fluxcalflux_c0,$params.fluxcalflux_c1,$params.fluxcalflux_c2,$params.fluxcalflux_c3,$params.fluxcalflux_c4"
         args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
             args="\$args --flagfile=$flagfile"
