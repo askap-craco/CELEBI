@@ -297,6 +297,7 @@ process mf_calibrate_and_image {
         # set up args
         args="--targetonly"
         args="\$args -t $mf_fits"
+        args="\$args --maskpeakonly"
         args="\$args -r $params.refant"
         args="\$args -i"
         args="\$args -j"

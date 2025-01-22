@@ -25,6 +25,8 @@
 ## Imports
 import numpy as np
 import argparse, os, sys, glob
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from time import time
 from fdifx import fdifx,util

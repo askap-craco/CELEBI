@@ -151,6 +151,10 @@ def _main():
         snversion += 1
         clversion += 1
 
+    # Run setjy to put the appropriate flux scale in in the SU table
+    if do_calibrate:
+       run_setjy(caldata, args.sourcename, args.fluxcalfluxcoeffs)
+
     # Run bandpass correction
     if do_calibrate:
         run_bandpass(
@@ -159,6 +163,7 @@ def _main():
             bpfname,
             args.cpasspoly,
             args.bpass,
+            args.fluxcalfluxcoeffs,
         )
         # Plot the bandpass table
         if do_plot:
@@ -174,7 +179,8 @@ def _main():
             caldata,
             args.sourcename,
             args.refant,
-            args.flux,
+            args.fluxcalfluxcoeffs,
+            reffreqs[0]/1e9,
             selfcalsnfname,
         )
 
@@ -272,6 +278,11 @@ def _main():
             "stokes": "pseudoI",
         }
 
+        # Get the mask, if needed
+        if args.maskpeakonly:
+            peakpix = get_peak_pixel(deftcleanvals.copy())
+            maskstr = "circle[[{0}pix,{1}pix], 4pix ]".format(peakpix[0], peakpix[1])
+
         # Do the cube
         for pol in polarisations:
             print('DOING POL CUBE')
@@ -279,6 +290,10 @@ def _main():
             casaout = open("imagescript.py", "w")
 
             tcleanvals["stokes"] = pol
+            if args.maskpeakonly:
+                tcleanvals["usemask"] = "user"
+                tcleanvals["mask"] = maskstr
+
 
             # If desired, produce the noise image
             if args.noisecentre:
@@ -533,11 +548,11 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-f",
-        "--flux",
-        type=float,
-        default=9.5,  # 0407 flux
-        help="Calibrator flux in Jy,  Defaulted to correct value for 0407",
-    )
+        "--fluxcalfluxcoeffs",
+        type=str,
+        default="15.0",
+        help="Calibrator flux in polynomial form (Jy). Reference to 1 GHz, coeffs are log(nu)^N",
+    ) 
     parser.add_argument(
         "-i",
         "--imagecube",
@@ -653,6 +668,10 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--imagesize", type=int, default=1024, help="Size of the image to make"
+    )
+    parser.add_argument(
+        "--maskpeakonly", default=False, action="store_true", 
+        help="Mask a few pixels around the highest peak only, no automultithresh"
     )
     parser.add_argument(
         "--xcorplotsmooth",
@@ -851,7 +870,11 @@ def load_data(fits: str, uvsrt: bool):
     :type uvsrt: bool
     """
     data = vlbatasks.zapAndCreateUVData("CRAFTTARG", "UVDATA", AIPSDISK, 1)
+    tempinfits = os.getcwd() + "/templink_uv.fits"
+    os.system("rm -f " + tempinfits)
+    os.system("ln -s " + fits + " " + tempinfits)
     vlbatasks.fitld_corr(fits, data, [], "", 0.0001)
+    os.system("rm -f " + tempinfits)
 
     if uvsrt:
         sorteddata = vlbatasks.zapAndCreateUVData(
@@ -892,7 +915,7 @@ def get_ref_freqs(caldata) -> "list[float]":
 
     :param caldata: Calibrator data
     :type caldata: [type]
-    :return: List of reference frequencies
+    :return: List of reference frequencies in Hz
     :rtype: list[float]
     """
     reffreqs = []
@@ -1045,12 +1068,30 @@ def correct_leakage(
     vlbatasks.applysntable(caldata, snversion, "2PT", clversion, refant)
 
 
+def run_setjy(
+    caldata,
+    sourcename: str,
+    fluxcalfluxcoeffs: str
+) -> None:
+    """ Run SETJY to put calibrator flux in SU table
+
+    :param caldata: Calibrator data
+    :type caldata: [type]
+    :param sourcename: Source name
+    :type sourcename: str
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficients
+    :type fluxcalfluxcoeffs: str
+    """
+    fluxcoeffs = [float(f) for f in fluxcalfluxcoeffs.split(',')]
+    vlbatasks.setjy(caldata, sourcename, fluxcoeffs)
+
 def run_bandpass(
     caldata,
     sourcename: str,
     bpfname: str,
     cpasspoly: int,
     bpass: bool,
+    fluxcalfluxcoeffs: str
 ) -> None:
     """Run bandpass correction. Defaults to using CPASS unless --bpass
     is specified.
@@ -1065,10 +1106,13 @@ def run_bandpass(
     :type cpasspoly: int
     :param bpass: If True, use BPASS instead of CPASS
     :type bpass: bool
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficients
+    :type fluxcalfluxcoeffs: str
     """
     scannumber = 1
+    fluxcoeffs = [float(f) for f in fluxcalfluxcoeffs.split(',')]
     if bpass:
-        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True)
+        vlbatasks.bpass(caldata, sourcename, clversion, scannumber, None, 0, True, fluxcoeffs)
     else:
         vlbatasks.cpass(
             caldata,
@@ -1078,6 +1122,7 @@ def run_bandpass(
             None,
             cpasspoly,
             True, # Use the whole scan
+            fluxcoeffs,
         )
 
     # Write BP table to disk
@@ -1108,7 +1153,8 @@ def run_selfcal(
     caldata,
     sourcename: str,
     refant: int,
-    flux: float,
+    fluxcalfluxcoeffs: str,
+    reffreq: float,
     selfcalsnfname: str,
 ) -> None:
     """Run selfcal
@@ -1119,8 +1165,10 @@ def run_selfcal(
     :type sourcename: str
     :param refant: Reference antenna
     :type refant: int
-    :param flux: Calibrator flux in Jy
-    :type flux: float
+    :param fluxcalfluxcoeffs: comma separated string of flux coefficients
+    :type fluxcalfluxcoeffs: str
+    :param reffreq: reference frequency in GHz
+    :type reffreq: float
     :param selfcalsnfname: File to save selfcal solutions to
     :type selfcalsnfname: str
     """
@@ -1130,6 +1178,21 @@ def run_selfcal(
     soltype = "L1R"
     selfcalsnr = 5
     splitcaldata = AIPSUVData(sourcename, OUTKLASS, 1, 1)
+    fluxcoeffs = [float(f) for f in fluxcalfluxcoeffs.split(",")]
+    # Ideally we would let AIPS sort out the flux scale using what has been put into the SU table by SETJY
+    # However, we are splitting into a single source file, which means the SU table info is not carried over
+    # So we need to calculate the average flux density ourselves
+    #print(reffreq)
+    multiplier = 1
+    logflux = np.log10(fluxcoeffs[0])
+    for i, f in enumerate(fluxcoeffs[1:]):
+        multiplier *= np.log10(reffreq)
+        logflux += fluxcoeffs[i+1]*multiplier
+        #print(multiplier, fluxcoeffs[i+1], logflux)
+    flux = 10 ** logflux
+    #print(flux)
+    flux = int(flux*1000)/1000.
+    #print(flux)
     if splitcaldata.exists():
         splitcaldata.zap()
     vlbatasks.split(caldata, clversion, OUTKLASS, sourcename)
@@ -1214,7 +1277,10 @@ def run_split(data, outfname: str, sourcename: str) -> None:
         "CRAFTSRC", "SPLIT", AIPSDISK, SEQNO
     )
     vlbatasks.splitmulti(data, clversion, OUTKLASS, sourcename, SEQNO)
-    vlbatasks.writedata(data, outfname + ".unavg", True)
+    tempoutfits = os.getcwd() + "/templink.uvfits"
+    os.system("rm -f " + tempoutfits)
+    vlbatasks.writedata(data, tempoutfits, True)
+    os.system("mv " + tempoutfits + " " + outfname + ".unavg")
     vlbatasks.writedata(outputdata, outfname, True)
 
 
@@ -1241,7 +1307,7 @@ def write_readme(
         correction
     :type xpolmodelfile: str
     :param reffreqs: List of reference frequencies as determined by
-        the calibrator data
+        the calibrator data (in Hz)
     :type reffreqs: list[float]
     """
     readmeout = open(readmefname, "w")
@@ -1283,7 +1349,7 @@ def write_readme(
     )
     readmeout.write("Reference frequency(s) of this file:\n")
     for i, reffreq in enumerate(reffreqs):
-        readmeout.write("AIPS IF %d ref (MHz): %.9f\n" % (i, reffreq))
+        readmeout.write("AIPS IF %d ref (MHz): %.9f\n" % (i, reffreq/1e6))
     readmeout.write(
         "\nFinally I note that long-term, we really should also be solving for the leakage and writing both it and the parallactic angle corrections out.\n"
     )
@@ -1296,6 +1362,34 @@ def write_readme(
         f"tar cvzf {calibtarballfile} {readmefname.split('/')[-1]} {tarinputfiles}"
     )
 
+def get_peak_pixel(tcleanargs):
+    tcleanargs["stokes"] = "I"
+    tcleanargs["niter"] = 0
+    tcleanargs["imagename"] = "junk-peak"
+    os.system("rm -rf junk-peak*")
+    scriptname = "getpeakscript.py"
+    casaout = open(scriptname, "w")
+    casacmd = "tclean"
+    write_casa_cmd(casaout, casacmd, tcleanargs)
+    casacmd = "imstat"
+    imstatargs = {}
+    imstatargs["imagename"] = "junk-peak.image"
+    bl = tcleanargs["imsize"] // 20
+    tr = tcleanargs["imsize"] - bl
+    imstatargs["box"] = "{0},{0},{1},{1}".format(bl, tr)
+    imstatargs["logfile"] = "findpeak.imstat.txt"
+    write_casa_cmd(casaout, casacmd, imstatargs)
+    casaout.close()
+    os.system("python {0}".format(scriptname))
+    loglines = open(imstatargs["logfile"]).readlines()
+    maxxpix = tcleanargs["imsize"] // 2
+    maxypix = tcleanargs["imsize"] // 2
+    for line in loglines:
+        if "position of max value (pixel)" in line:
+            pixstr = line.split(':')[-1].strip()
+            maxxpix = int(pixstr[1:-1].split(',')[0].strip())
+            maxypix = int(pixstr[1:-1].split(',')[1].strip())
+    return [maxxpix, maxypix]
 
 def fits_to_ms(fitsfname: str, msfname: str) -> None:
     """Convert a FITS file to a measurement set with CASA

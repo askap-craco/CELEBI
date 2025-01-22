@@ -2,7 +2,7 @@ nextflow.enable.dsl=2
 
 include { create_empty_file } from './utils'
 include { correlate as corr_finder; correlate as corr_rfi;
-    correlate as corr_field; correlate as corr_htrgate; correlate as corr_htrrfi; 
+    correlate as corr_gate; correlate as corr_field; 
     subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi; get_start_mjd as get_start_mjd } from './correlate'
 include { image_finder; image_field; get_peak; image_htrgate } from './calibration'
 include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
@@ -603,14 +603,23 @@ workflow process_frb {
         rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
         centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
+        gate_fits_path = "${params.out_dir}/loadfits/gate/${params.label}_gate.fits"
         
         empty_file = create_empty_file("file")
                 
         if( params.makeimage || params.corrcal ) {   
-            
+      
             binconfig = generate_binconfig(refined_candidate)      
-            
-            if(!params.opt_gate){                    
+
+            if(params.binconfig_gate != "") {
+                binconfigpath = Channel.fromPath(params.binconfig_gate).first()
+                polycopath = Channel.fromPath(params.polyco_gate).first()
+                inttimepath = Channel.fromPath(params.inttime_gate).first()
+                // correlate gated FRB
+                gate_fits = corr_gate("${params.label}_gate", params.data_frb, params.ra_frb, params.dec_frb,
+                                       binconfigpath, polycopath, inttimepath, "gate", fcm).fits
+            }
+            else {
                 // Correlate finder                
                 (finder_fits, centre_bin_fits) = corr_finder(
                     "finder", params.data_frb, params.ra_frb, params.dec_frb, 
@@ -644,6 +653,7 @@ workflow process_frb {
             centre_bin_fits = Channel.fromPath(centre_bin_path)
             rfi_fits = Channel.fromPath(rfi_fits_path)
             field_fits = Channel.fromPath(field_fits_path)
+            gate_fits = Channel.fromPath(gate_fits_path)
         }
         
         if( params.makeimage || params.locfrb) {  
@@ -665,7 +675,19 @@ workflow process_frb {
 	        doffset_path = "${params.out_dir}/position/offsetfit.txt"
             frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
                         
-            if(!params.opt_gate){
+            if(params.binconfig_gate != ""){
+                gate_out = image_htrgate(gate_fits, flux_cal_solns)
+                gate_jmfits = gate_out.jmfit
+                gate_fits_images = gate_out.fits_image
+                gate_regs = gate_out.reg
+                gate_mss = gate_out.ms
+
+                askap_frb_pos = get_peak(
+                    gate_jmfits.collect(), gate_fits_images.collect(),
+                    gate_regs.collect(), gate_mss.collect()
+                ).peak_jmfit
+            }
+            else {
                 if(params.image_all_bins) {
                     bins_to_image = finder_fits
                 }
@@ -704,11 +726,9 @@ workflow process_frb {
             offset = offres.offset
             doffset = offres.doffset                
 
-            if(!params.opt_gate){
-        		finalres = apply_offset(offset, doffset, askap_frb_pos)
-                final_position = finalres.final_position
-        		// finalmap = finalres.hpmap
-            }            
+        	finalres = apply_offset(offset, doffset, askap_frb_pos)
+            final_position = finalres.final_position
+            // finalmap = finalres.hpmap
         }
         else {
             frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
