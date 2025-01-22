@@ -281,7 +281,7 @@ def _main():
         # Get the mask, if needed
         if args.maskpeakonly:
             peakpix = get_peak_pixel(deftcleanvals.copy())
-            maskstr = "circle[[{0}pix,{1}pix], 4pix ]".format(peakpix[0], peakpix[1])
+            maskstr = "circle[[{0}pix,{1}pix], 3pix ]".format(peakpix[0], peakpix[1])
 
         # Do the cube
         for pol in polarisations:
