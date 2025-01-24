@@ -24,7 +24,8 @@ else {
 
 params.polcalimagesize = 128
 params.minbeamfrac = 0.05
-params.refant = 3   
+params.refant = 3   // reference antenna - index corresponds to ak name 
+                    // i.e. refant = 3 corresponds to ak03
 
 params.nfieldsources = 50   // number of field sources to try and find
 params.cpasspoly = 5
@@ -80,8 +81,9 @@ process determine_flux_cal_solns {
         aipsid="\$((RANDOM%8192))"
         args="\$args -u \$aipsid"
         args="\$args --src=$params.target"
+        args="\$args --maskpeakonly" # Not relevant unless imaging, but future proofing ourselves
         args="\$args --cpasspoly=$params.cpasspoly"
-        args="\$args -f 15"
+        args="\$args --fluxcalfluxcoeffs=$params.fluxcalflux_c0,$params.fluxcalflux_c1,$params.fluxcalflux_c2,$params.fluxcalflux_c3,$params.fluxcalflux_c4"
         args="\$args --refant=$params.refant"
         if [ "$flagfile" != "" ]; then
             args="\$args --flagfile=$flagfile"
@@ -166,6 +168,7 @@ process image_finder {
         args="\$args -t $target_fits"
         args="\$args -r $params.refant"
         args="\$args -i"
+        args="\$args --maskpeakonly"
         args="\$args -j"
         args="\$args --cleanmfs"
         args="\$args --pols=I"
@@ -290,7 +293,11 @@ process get_peak {
         cp \$peak_jmfit ${params.label}.jmfit
         cp \${peak}.fits ${params.label}.fits
         cp \${peak}_sources.reg ${params.label}.reg
-        cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
+        if [ "$params.binconfig_gate" != "" ]; then
+          cp -r ${params.label}_gate_calibrated_uv.ms ${params.label}_calibrated_uv.ms
+        else
+          cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
+        fi
         """    
 
     stub:
@@ -456,6 +463,7 @@ process image_polcal {
         args="\$args -t $target_fits"
         args="\$args -r 3"
         args="\$args -i"
+        args="\$args --maskpeakonly"
         args="\$args -j"
         args="\$args --cleanmfs"
         args="\$args --pols=I"
@@ -554,10 +562,11 @@ process image_htrgate {
         args="\$args -t $target_fits"
         args="\$args -r 3"
         args="\$args -i"
+        args="\$args --maskpeakonly"
         args="\$args -j"
         args="\$args --cleanmfs"
         args="\$args --pols=I"
-        args="\$args --imagename=fbin\${bin}"
+        args="\$args --imagename=gate"
         args="\$args --imagesize=$params.finderimagesize"
         args="\$args --pixelsize=$params.finderpixelsize"
         args="\$args -a 16"
@@ -572,19 +581,15 @@ process image_htrgate {
 
         apptainer exec $params.container bash -c 'source /opt/setup_proc_container && ParselTongue $localise_dir/calibrateFRB.py \$args'
 
-        for f in `ls *jmfit`; do
-            echo \$f
-            apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg'
-
-        done
+        apptainer exec $params.container bash -c 'source /opt/setup_proc_container && python3 $localise_dir/get_region_str.py gate.jmfit FRB >> gate_sources.reg'
         rm -rf \$aips_dir
         """
         
     stub:
         """
-        touch htrgate.jmfit
-        touch htrgate.fits
-        touch htrgate.reg
+        touch gate.jmfit
+        touch gate.fits
+        touch gate_sources.reg
         touch stub_calibrated_uv.ms
         """
 }

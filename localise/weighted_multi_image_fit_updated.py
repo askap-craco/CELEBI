@@ -19,6 +19,8 @@ import sys
 
 import numpy as np
 import scipy.stats as stats
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import pyplot as plt
 
 

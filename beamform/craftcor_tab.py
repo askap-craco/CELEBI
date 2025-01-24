@@ -13,10 +13,10 @@ import sys
 from timeit import default_timer as timer
 
 import numpy as np
-import vcraft
+import craft.vcraft as vcraft
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-from calc11 import ResultsFile
+from craft.calc11 import ResultsFile
 from joblib import Parallel, delayed, parallel_backend
 from scipy.interpolate import interp1d
 from parse_aips import aipscor
