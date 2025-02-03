@@ -94,6 +94,7 @@ def next_smallest_fftlen(nsamp, bw):
 
             # check if nfine x bw is a 5 smooth number
             nfine = int(nsamp * 27/32)
+            
             if nfine*bw == next_fast_len(nfine*bw):
                 
                 return nsamp, nfine, int(5*nsamp//64)
@@ -924,7 +925,6 @@ class AipsGainSolutions:
         if values.an == None:
             loadantennas = range(36)
         else:
-            print("Values.an", values.an, "Number of antennas", len(ants))
             antname = ants[values.an].antname
             iant = ant_map[antname]
             loadantennas = [iant]

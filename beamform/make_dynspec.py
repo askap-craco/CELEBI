@@ -356,7 +356,6 @@ def pulse_fold(ds, DM, cfreq, bw, MJD0, MJD1, F0, F1, chanflag, sphase = None, )
     ds_r = ds[:,sphase:sphase + fold_w * (fold_n)].copy()
     ds_f = np.mean(ds_r.reshape(ds_r.shape[0], (fold_n), fold_w), axis = 1)
 
-    print(ds_f.shape)
 
     
     return ds_f, sphase / ds.shape[1]
@@ -541,33 +540,21 @@ def baseline_correction(ds, sigma: float = 5.0, guard: float = 1.0,
     if rbounds is None:
         ## Rough normalize 
         ds_r = average(ds, axis = 1, N = tN)
-        
-        # AB: Apply channel flagging
-        ds_r[chanflag] = np.nan
-        
-        # AB: Replacing mean by nanmedian 
-        rmean = np.nanmedian(ds_r, axis = 1)
-        
-        # AB: Replacing std by nanstd 
-        rstd = np.nanstd(ds_r, axis = 1)
+        rmean = np.mean(ds_r, axis = 1)
+        rstd = np.std(ds_r, axis = 1)
 
         ds_rn = ds_r - rmean[:, None]
-        
-        # AB: Pausing normalization 
-        # ds_rn /= rstd[:, None]
+        ds_rn /= rstd[:, None]
 
         
         ## find burst bounds
         print("Looking for bounds of burst...")
         # get peak, crop rms and do rough S/N calculation
-        t_rn = np.nanmean(ds_rn, axis = 0)
+        t_rn = np.nanmean(ds_rn[~chanflag], axis = 0)
         peak = np.argmax(t_rn)
         rms_w = get_units_avg(baseline)
         rms_crop = np.roll(t_rn, int(rmsg * ds_rn.shape[1]))[peak-rms_w:peak+rms_w]
-        
-        #rms = np.nanmean(rms_crop**2)**0.5
-        # AB: replacing the above RMS calculation
-        rms = np.nanstd(rms_crop)
+        rms = np.nanmean(rms_crop**2)**0.5
 
         # calculate S/N
         t_sn = t_rn / rms
@@ -590,8 +577,8 @@ def baseline_correction(ds, sigma: float = 5.0, guard: float = 1.0,
     bl_crop = np.concatenate((lhs_crop, rhs_crop), axis = 1)
 
 
-    bs_mean = np.nanmean(bl_crop, axis = 1)
-    bs_std = np.nanstd(bl_crop, axis = 1)
+    bs_mean = np.mean(bl_crop, axis = 1)
+    bs_std = np.std(bl_crop, axis = 1)
 
 
     return bs_mean, bs_std, rbounds
