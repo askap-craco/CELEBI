@@ -392,6 +392,7 @@ def _main():
 
             # If desired, also export the image as a FITS file
             if args.exportfits:
+                '''
                 casaout = open("exportfits.py", "w")
                 write_casa_cmd(
                     casaout,
@@ -404,6 +405,36 @@ def _main():
                 casaout.close()
                 os.chmod("exportfits.py", 0o755)
                 run("python3 exportfits.py")
+                '''
+                # Convert PSF image to fits image
+                casaimagename = f"{tcleanvals['imagename']}.psf"
+                fitsimagename = f"{tcleanvals['imagename']}_psf.fits"
+                casaout = open("imagescript.py", "w")
+                write_casa_cmd(
+                    casaout,
+                    "exportfits",
+                    {
+                        "imagename": casaimagename,
+                        "fitsimage": fitsimagename,
+                    },
+                )
+                casaout.close()
+                run("python3 imagescript.py")
+                
+                # Convert clean mask to fits image
+                casaimagename = f"{tcleanvals['imagename']}.mask"
+                fitsimagename = f"{tcleanvals['imagename']}_mask.fits"
+                casaout = open("imagescript.py", "w")
+                write_casa_cmd(
+                    casaout,
+                    "exportfits",
+                    {
+                        "imagename": casaimagename,
+                        "fitsimage": fitsimagename,
+                    },
+                )
+                casaout.close()
+                run("python3 imagescript.py")
 
             # If desired, also make the JMFIT output
             if args.imagejmfit:
@@ -422,6 +453,7 @@ def _main():
                     )
                     casaout.close()
                     run("python3 imagescript.py")
+
                 elif args.image[-6:] == ".image":
                     casaimagename = args.image
                     fitsimagename = f"{args.image[:-6]}.fits"

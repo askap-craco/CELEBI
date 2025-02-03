@@ -404,7 +404,7 @@ workflow mf_image {
 
 
         // convert .difx file to .FITS file
-        mf_fits = difx_to_fits("mf", mf_data.collect(), polyco, "mf").fits
+        mf_fits = difx_to_fits("${params.label}_mf", mf_data.collect(), polyco, "mf").fits
 
 
         // Calibrate and image FRB

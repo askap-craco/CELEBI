@@ -203,6 +203,15 @@ process print_params {
         echo "finderflagfile          = $params.finderflagfile" >> parameters.txt
 
         echo "\n****Beamforming****\n" >> parameters.txt
+        echo "longdata                = $params.longdata" >> parameters.txt
+        echo "rb_crop_width_s         = $params.frb_crop_width_s" >> parameters.txt
+        echo "polcal_crop_width_s     = $params.polcal_crop_width_s" >> parameters.txt
+        echo "bform_autoflag          = $params.bform_autoflag" >> parameters.txt
+        echo "frb_dynspec_sigma       = $params.frb_dynspec_sigma" >> parameters.txt
+        echo "frb_baseline            = $params.frb_baseline" >> parameters.txt
+        echo "frb_dynspec_tN          = $params.frb_dynspec_tN" >> parameters.txt
+        echo "frb_dynspec_guard       = $params.frb_dynspec_guard" >> parameters.txt
+        echo "frb_bline               = $params.frb_bline" >> parameters.txt
         
         echo "\n****Shrine****\n" >> parameters.txt
         

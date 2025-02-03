@@ -63,10 +63,15 @@ process create_calcfiles {
 
         export CRAFTCATDIR="."
 
-        ra=\$(grep "Actual RA" $pos)
-        ra=\${ra:22}
-        dec=\$(grep "Actual Dec" $pos)
-        dec=\${dec:22}
+        if [ "$params.usepos" = "true" ]; then
+            ra=$params.ra_frb
+            dec=$params.dec_frb
+        else
+            ra=\$(grep "Actual RA" $pos)
+            ra=\${ra:22}
+            dec=\$(grep "Actual Dec" $pos)
+            dec=\${dec:22}
+        fi
 
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
         # written

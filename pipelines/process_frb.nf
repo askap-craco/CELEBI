@@ -507,10 +507,10 @@ workflow process_frb {
         gate_fits_path = "${params.out_dir}/loadfits/gate/${params.label}_gate.fits"
         
         empty_file = create_empty_file("file")
+
+        binconfig = generate_binconfig(refined_candidate) 
     	
-        if( params.localize || params.corrfrb ) {   
-            
-            binconfig = generate_binconfig(refined_candidate)      
+        if( params.localize || params.corrfrb ) {      
             
             if(params.binconfig_gate != "") {
                 binconfigpath = file(params.binconfig_gate).first()
@@ -583,10 +583,6 @@ workflow process_frb {
         frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
         // Imaging FRB        
         if( params.localize || params.imgfrb) {  
-            
-            if( params.imgfrb ) {
-                binconfig = generate_binconfig(refined_candidate)
-            }
 
             if(params.binconfig_gate != ""){
                 gate_out = image_htrgate(gate_fits, flux_cal_solns)
@@ -693,7 +689,7 @@ workflow process_frb {
         if( params.mfimage ) {
 
             // paths to required files
-            ids_path = file("${params.out_dir}/htr/crops/${params.label}_${params.dm_frb}_dsI_crop.npy")
+            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")
             binconfig = file("${params.out_dir}/binconfigs/craftfrb.finder.binconfig")
             polyco = file("${params.out_dir}/binconfigs/craftfrb.polyco")
             summary = file("${params.out_dir}/${params.label}_summary.txt")
@@ -709,7 +705,7 @@ workflow process_frb {
         compile_out = Channel.empty()
 
         // If Imaging and Beamforming is being done
-        if ( ( params.localize || params.getpos ) & (params.beamfrb || params.gethtr ) ) {
+        if ( ( params.localize || params.getpos ) & (params.plotfrb || params.gethtr ) ) {
             params.do_compile_summary = true
             compile_out = compile_out.concat(finalres.final_position, plot.out.plot_file)
 

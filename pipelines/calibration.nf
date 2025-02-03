@@ -145,6 +145,7 @@ process image_finder {
         path "fbin*.fits", emit: fits_image
         path "fbin*.reg", emit: reg
         path "*_calibrated_uv.ms.tar", emit: mstar
+        path "fbin*.png", emit: png
 
     script:
         """
@@ -181,6 +182,7 @@ process image_finder {
             --maskpeakonly \
             -j \
             --cleanmfs \
+            --exportfits \
             --pols=I \
             --imagename=fbin\${bin} \
             --imagesize=$params.finderimagesize \
@@ -194,6 +196,13 @@ process image_finder {
             --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
             --refant=$params.refant \
             \$args
+
+        python3 $localise_dir/export_png.py fbin\${bin} 1
+
+        python3 $localise_dir/export_png.py fbin\${bin}_mask 0
+
+        python3 $localise_dir/export_png.py fbin\${bin}_psf 1
+
         ls -lh
         tar -cvf ${target_fits}_calibrated_uv.ms.tar \${target_fits%.fits}_calibrated_uv.ms
         cd - 
@@ -207,15 +216,18 @@ process image_finder {
 
         cp /JOBFS/fbin*.fits .
         cp /JOBFS/fbin*.jmfit .
+        cp /JOBFS/fbin*.png .
+
         """
         
     stub:
         """
         target_fits=$target_fits
         bin=\${target_fits:9:2}
-        touch fbin\$bin.jmfit
-        touch fbin\$bin.fits
-        touch fbin\$bin.reg
+        touch fbin\${bin}.jmfit
+        touch fbin\${bin}.fits
+        touch fbin\${bin}.reg
+        touch fbin\${bin}.png
         touch fbin\${bin}_calibrated_uv.ms
         """
 }
@@ -498,6 +510,7 @@ process image_polcal {
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
+        path "*.png", emit: png
 
     script:
         """
@@ -526,6 +539,7 @@ process image_polcal {
             --maskpeakonly \
             -j \
             --cleanmfs \
+            --exportfits \
             --pols=I \
             --imagename=polcal \
             --imagesize=$params.polcalimagesize \
@@ -545,6 +559,13 @@ process image_polcal {
             python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
+
+        python3 $localise_dir/export_png.py polcal 1
+
+        python3 $localise_dir/export_png.py polcal_mask 0
+
+        python3 $localise_dir/export_png.py polcal_psf 1
+
         """
 
     stub:
@@ -553,6 +574,7 @@ process image_polcal {
         touch stub_calibrated_uv.ms
         touch stub.jmfit
         touch stub.reg
+        touch stub.png
         """    
 }
 
@@ -593,6 +615,7 @@ process image_fluxcal {
         path "*_calibrated_uv.ms", emit: ms
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
+        path "*.png", emit: png
 
     script:
         """
@@ -621,6 +644,7 @@ process image_fluxcal {
             --maskpeakonly \
             -j \
             --cleanmfs \
+            --exportfits \
             --pols=I \
             --imagename=fluxcal \
             --imagesize=$params.polcalimagesize \
@@ -640,6 +664,13 @@ process image_fluxcal {
             python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
             i=\$((i+1))
         done
+
+        python3 $localise_dir/export_png.py fluxcal 1
+
+        python3 $localise_dir/export_png.py fluxcal_mask 0
+ 
+        python3 $localise_dir/export_png.py fluxcal_psf 1
+
         """
 
     stub:
@@ -648,6 +679,7 @@ process image_fluxcal {
         touch stub_calibrated_uv.ms
         touch stub.jmfit
         touch stub.reg
+        touch stub.png
         """    
 }
 
