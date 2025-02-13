@@ -19,6 +19,7 @@ include { mf_image } from './mfimage'
 utils_dir    = "${projectDir}/../utils/"
 beamform_dir = "${projectDir}/../beamform/"
 localise_dir = "${projectDir}/../localise/"
+search_dir   = "${projectDir}/../search/"
 
 
 polarisations = Channel
@@ -287,6 +288,62 @@ process plot {
         touch 50us_crop_start_s.txt
         """
 }
+
+
+process search_pulse {
+    /*
+        Find additional pulses within the data
+
+        Input
+            label: val
+                FRB name and context of process instance as a string (no spaces)
+            ds_file: path
+                Stokes parameter dynamic spectra
+            centre_freq: val
+                Central frequency of fine spectrum (MHz)
+        
+        Output:
+            plot: path
+                Plotted candidates
+            candfile: path
+                text file containing candidate information
+    */
+    publishDir "${params.publish_dir}/${params.label}/search", mode: "copy"
+
+    label 'celebi'
+
+    input:
+        val label
+        path ds_file
+        val centre_freq
+    
+    output:
+        path "*.png"
+        path "*.txt", emit: cand_file
+    
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+        
+        python3 $search_dir/pulsearch.py \
+                -s $ds_file \
+                -f $centre_freq \
+                -l $label \
+                --t_avgs $params.tresolutions \
+                --thresh $params.dethreshold \
+                --fsub $params.fsub \
+                --suboverlap $params.suboverlap \
+                --edgech $params.edgechan
+        """
+    
+    stub:
+        """
+        touch stub.png
+        touch candfile.txt
+        """
+}
+
 
 process find_DM_opt {
     /*
@@ -655,17 +712,18 @@ workflow process_frb {
         // Beamforming
         xypath = "${params.out_dir}/htr/${params.label}_*_t_${params.dm_frb}.npy"
         if( params.gethtr || params.beamfrb ) {
-            bform_frb(
+            bfout = bform_frb(
                 params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                 pol_cal_solns, params.dm_frb, params.centre_freq_frb,
                 params.nants_frb, fcm, params.snoopy
             )
+            xy = bfout.xy
         }
         else {
             xy = file(xypath)
         }
         
-        // Generate dynamic spectra
+        // Generate dynamic spectra and plots
         if( params.gethtr || params.plotfrb ) {
             frb_dspec(
                 params.label, xy, params.dm_frb, params.centre_freq_frb
@@ -673,6 +731,16 @@ workflow process_frb {
             plot(
                 params.label, frb_dspec.out.dynspec_fnames, frb_dspec.out.htr_data,
                 params.centre_freq_frb, params.dm_frb, refined_candidate
+            )
+        }
+
+        // Search pulse
+        if( params.searchpulse ) {     
+
+        ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+
+            search_pulse(
+                params.label, ids_path, params.centre_freq_frb
             )
         }
         
