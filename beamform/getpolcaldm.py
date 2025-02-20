@@ -65,9 +65,13 @@ print("Originally - %d channels - %d times - DM = %.2f"%(nc0, nt0, dm0))
 print("Frequency resolution = %.2f MHz"%(dfmhz))
 print("Time resolution = %.2f ns"%(dtns))
 
+cfmhzarr	=	np.zeros(nc0, dtype=float)
+for c in range(0,nc0):
+	cfmhzarr[c]	=	f0mhz + ( c - (float(nc0)/2 ) + 0.5 ) * dfmhz
+
 for i in range(0,len(dmarr)):
 	for c in range(0,nc0):
-		cfmhz	=	f0mhz + (c-(float(nc0)/2) + 0.5)*dfmhz
+		cfmhz	=	cfmhzarr[c]
 		dlns	=	4.15 * dmarr[i] * 1.0e6 * ((1.0e3/cfmhz)**2 - (1.0e3/f0mhz)**2)
 		dldt	=	int(np.rint(dlns/dtns))
 		#print(c,dmarr[i],dldt)	
@@ -75,7 +79,7 @@ for i in range(0,len(dmarr)):
 	tser	=	np.nanmean(dspec, axis=0)
 	pkarr[i]=	np.nanmax(tser)
 
-plt.plot(pkarr)
+plt.plot(dmarr, pkarr)
 plt.savefig('polcal_dm_snmax.png')
 plt.close()
 
@@ -84,7 +88,7 @@ optdm		=	dmarr[np.argmax(pkarr)]
 print("Optimum -- deltaDM = %.3f - DM = %.3f"%(optdm, dm0+optdm))
 
 for c in range(0,nc0):
-	cfmhz	=	f0mhz + (c-(float(nc0)/2) + 0.5)*dfmhz
+	cfmhz	=	cfmhzarr[c]
 	dlns	=	4.15 * optdm * 1.0e6 * ((1.0e3/cfmhz)**2 - (1.0e3/f0mhz)**2)
 	dldt	=	int(np.rint(dlns/dtns))
 	#print(c,dmarr[i],dldt)	

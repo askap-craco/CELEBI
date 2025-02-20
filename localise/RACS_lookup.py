@@ -12,6 +12,7 @@ from astropy import units as u
 #from astroquery.utils.tap.core import TapPlus
 #from astroquery.vizier import Vizier
 
+pd.set_option('display.max_columns', None)
 
 def _main():
     parser = ArgumentParser(
@@ -30,6 +31,8 @@ def _main():
                         help="Add this value in quadrature to the final RA uncertainty")
     parser.add_argument("--racsdecsystematic", type=int, default=0.0,
                         help="Add this value in quadrature to the final Dec uncertainty")
+    parser.add_argument("--matchrad", type=float, default=5.0,
+                        help="Matching radius in arcseconds")
     parser.add_argument("-o", required=True, help="Output reference positions file")
     parser.add_argument("-a", required=True, help="Output ASKAP positions file")
     parser.add_argument("-n", required=True, help="Output names file")
@@ -97,15 +100,17 @@ def _main():
                 sys.exit()
             t1 = VLASS_lookup_local(coord.ra_hms, coord.dec_dms, localvlasscatalogue)
         else: # Going to use RACS
+            print("Using RACS catalogue")
             if args.localracssourcepath == "": # No local source catalogue specified
                 if args.localracsgausspath != "": # But there is a local gaussians catalogue - use that
-                    t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localgausscatalogue)
+                    t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localgausscatalogue, args.matchrad/3600.0)
                 else: # No local catalogues supplied at all - use CASDA
                     t1 = RACS_lookup1(coord.ra_hms, coord.dec_dms, casdatap)
             else: # A local source catalogue was supplied - use that as the primary
-                t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localsourcecatalogue)
+                print("Local catalogue")
+                t1 = RACS_lookup_local(coord.ra_hms, coord.dec_dms, localsourcecatalogue, args.matchrad/3600.0)
 
-        print(t1)
+        #print(t1)
 
         table = t1
         '''
@@ -267,8 +272,13 @@ def VLASS_lookup_local(ra_hms, dec_dms, cat, radius=0.0014):
     phi2 = cat_ra * np.pi / 180
     theta2 = cat_dec * np.pi / 180
     
-    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(phi1-phi2)
+    dphi = np.abs(phi1 - phi2)
+    dphi = np.where(dphi<180.0, dphi, 360.0 - dphi)
+
+    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(dphi)
     
+    print("Matching radius (arcsec) = ", radius*3600.0)
+
     sep = np.arccos(cos_sep_radian) * 180 / np.pi
     select_bool = sep < radius
     
@@ -330,10 +340,24 @@ def RACS_lookup_local(ra_hms, dec_dms, cat, radius=0.0014):
     phi2 = cat_ra * np.pi / 180
     theta2 = cat_dec * np.pi / 180
     
-    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(phi1-phi2)
-    
+    dphi = np.abs(phi1 - phi2)
+    dphi = np.where(dphi<180.0, dphi, 360.0 - dphi)
+
+    cos_sep_radian = np.sin(theta1) * np.sin(theta2) + np.cos(theta1) * np.cos(theta2) * np.cos(dphi)
+
     sep = np.arccos(cos_sep_radian) * 180 / np.pi
     select_bool = sep < radius
+
+    closest = np.argmin(sep)
+
+    print("Matching radius (arcsec) = ", radius*3600.0)
+
+    print("Data shapes: ra, dec, ra_cat, dec_cat, sep")
+    print(phi1.shape, theta1.shape, phi2.shape, theta2.shape, sep.shape)
+
+    print("Matched sources")
+    print("RA DEC RA DEC radius min_sep d_ra d_dec")
+    print(ra_hms, dec_dms, ra, dec, radius*3600, sep[closest]*3600, (phi2[closest]-phi1)*180*3600/np.pi, (theta2[closest]-theta1)*180*3600/np.pi, cat.iloc[select_bool])
     
     return Table.from_pandas(cat.iloc[select_bool])
 
@@ -357,12 +381,16 @@ def RACS_exclude_resolved(cat, source_table):
     gaus_coords = sc(cat_gaus['ra'], cat_gaus['dec'], unit='deg')
     
     sep = source_coords.separation(gaus_coords).arcsec
+    #print(sep)
     cat_gaus['separation'] = sep
     
-    print(cat_gaus)
+    #print("Printng Gaussian catalogue")
+    #print(cat_gaus)
     cat_test = cat_gaus[(cat_gaus['total_flux_gaussian'] > 0.2 * cat_gaus['total_flux_source']) & (cat_gaus['separation'] > 10)]
+    #print("printing cat test",cat_test)
     
     if len(cat_test) > 0:
+        print("Rejection criteria triggered !!")
         print(cat_test['total_flux_gaussian'], cat_test['total_flux_source'], cat_test['separation'])
         return True # Reject this source, it has a gaussian component that indicates it is unacceptably resolved
     else:
