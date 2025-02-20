@@ -657,9 +657,9 @@ workflow shrine {
         // Do vary kc. If we didn't minimise uncertainty, run that now because its a useful plot and contains similar information to vary_kc.
         if( params.do_vary_kc ) {
             vary_kc(params.label,params.timescale,params.saving,kc,generate_profiles.out.DMdata,generate_profiles.out.Idata)
-            if( ! params.do_uncertainty_min ) {
-                minimise_uncertainty(params.label,params.timescale,params.saving,kc,generate_profiles.out.DMdata,generate_profiles.out.Idata)
-            }
+            //if( ! params.do_uncertainty_min ) {
+            //    minimise_uncertainty(params.label,params.timescale,params.saving,kc,generate_profiles.out.DMdata,generate_profiles.out.Idata)
+            //}
         }
         
         smres	= maximise_structure(params.label,params.dm_frb,params.timescale,params.saving,kc,generate_profiles.out.DMdata,generate_profiles.out.Idata)
@@ -684,7 +684,7 @@ workflow shrine {
             summaries = summaries.concat(maximise_sn.out.summary)
         }
 
-        if( params.do_uncertainty_min || params.do_vary_kc ) {
+        if( params.do_uncertainty_min ) {
             summaries = summaries.concat(minimise_uncertainty.out.summary)
         }
         

@@ -815,9 +815,9 @@ process determine_pol_cal_solns {
 		python3 $beamform_dir/getpolcaldm.py \
 				${params.label} \
 				${params.dm_polcal} \
-				2.00 \
+				1.00 \
 				0.01 \
-				50 \
+				1000 \
 				${params.centre_freq_polcal} \
 				${params.bw}
 		

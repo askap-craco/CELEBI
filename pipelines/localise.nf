@@ -75,13 +75,16 @@ process find_offset {
         offset in images created from voltages
 
         Input
+            field fits: path
+                FITS image for the field
             field sources: path
                 File containing positions of sources identified in field image
-        
+            exlabel: val
+                Excluseive label        
         Output
             dat: path
                 Files containing RACS source information
-	    doff: path
+	        doff: path
                 Details of offsets
             reg: path
                 DS9 region file of identified RACS sources
@@ -94,11 +97,13 @@ process find_offset {
     label 'celebi'
 
     input:
+        path fld_fits
         path field_sources
+        val exlabel
     
     output:
-        path "offset0.dat", emit: offset
-	path "offsetfit.txt", emit: doffset
+        path "offset0_*.dat", emit: offset
+	    path "offsetfit_*.txt", emit: doffset
         path "*.reg"
         path "*.png"
     
@@ -119,13 +124,19 @@ process find_offset {
                 echo "Not sure what to do with reference catalog ${params.referencecatalog}"
             fi 
         fi
+
+        python3 $localise_dir/getmatchradius.py ${fld_fits} ${params.matchradius}
         
+        radius_arcsec=\$(cat "match_radius_arcsec.txt")
+        echo "Matching radius (arcsec) = "\${radius_arcsec}
+
         python3 $localise_dir/RACS_lookup.py \
                -o ${params.label}_RACS.dat \
                -a ${params.label}_ASKAP.dat \
                -n ${params.label}_names.dat \
                -r ${params.label}_RACS_sources.reg \
 	           -j ${params.label}_jmfits.dat \
+               --matchrad=\${radius_arcsec} \
 	           --referencecatalog=${params.referencecatalog} \
 	           \$racsvlass \
                field*jmfit
@@ -173,6 +184,7 @@ process find_offset {
                -n ${params.label}_names.dat \
                -r ${params.label}_RACS_sources.reg \
 	           -j ${params.label}_jmfits.dat \
+               --matchrad=\${radius_arcsec} \
 	           --referencecatalog=${params.referencecatalog} \
 	           \$racsvlass \
                field*jmfit
@@ -187,6 +199,10 @@ process find_offset {
         
         python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit.txt 
         python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat
+
+        mv offset0.dat offset0_${exlabel}.dat
+        mv offsetfit.txt offsetfit_${exlabel}.txt
+
         """
     
     stub:
@@ -205,11 +221,12 @@ process apply_offset {
         Input
             offset: path
                 Offset as output by weighted_multi_image_fit_updated.py
-	    doffset: path
+	        doffset: path
                 Detailed offsets
             askap_frb_pos: path
                 JMFIT output file of FRB position fit
-
+            exlabel: val
+                Excluseive label  
         Output
             final_position: path
                 FRB final position with error as a txt file
@@ -225,9 +242,10 @@ process apply_offset {
         path offset
 	    path doffset
         path askap_frb_pos
+        val exlabel
 
     output:
-        path "${params.label}_final_position.txt", emit: final_position
+        path "*_final_position.txt", emit: final_position
     
     script:
         """
@@ -251,7 +269,8 @@ process apply_offset {
         fi
         
         python3 $localise_dir/apply_rotated_offset.py --frbname=${params.label} --frb=${askap_frb_pos} --offset=$offset --doffset=$doffset \
-                --frbfits=${params.out_dir}/finder/${params.label}.fits \$radecsys > ${params.label}_final_position.txt
+                --frbfits=${params.out_dir}/finder/${params.label}.fits \$radecsys > ${params.label}_${exlabel}_final_position.txt
+
         """
     
     stub:

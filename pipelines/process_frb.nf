@@ -691,21 +691,19 @@ workflow process_frb {
         // Get FRB position        
         if( params.localize || params.getpos) {  
                 
-            offset_path = "${params.out_dir}/position/offset0.dat"
-	        doffset_path = "${params.out_dir}/position/offsetfit.txt"
-            frb_pos_path = "${params.out_dir}/position/${params.label}_final_position.txt"
-                          
-    		offres = find_offset(field_sources)
+            exlabel = channel.value("finder")
+            fldfits = file("${params.out_dir}/field/field.fits")
+
+    		offres = find_offset(fldfits, field_sources, exlabel)
             offset = offres.offset
             doffset = offres.doffset                
 
-        	finalres = apply_offset(offset, doffset, askap_frb_pos)
+        	finalres = apply_offset(offset, doffset, askap_frb_pos, exlabel)
             final_position = finalres.final_position
         	// finalmap = finalres.hpmap
         }
-            	
-        final_position_path = "${params.out_dir}/finder/${params.label}_final_position.txt"
-        final_position = file(final_position_path)
+
+        //final_position = file("${params.out_dir}/position/${params.label}_final_position.txt")
 
 
 
@@ -754,6 +752,7 @@ workflow process_frb {
         }             
 
 
+        mf_jmfit_path = "${params.out_dir}/mf/image/mf.jmfit"
         if( params.mfimage ) {
 
             // paths to required files
@@ -763,9 +762,27 @@ workflow process_frb {
             summary = file("${params.out_dir}/${params.label}_summary.txt")
 
             // do mf imaging
-            mf_final_position = mf_image(ids_path, binconfig, polyco, 
-                                    summary, flux_cal_solns, fcm).mf_final_position
+            mf_frb_pos = mf_image(ids_path, binconfig, polyco, 
+                            summary, flux_cal_solns, fcm).mf_frb_pos
 
+        }
+        else {
+            mf_frb_pos = file(mf_jmfit_path)
+        }
+
+        // Get FRB position from MF imaging     
+        if( params.mfpos ) {  
+                
+            exlabel = channel.value("mf")
+            fldfits = file("${params.out_dir}/field/field.fits")
+
+    		offres = find_offset(fldfits, field_sources, exlabel)
+            offset = offres.offset
+            doffset = offres.doffset                
+
+        	mfinalres = apply_offset(offset, doffset, mf_frb_pos, exlabel)
+            mf_final_position = mfinalres.final_position
+        	// finalmap = finalres.hpmap
         }
 
 
@@ -789,7 +806,7 @@ workflow process_frb {
             compile_out = compile_out.concat(plot.out.plot_file)
 
         } // else if matched filter imaging is being done
-        else if ( params.mfimage ) {
+        else if ( params.mfpos ) {
             params.do_compile_summary = true
             compile_out = compile_out.concat(mf_final_position)
 

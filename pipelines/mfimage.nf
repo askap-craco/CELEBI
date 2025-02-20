@@ -412,25 +412,27 @@ workflow mf_image {
 
 
         // Apply RACS field source offset (if applicable)
-        racs_offset = file("${params.out_dir}/position/offset0.dat")
-        racs_doffset = file("${params.out_dir}/position/offsetfit.txt")
+        // racs_offset = file("${params.out_dir}/position/offset0.dat")
+        // racs_doffset = file("${params.out_dir}/position/offsetfit.txt")
 
         // first check "offset0.dat" file exists
-        if_racs(racs_offset)
+        // if_racs(racs_offset)
 
-        if (if_racs.out.racs_exists.toInteger()) {
+        // if (if_racs.out.racs_exists.toInteger()) {
 
-            // apply racs
-            final_res = apply_offset(racs_offset, racs_doffset, mf_jmfit)
-            mf_final_position = final_res.final_position
+        //    // apply racs
+        //    final_res = apply_offset(racs_offset, racs_doffset, mf_jmfit)
+        //    mf_final_position = final_res.final_position
 
-        }
-        else {
-            mf_final_position = Channel.empty()
-        }
+        // }
+        // else {
+        //     mf_final_position = Channel.empty()
+        // }
     
     emit:
-        mf_final_position = mf_final_position
+        mf_frb_pos = mf_jmfit
 
-}
+} 
+
+
 
