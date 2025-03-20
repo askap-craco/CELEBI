@@ -94,7 +94,6 @@ def next_smallest_fftlen(nsamp, bw):
 
             # check if nfine x bw is a 5 smooth number
             nfine = int(nsamp * 27/32)
-            
             if nfine*bw == next_fast_len(nfine*bw):
                 
                 return nsamp, nfine, int(5*nsamp//64)
