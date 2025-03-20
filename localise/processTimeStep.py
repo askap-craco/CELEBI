@@ -247,6 +247,16 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--ref", help="Reference correlation directory", default=None
     )
+    parser.add_argument(
+        "--tlefile",
+        help="Filename containing two-line element info for near-field correlation, blank=no near field correlation",
+        default=None,
+    )
+    parser.add_argument(
+        "--tleobject",
+        help="Name of object to use from TLE file if doing near-field correlation",
+        default=None,
+    )
 
     args = parser.parse_args()
     verify_args(args, parser)
@@ -435,6 +445,10 @@ def create_v2oargs(
         v2oargs += " --uppersideband"
     if args.ref is not None:
         v2oargs += f" --ref={args.ref}"
+    if args.tlefile is not None:
+        v2oargs += f" --tlefile={args.tlefile}"
+    if args.tleobject is not None:
+        v2oargs += f" --tleobject={args.tleobject}"
 
     v2oargs += f" --fpga {args.freqlabel}"
 

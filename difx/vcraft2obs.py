@@ -247,6 +247,16 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--ref", help="Reference correlation directory", default=None
     )
+    parser.add_argument(
+        "--tlefile",
+        help="Filename containing two-line element info for near-field correlation, blank=no near field correlation",
+        default=None,
+    )
+    parser.add_argument(
+        "--tleobject",
+        help="Name of object to use from TLE file if doing near-field correlation",
+        default=None,
+    )
     args = parser.parse_args()
 
     # Check that sensible options were given for the queue destination
@@ -573,6 +583,11 @@ def get_askap2difx_cmd(
         runline += " --numskylakenodes=" + str(args.numskylakenodes)
     if args.ref is not None:
         runline += f" --ref={args.ref}"
+    if args.tlefile is not None:
+        runline += f" --tlefile={args.tlefile}"
+    if args.tleobject is not None:
+        runline += f" --tleobject={args.tleobject}"
+
     runline += "\n"
     return runline
 

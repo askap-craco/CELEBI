@@ -205,18 +205,17 @@ process image_finder {
 
         ls -lh
         tar -cvf ${target_fits}_calibrated_uv.ms.tar \${target_fits%.fits}_calibrated_uv.ms
+        
         cd - 
-
         cp -r /JOBFS/${target_fits}_calibrated_uv.ms.tar .
-
-        for f in `ls /JOBFS/fbin\${bin}*jmfit`; do
-            echo \$f
-            python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
-        done
-
         cp /JOBFS/fbin*.fits .
         cp /JOBFS/fbin*.jmfit .
         cp /JOBFS/fbin*.png .
+
+        for f in `ls fbin\${bin}*jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
+        done
 
         """
         
@@ -807,7 +806,7 @@ process determine_pol_cal_solns {
 
         elipse=''
         if [ '$params.polcal_ellipse' == 'true' ]; then
-            elipse="--elipse"
+            elipse="--ellipse"
         fi
 		
 		#	Find DM of polcal by maximizing S/N 

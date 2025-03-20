@@ -345,6 +345,55 @@ process search_pulse {
 }
 
 
+
+process extract_pulse {
+    /*
+        Extracts zoomed data
+
+        Input
+            x_file: val
+                X voltage file
+            y_file: val
+                Y voltage file
+            candfile: path
+                Candidate list        
+        Output:
+            zoomdata: path
+                
+    */
+    publishDir "${params.publish_dir}/${params.label}/search", mode: "copy"
+
+    label 'celebi'
+
+    input:
+        val x_file
+        val y_file
+        path candfile
+    
+    output:
+        path "*.npy"
+    
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+        
+        python3 $search_dir/extractvoltage.py \
+                -x $x_file \
+                -y $y_file \
+                --locfile $candfile \
+                --hlen ${params.zoomlenus} \
+                --bwmhz ${params.bw} \
+        """
+    
+    stub:
+        """
+        touch stub.npy
+        """
+}
+
+
+
 process find_DM_opt {
     /*
         Optimise DM for S/N. Works under the assumption that the current DM
@@ -472,6 +521,44 @@ process mjd_prof {
         """
 }
 
+process nearfieldcorrect_fcm {
+    /*
+        Edit an FCM file to add the necessary corrections for a near-field delay
+
+        Input 
+            farfieldfcm: path
+                The base FCM file to take as input (assumes a far-field source)
+            nearfieldcorrections: path
+                Path to a text file containing corrections for each antenna
+
+        Output
+            nearfieldfcm: path
+                Edited FCM file with near field corrections applied
+    */
+    
+    label 'celebi'
+
+    input:
+        path farfieldfcm, stageAs: "farfieldfcm.txt"
+        path nearfieldcorrections, stageAs: "nearfieldcorrections.txt"
+
+    output:
+        path "nearfieldfcm.txt"
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        python3 $localise_dir/addNearFieldCorrections.py -f farfieldfcm.txt -n nearfieldfcm.txt -c nearfieldcorrections.txt
+        """
+
+    stub:
+        """
+        cp farfieldfcm.txt nearfieldfcm.txt
+        """
+}
+
 process update_polyco {
     /*
         Edit a polyco file to replace the DM with a new value
@@ -495,9 +582,7 @@ process update_polyco {
     
     script:
         """
-        set -xu
-
-        head -1 $polyco | awk '\$5="$dm"' > craftfrb.polyco
+                head -1 $polyco | awk '\$5="$dm"' > craftfrb.polyco
         head -2 $polyco | tail -1 | awk '\$6="1104.000"' >> craftfrb.polyco
         tail -1 $polyco >> craftfrb.polyco
         """
@@ -507,6 +592,8 @@ process update_polyco {
         cp old.polyco craftfrb.polyco
         """
 }
+
+
 
 workflow optimise_gate {
     /*
@@ -560,11 +647,23 @@ workflow process_frb {
         field_fits_path = "${params.out_dir}/loadfits/field/${params.label}_field.fits"
         rfi_fits_path = "${params.out_dir}/loadfits/rfi/${params.label}_rfi.fits"
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
-        centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
         gate_fits_path = "${params.out_dir}/loadfits/gate/${params.label}_gate.fits"
-        
-        empty_file = create_empty_file("file")
 
+        if( params.many_finders ) {
+            centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin${params.cenfinderbin}.fits"
+        }
+        else {
+            centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
+        }
+                
+        empty_file = create_empty_file("file")
+        
+        // if needed, generate the near-field fcm file
+        fieldfcm = fcm
+        if (params.simple_nearfield_file != "") {
+            fcm = nearfieldcorrect_fcm(fcm, params.simple_nearfield_file)
+        }
+        
         binconfig = generate_binconfig(refined_candidate) 
     	
         if( params.localize || params.corrfrb ) {      
@@ -608,7 +707,7 @@ workflow process_frb {
                 beam_centre = get_beam_centre()
                 field_fits = corr_field(
                     "${params.label}_field", params.data_frb, beam_centre.ra, 
-                    beam_centre.dec, empty_file, empty_file, empty_file, "field", fcm
+                    beam_centre.dec, empty_file, empty_file, empty_file, "field", fieldfcm
                 ).fits
             }
             else {
@@ -735,10 +834,29 @@ workflow process_frb {
         // Search pulse
         if( params.searchpulse ) {     
 
-        ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
 
             search_pulse(
                 params.label, ids_path, params.centre_freq_frb
+            )
+        }
+
+        // Extract pulse
+        if( params.extractpulse ) {     
+
+            candfile  =   file("${params.out_dir}/search/candfile.txt")
+
+            if( params.nopolcal ) {
+                x_file  =   channel.of("${params.out_dir}/htr/${params.label}_X_t_${params.dm_frb}") 
+                y_file  =   channel.of("${params.out_dir}/htr/${params.label}_Y_t_${params.dm_frb}")  
+            }
+            else {
+                x_file  =   channel.of("${params.out_dir}/htr/${params.label}_calib_X_t_${params.dm_frb}") 
+                y_file  =   channel.of("${params.out_dir}/htr/${params.label}_calib_Y_t_${params.dm_frb}") 
+            }
+
+            extract_pulse(
+                x_file, y_file, candfile
             )
         }
         

@@ -109,6 +109,8 @@ def _main():
         eoplines,
         framesize,
         args.bits,
+        args.tlefile,
+        args.tleobject,
     )
 
     # Run updateFreqs
@@ -411,6 +413,16 @@ def get_args() -> argparse.Namespace:
         default=False,
         action="store_true",
         help="Stop after creating .calc file",
+    )
+    parser.add_argument(
+        "--tlefile",
+        help="Filename containing two-line element info for near-field correlation, blank=no near field correlation",
+        default=None,
+    )
+    parser.add_argument(
+        "--tleobject",
+        help="Name of object to use from TLE file if doing near-field correlation",
+        default=None,
     )
     parser.add_argument(
         "--ref", help="Reference correlation directory", default=None
@@ -753,6 +765,8 @@ def writev2dfile(
     startseries,
     framesize,
     bits,
+    tlefile,
+    tleobject,
 ):
     if fpga is not None:
         fpga_delay = getFPGAdelays(fpga)
@@ -880,7 +894,13 @@ exhaustiveAutocorrs = True
     v2dout.write(
         "# Sources (pointing centers) with recorded data but no offset pointing centers:\n"
     )
-    v2dout.write("SOURCE %s { }\n\n" % obs["srcname"])
+    if tlefile == None or tlefile == "":
+        v2dout.write("SOURCE %s { }\n\n" % obs["srcname"])
+    else:
+        v2dout.write("SOURCE %s {\n" % obs["srcname"])
+        v2dout.write("  ephemFile={0}\n".format(tlefile))
+        v2dout.write("  ephemObject={0}\n".format(tleobject))
+        v2dout.write("}\n\n")
 
 
 def write_sched_files(
@@ -1005,6 +1025,8 @@ def write_v2d(
     eoplines: list,
     framesize,
     bits,
+    tlefile,
+    tleobject,
 ) -> None:
     """Write the craftfrb.v2d file
 
@@ -1039,6 +1061,8 @@ def write_v2d(
         startseries,
         framesize,
         bits,
+        tlefile,
+        tleobject,
     )
     for line in eoplines:
         if "xPole" in line or "downloaded" in line:

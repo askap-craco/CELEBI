@@ -28,7 +28,7 @@ workflow {
         }
     }
     else {
-        fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_*.tar.gz"
+        fluxcal_solns_path = "${params.out_dir}/fluxcal/calibration_noxpol_${params.target}.tar.gz"
         fcm_delayfix_path = "${params.out_dir}/fluxcal/fcm_delayfix.txt"
         flux_cal_solns = file(fluxcal_solns_path)
         fcm_delayfix = file(fcm_delayfix_path)

@@ -75,6 +75,10 @@ process do_ref_correlation {
                 The earliest start time found in the data headers
             card, fpga: tuple(val, val)
                 Specific card-fpga pair to be correlated by this instance
+            fcm: path
+                fcm file to use
+            corrtype: val
+                Correlation type - "rfi", "finder", "gate", "polcal", or "fluxcal"
         
         Output
             correlated_data: path
@@ -101,6 +105,7 @@ process do_ref_correlation {
         val startmjd
         tuple val(card), val(fpga)
         path fcm
+        val corrtype
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -143,6 +148,11 @@ process do_ref_correlation {
 		if [ "\$int_time" != "" ]; then
 			args="\$args -i \$int_time"
 		fi
+
+        # Add the TLE info if needed for near-field correlation
+        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ]; then
+            args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
+        fi
 				
 		python3 $localise_dir/processTimeStep.py -f $fcm -b $params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \
 		        --dir=${projectDir}/../difx \$args --startmjd=$startmjd 
@@ -188,6 +198,8 @@ process do_correlation {
                 pass an empty file
             fcm: path
                 fcm file to use
+            corrtype: val
+                Source type - "rfi", "finder", "gate", "polcal", or "fluxcal"
         
         Output
             correlated_data: path
@@ -214,6 +226,7 @@ process do_correlation {
         val startmjd
         tuple path(ref_corr), val(card), val(fpga)
         path fcm
+        val corrtype
 
     output:
         path "c${card}_f${fpga}", emit: cx_fy
@@ -256,6 +269,11 @@ process do_correlation {
             args="\$args -i \$int_time"
         fi
         
+        # Add the TLE info if needed for near-field correlation
+        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ]; then
+            args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
+        fi
+
         python3 $localise_dir/processTimeStep.py -f=$fcm -b=$params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \
                 --dir=$projectDir/../difx --ref=$ref_corr \$args --startmjd=$startmjd
                 
@@ -373,7 +391,8 @@ process difx_to_fits {
         """
         if [ "$mode" == "finder" ]; then
             for i in `seq 0 ${params.numfinderbins}`; do
-                touch finderbin0\${i}.fits
+                bin2="\$(printf "%02d" \$b)"
+                touch finderbin\${bin2}.fits
             done
         else
             touch ${label}_stub.fits
@@ -489,7 +508,7 @@ workflow correlate {
         // reference correlation
         ref_correlation = do_ref_correlation(
             label, data, ra, dec, binconfig, polyco, inttime, startmjd, 
-            ref_card_fpga, fcm
+            ref_card_fpga, fcm, mode
         ).cx_fy
                 
         // card_fpgas kicks off an instance of do_correlation for
@@ -501,7 +520,8 @@ workflow correlate {
             inttime.first(),
             startmjd, 
             ref_correlation.combine(card_fpgas),
-            fcm
+            fcm,
+            mode
         ).cx_fy
 
         all_correlations = ref_correlation.concat(correlated_data).collect()
