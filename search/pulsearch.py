@@ -138,8 +138,8 @@ def search_htr(args, ids):
             ffrq  = np.fft.rfftfreq(len(tI00), d=ta)
             np.savetxt("subband_"+str(ns)+"_"+"nt_"+str(ta)+".txt", np.column_stack((1.0e-3/ffrq,fpow)), fmt="%.3e  %.1e")
 
-            fig   = plt.figure(figsize=(12.0, 5.0))
-            plt.plot(1.0e-3/ffrq[5:], fpow[5:], 'bo-', lw=0.5)
+            fig   = plt.figure(figsize=(20.0, 8.0))
+            plt.plot(1.0e-3/ffrq[5:], fpow[5:], 'b-', lw=1.0)
             plt.title("Channels "+str(ch0[ns])+" - "+str(ch1[ns])+" nt = "+str(ta))
             plt.xscale('log')
             #plt.yscale('log')
