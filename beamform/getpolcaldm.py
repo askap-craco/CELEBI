@@ -25,7 +25,7 @@ def print_instructions():
 	return(0)
 
 #	--------------------------	Read inputs	-------------------------------
-if(len(sys.argv)<8):
+if(len(sys.argv)<7):
 	print_instructions()
 	sys.exit()
 
@@ -33,15 +33,13 @@ frbname		=	sys.argv[1]					#	FRB name string (YYMMDDx)
 dm0s		=	sys.argv[2]					#	Current DM (string)
 edm			=	float(sys.argv[3])			#	DM serach range
 ddm			=	float(sys.argv[4])			#	DM step
-tavg		=	int(sys.argv[5])			#	Time averaging factor
-f0mhz		=	float(sys.argv[6])			#	Central frequency in MHz
-bwmhz		=	float(sys.argv[7])			#	Bandwidth in MHz
+f0mhz		=	float(sys.argv[5])			#	Central frequency in MHz
+bwmhz		=	float(sys.argv[6])			#	Bandwidth in MHz
 
 #	-------------------------	Initialize thing	-----------------------
 
 dcon		=	0.0							#	Dispersion constant
 dfmhz		=	1.0							#	Channel width in MHz
-dtns		=	tavg*1.0e3/bwmhz			#	Time resolution in ns
 dm0			=	float(dm0s)
 
 dmarr		=	np.arange(-edm,edm,ddm)
@@ -59,7 +57,8 @@ tser		=	np.zeros(dspec0.shape[1], dtype=float)
 
 nc0			=	dspec0.shape[0]
 nt0			=	dspec0.shape[1]
-nt			=	tavg*int(nt0/tavg)
+
+dtns		=	nc0*1.0e3/bwmhz			#	Time resolution in ns
 
 print("Originally - %d channels - %d times - DM = %.2f"%(nc0, nt0, dm0))
 print("Frequency resolution = %.2f MHz"%(dfmhz))
