@@ -816,7 +816,6 @@ process determine_pol_cal_solns {
 				${params.dm_polcal} \
 				1.00 \
 				0.01 \
-				1000 \
 				${params.centre_freq_polcal} \
 				${params.bw}
 		

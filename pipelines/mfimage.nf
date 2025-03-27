@@ -225,13 +225,13 @@ workflow correlate_frb {
         // Reference correlation
         ref_correlation = do_ref_correlation(params.label, params.data_frb, params.ra_frb, params.dec_frb, 
                         binconfig, polyco, get_inttime.out.int_time, startmjd, ref_card_fpga,
-                        fcm).cx_fy
+                        fcm, "finder").cx_fy
 
 
         // Do rest of correlations
         correlated_data = do_correlation(params.label, params.data_frb, params.ra_frb, params.dec_frb, 
                         binconfig, polyco, get_inttime.out.int_time, 
-                        startmjd, ref_correlation.combine(card_fpgas), fcm).cx_fy
+                        startmjd, ref_correlation.combine(card_fpgas), fcm, "finder").cx_fy
 
         // Combine correlations
         all_correlations = ref_correlation.concat(correlated_data).collect()

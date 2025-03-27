@@ -63,14 +63,20 @@ process create_calcfiles {
 
         export CRAFTCATDIR="."
 
-        if [ "$params.usepos" = "true" ]; then
+        clabel=$label
+        contxt=\${clabel:(-6)}
+        echo "\$contxt"
+
+        if [ "$params.usepos" = "true" ] && [ "\$contxt" != "polcal" ]; then
             ra=$params.ra_frb
             dec=$params.dec_frb
+            echo "Using given position \$ra \$dec"
         else
             ra=\$(grep "Actual RA" $pos)
             ra=\${ra:22}
             dec=\$(grep "Actual Dec" $pos)
             dec=\${dec:22}
+            echo "Using JMFIT position \$ra \$dec"
         fi
 
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
