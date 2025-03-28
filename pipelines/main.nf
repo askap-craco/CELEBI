@@ -35,11 +35,17 @@ workflow {
     }
 
     if( params.localize || params.imgfcal ) {
-        fcalfits = file("${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits")
+        if ( params.noflag ) {
+            fcalfits = file("${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal.fits")
+        }
+        else {
+            fcalfits = file("${params.out_dir}/loadfits/fluxcal/${params.label}_fluxcal_f.fits")
+        }
+        
         image_fluxcal(
             fcalfits, flux_cal_solns, params.fluxflagfile
         )
-    }
+    }   
     
     if( params.nopolcal ) {
         pol_cal_solns = empty1("polcal.dat")
