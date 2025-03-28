@@ -458,7 +458,11 @@ process image_field {
         cp /JOBFS/f*.fits .
         cp -r /JOBFS/f*.image .
         cp -r /JOBFS/cutouts .
-        cp /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+
+        if [ "$params.usefield" = "false" ]; then
+            cp /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+        fi
+
         cp /JOBFS/*.reg .
         cp /JOBFS/*jmfit .
         """    
