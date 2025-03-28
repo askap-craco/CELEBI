@@ -649,7 +649,7 @@ workflow process_frb {
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
         gate_fits_path = "${params.out_dir}/loadfits/gate/${params.label}_gate.fits"
 
-        if( params.many_finders ) {
+        if( "${params.cenfinderbin}".length() > 1 ) {
             centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin${params.cenfinderbin}.fits"
         }
         else {
