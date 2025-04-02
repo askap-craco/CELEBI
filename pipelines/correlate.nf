@@ -150,7 +150,7 @@ process do_ref_correlation {
 		fi
 
         # Add the TLE info if needed for near-field correlation
-        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ]; then
+        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ] && [ "$corrtype" != "field" ]; then
             args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
         fi
 				
@@ -270,7 +270,7 @@ process do_correlation {
         fi
         
         # Add the TLE info if needed for near-field correlation
-        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ]; then
+        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ] && [ "$corrtype" != "field" ]; then
             args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
         fi
 
@@ -316,7 +316,7 @@ process difx_to_fits {
 
     output:
         path "${label}*.fits", emit: fits
-        path "finderbin0${params.cenfinderbin}.fits", emit: centre, optional: true
+        path "finderbin*.fits", emit: centre, optional: true
 
     script:
         """

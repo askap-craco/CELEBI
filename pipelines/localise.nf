@@ -80,7 +80,7 @@ process find_offset {
             field sources: path
                 File containing positions of sources identified in field image
             exlabel: val
-                Excluseive label        
+                Exclusive label        
         Output
             dat: path
                 Files containing RACS source information

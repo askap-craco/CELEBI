@@ -478,6 +478,7 @@ def _main():
                         {
                             "imagename": casaimagename,
                             "fitsimage": fitsimagename,
+                            "overwrite": True,
                         },
                     )
                     casaout.close()

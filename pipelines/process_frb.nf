@@ -649,12 +649,12 @@ workflow process_frb {
         finder_fits_path = "${params.out_dir}/loadfits/finder/finder*.fits"
         gate_fits_path = "${params.out_dir}/loadfits/gate/${params.label}_gate.fits"
 
-        if( "${params.cenfinderbin}".length() > 1 ) {
+        if ( "${params.cenfinderbin}".length() > 1 ) {
             centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin${params.cenfinderbin}.fits"
         }
         else {
             centre_bin_path = "${params.out_dir}/loadfits/finder/finderbin0${params.cenfinderbin}.fits"
-        }
+        } 
                 
         empty_file = create_empty_file("file")
         
@@ -728,17 +728,26 @@ workflow process_frb {
                 field_fits = field_outfits
             }
 
-            field_sources = image_field(
+            field_image_src = image_field(
                 field_fits, flux_cal_solns, params.fieldflagfile, "NULL"
-            ).jmfit        
+            )
+
+            field_img_fits = field_image_src.fitsimage
+            field_sources = field_image_src.jmfit        
         }        
         else {
             field_sources = file(fld_srcs_path)
+            if ( params.usefield ) {
+                field_img_fits = file("${params.fieldimage}")
+            }
+            else {
+                field_img_fits = file("${params.out_dir}/field/field.fits")
+            }            
         }
 
         frb_jmfit_path = "${params.out_dir}/finder/${params.label}.jmfit"
         // Imaging FRB        
-        if( params.localize || params.imgfrb) {  
+        if( params.localize || params.imgfrb ) {  
 
             if(params.binconfig_gate != ""){
                 gate_out = image_htrgate(gate_fits, flux_cal_solns)
@@ -788,12 +797,15 @@ workflow process_frb {
         }
 
         // Get FRB position        
-        if( params.localize || params.getpos) {  
+        if( params.localize || params.getpos ) {  
                 
             exlabel = channel.value("finder")
-            fldfits = file("${params.out_dir}/field/field.fits")
 
-    		offres = find_offset(fldfits, field_sources, exlabel)
+            if ( params.usefield ) {
+                field_img_fits = file("${params.fieldimage}")
+            }
+
+    		offres = find_offset(field_img_fits, field_sources, exlabel)
             offset = offres.offset
             doffset = offres.doffset                
 

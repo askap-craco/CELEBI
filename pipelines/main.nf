@@ -45,7 +45,7 @@ workflow {
         image_fluxcal(
             fcalfits, flux_cal_solns, params.fluxflagfile
         )
-    }   
+    }
     
     if( params.nopolcal ) {
         pol_cal_solns = empty1("polcal.dat")
