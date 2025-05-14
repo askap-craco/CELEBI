@@ -279,3 +279,55 @@ process apply_offset {
 	    touch ${params.label}_hpmap.FITS
         """
 }
+
+process find_frb_beam_position {
+    /*
+        Find the FRB position relative to the beam
+
+        Input
+            askap_frb_pos: path
+                JMFIT output file of FRB position fit
+            fieldfits: path
+                FITS image of the field  
+        Output
+            Beam info: path
+                Text file with all relevant info
+            Position plot: path
+                Plot of FRB position w.r.t. the primary beam
+    */
+    publishDir "${params.out_dir}/position", mode: "copy"
+
+    label 'celebi'
+    // label 'conda'
+
+    input:
+        path frbposfile
+	    path fieldfits
+
+    output:
+        path "*.txt", emit: beaminfo
+        path "*.png", emit: beampos
+    
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        vcfile=\$(find ${params.data_frb} -type f -name "ak*_c1_f1.vcraft.hdr" | head -n 1)
+        
+        python3 $localise_dir/find_frb_beam_info.py --posfile $frbposfile \
+            --refvcraftfile \$vcfile \
+            --fieldfits $fieldfits \
+            --cenfreqmhz ${params.centre_freq_frb} \
+            --bwmhz ${params.bw} \
+            --diametre ${params.askapdishdia} \
+            --plotpng frb_beam_pos > frb_beam_info.txt
+
+        """
+    
+    stub:
+        """
+        touch frb_beam_info.txt
+	    touch frb_beam_pos.png
+        """
+}
