@@ -197,11 +197,10 @@ process find_offset {
                 --racs ${params.label}_RACS.dat \
                 --frbtitletext ${params.label}
         
-        python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit.txt 
+        python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit_${exlabel}.txt 
         python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat
 
         mv offset0.dat offset0_${exlabel}.dat
-        mv offsetfit.txt offsetfit_${exlabel}.txt
 
         """
     
