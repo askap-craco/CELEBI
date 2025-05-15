@@ -145,7 +145,7 @@ process find_offset {
                 --askappos ${params.label}_ASKAP.dat \
                 --askapnames ${params.label}_names.dat \
 	            --jmfitnames ${params.label}_jmfits.dat \
-                --fieldfits ${params.out_dir}/finder/${params.label}.fits \
+                --fieldfits ${fld_fits} \
                 --racs ${params.label}_RACS.dat \
                 --frbtitletext ${params.label}
 
@@ -193,7 +193,7 @@ process find_offset {
                 --askappos ${params.label}_ASKAP.dat \
                 --askapnames ${params.label}_names.dat \
 	            --jmfitnames ${params.label}_jmfits.dat \
-                --fieldfits ${params.out_dir}/finder/${params.label}.fits \
+                --fieldfits ${fld_fits} \
                 --racs ${params.label}_RACS.dat \
                 --frbtitletext ${params.label}
         
