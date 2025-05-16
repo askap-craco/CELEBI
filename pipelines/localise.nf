@@ -66,6 +66,7 @@ process generate_binconfig {
         touch craftfrb.polyco
         touch dosubtractions.sh
         touch int_time
+        touch geo_delay.txt
         """
 }
 
@@ -211,6 +212,8 @@ process find_offset {
         touch offsetfit.txt
         touch stub.reg
         touch stub.png
+        touch offset0_${exlabel}.dat
+        touch offsetfit_${exlabel}.txt
         """
 }
 

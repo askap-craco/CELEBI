@@ -118,6 +118,11 @@ process compile_summary {
         	--dm ${params.dm_frb} \
         	-d ${params.out_dir}    
         """
+    
+    stub:
+        """
+        touch ${params.label}_summary.txt
+        """
 }
 
 process print_params {
