@@ -73,6 +73,9 @@ process flag_proper {
     stub:
         """
         touch test_flagging_proper.txt
+        touch outfitsfile.fits
+        touch logfile.txt
+        touch bad_ant_file.txt
         """
 }
 

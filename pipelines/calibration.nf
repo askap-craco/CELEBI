@@ -227,7 +227,8 @@ process image_finder {
         touch fbin\${bin}.fits
         touch fbin\${bin}.reg
         touch fbin\${bin}.png
-        touch fbin\${bin}_calibrated_uv.ms
+        touch fbin\${target_fits%.fits}_calibrated_uv.ms
+        touch fbin\${target_fits}_calibrated_uv.ms.tar
         """
 }
 
@@ -343,6 +344,7 @@ process get_peak {
         touch ${params.label}.fits
         touch ${params.label}.reg
         touch ${params.label}_calibrated_uv.ms
+        touch ${params.label}_calibrated_uv.ms.tar
         """
 }
 
@@ -473,6 +475,7 @@ process image_field {
         touch stub_calibrated_uv.ms
         touch stub.jmfit
         touch stub.reg
+        touch cutouts
         """
 }
 
