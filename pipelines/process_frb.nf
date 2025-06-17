@@ -850,8 +850,12 @@ workflow process_frb {
 
         // Search pulse
         if( params.searchpulse ) {     
-
-            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            if( params.nopolcal ) {
+                ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            }
+            else {
+                ids_path = file("${params.out_dir}/htr/${params.label}_calib_I_dynspec_${params.dm_frb}.npy") 
+            }
 
             search_pulse(
                 params.label, ids_path, params.centre_freq_frb
@@ -891,7 +895,12 @@ workflow process_frb {
         if( params.mfimage ) {
 
             // paths to required files
-            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")
+            if( params.nopolcal ) {
+                ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            }
+            else {
+                ids_path = file("${params.out_dir}/htr/${params.label}_calib_I_dynspec_${params.dm_frb}.npy") 
+            }
             binconfig = file("${params.out_dir}/binconfigs/craftfrb.finder.binconfig")
             polyco = file("${params.out_dir}/binconfigs/craftfrb.polyco")
             summary = file("${params.out_dir}/${params.label}_summary.txt")
