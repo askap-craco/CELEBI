@@ -6,7 +6,7 @@ include { correlate as corr_finder; correlate as corr_rfi;
     correlate as corr_gate; correlate as corr_field; 
     subtract_rfi as sub_rfi; subtract_rfi as sub_htrrfi; get_start_mjd as get_start_mjd } from './correlate'
 include { image_finder; image_field; get_peak; image_htrgate } from './calibration'
-include { find_offset; apply_offset; apply_offset as apply_offset_htr; 
+include { find_offset; apply_offset; apply_offset as apply_offset_htr; find_frb_beam_position as getbeaminfo; 
     generate_binconfig } from './localise'
 include { beamform as bform_frb; gen_dspec as frb_dspec; 
     dedisperse; ifft; generate_dynspecs } from './beamform'
@@ -720,7 +720,7 @@ workflow process_frb {
 
         // Imaging field
         fld_srcs_path =  "${params.out_dir}/field/*.jmfit"
-        if( params.localize || params.imgfld) {
+        if( params.localize || params.imgfld ) {
             // Flagging
             if( !params.noflag && !params.usefield ) {
                 field_fits_flagged = "${params.out_dir}/loadfits/field/${params.label}_field_f.fits"
@@ -814,6 +814,11 @@ workflow process_frb {
         	// finalmap = finalres.hpmap
         }
 
+        if( params.localize || params.findbeaminfo) {
+
+            frbeamdetails = getbeaminfo(askap_frb_pos, field_img_fits)
+        }
+
         //final_position = file("${params.out_dir}/position/${params.label}_final_position.txt")
 
 
@@ -845,8 +850,12 @@ workflow process_frb {
 
         // Search pulse
         if( params.searchpulse ) {     
-
-            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            if( params.nopolcal ) {
+                ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            }
+            else {
+                ids_path = file("${params.out_dir}/htr/${params.label}_calib_I_dynspec_${params.dm_frb}.npy") 
+            }
 
             search_pulse(
                 params.label, ids_path, params.centre_freq_frb
@@ -886,7 +895,12 @@ workflow process_frb {
         if( params.mfimage ) {
 
             // paths to required files
-            ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")
+            if( params.nopolcal ) {
+                ids_path = file("${params.out_dir}/htr/${params.label}_I_dynspec_${params.dm_frb}.npy")    
+            }
+            else {
+                ids_path = file("${params.out_dir}/htr/${params.label}_calib_I_dynspec_${params.dm_frb}.npy") 
+            }
             binconfig = file("${params.out_dir}/binconfigs/craftfrb.finder.binconfig")
             polyco = file("${params.out_dir}/binconfigs/craftfrb.polyco")
             summary = file("${params.out_dir}/${params.label}_summary.txt")

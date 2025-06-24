@@ -66,7 +66,6 @@ process generate_binconfig {
         touch craftfrb.polyco
         touch dosubtractions.sh
         touch int_time
-        touch geo_delay.txt
         """
 }
 
@@ -146,7 +145,7 @@ process find_offset {
                 --askappos ${params.label}_ASKAP.dat \
                 --askapnames ${params.label}_names.dat \
 	            --jmfitnames ${params.label}_jmfits.dat \
-                --fieldfits ${params.out_dir}/finder/${params.label}.fits \
+                --fieldfits ${fld_fits} \
                 --racs ${params.label}_RACS.dat \
                 --frbtitletext ${params.label}
 
@@ -194,15 +193,14 @@ process find_offset {
                 --askappos ${params.label}_ASKAP.dat \
                 --askapnames ${params.label}_names.dat \
 	            --jmfitnames ${params.label}_jmfits.dat \
-                --fieldfits ${params.out_dir}/finder/${params.label}.fits \
+                --fieldfits ${fld_fits} \
                 --racs ${params.label}_RACS.dat \
                 --frbtitletext ${params.label}
         
-        python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit.txt 
+        python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_rotated_offsets.dat > offsetfit_${exlabel}.txt 
         python3 $localise_dir/weighted_multi_image_fit_updated.py askap2racs_offsets_unc.dat
 
         mv offset0.dat offset0_${exlabel}.dat
-        mv offsetfit.txt offsetfit_${exlabel}.txt
 
         """
     
@@ -212,8 +210,6 @@ process find_offset {
         touch offsetfit.txt
         touch stub.reg
         touch stub.png
-        touch offset0_${exlabel}.dat
-        touch offsetfit_${exlabel}.txt
         """
 }
 
@@ -279,6 +275,58 @@ process apply_offset {
     stub:
         """
         touch ${params.label}_${exlabel}_final_position.txt
-	    touch ${params.label}_hpmap.FITS
+	      touch ${params.label}_hpmap.FITS
+        """
+}
+
+process find_frb_beam_position {
+    /*
+        Find the FRB position relative to the beam
+
+        Input
+            askap_frb_pos: path
+                JMFIT output file of FRB position fit
+            fieldfits: path
+                FITS image of the field  
+        Output
+            Beam info: path
+                Text file with all relevant info
+            Position plot: path
+                Plot of FRB position w.r.t. the primary beam
+    */
+    publishDir "${params.out_dir}/position", mode: "copy"
+
+    label 'celebi'
+    // label 'conda'
+
+    input:
+        path frbposfile
+	    path fieldfits
+
+    output:
+        path "*.txt", emit: beaminfo
+        path "*.png", emit: beampos
+    
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        vcfile=\$(find ${params.data_frb} -type f -name "ak*_c1_f1.vcraft.hdr" | head -n 1)
+        
+        python3 $localise_dir/find_frb_beam_info.py --posfile $frbposfile \
+            --refvcraftfile \$vcfile \
+            --fieldfits $fieldfits \
+            --cenfreqmhz ${params.centre_freq_frb} \
+            --bwmhz ${params.bw} \
+            --diametre ${params.askapdishdia} \
+            --plotpng frb_beam_pos > frb_beam_info.txt
+
+        """
+    
+    stub:
+        """
+        touch frb_beam_info.txt
+	      touch frb_beam_pos.png
         """
 }

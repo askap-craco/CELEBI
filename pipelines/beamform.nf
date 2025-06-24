@@ -764,7 +764,13 @@ workflow gen_dspec {
     
     main:        
         // generate stokes I, Q, U and V dynamic spectra
-        generate_dynspecs(label, xy, centre_freq, dm)
+        if ((label == "${params.label}") && !params.nopolcal) {
+            alabel="${params.label}_calib"
+        }
+        else {
+            alabel=label
+        }
+        generate_dynspecs(alabel, xy, centre_freq, dm)
     
     emit:
         dynspec_fnames = generate_dynspecs.out.dynspec_fnames
