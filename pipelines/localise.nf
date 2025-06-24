@@ -278,7 +278,7 @@ process apply_offset {
     
     stub:
         """
-        touch ${params.label}_final_position.txt
+        touch ${params.label}_${exlabel}_final_position.txt
 	    touch ${params.label}_hpmap.FITS
         """
 }
