@@ -275,6 +275,7 @@ process apply_offset {
     stub:
         """
         touch ${params.label}_${exlabel}_final_position.txt
+	      touch ${params.label}_hpmap.FITS
         """
 }
 
@@ -326,6 +327,6 @@ process find_frb_beam_position {
     stub:
         """
         touch frb_beam_info.txt
-	    touch frb_beam_pos.png
+	      touch frb_beam_pos.png
         """
 }
