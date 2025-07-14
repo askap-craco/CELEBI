@@ -390,7 +390,7 @@ process difx_to_fits {
     stub:
         """
         if [ "$mode" == "finder" ]; then
-            for i in `seq 0 ${params.numfinderbins}`; do
+            for b in `seq 0 ${params.numfinderbins}`; do
                 bin2="\$(printf "%02d" \$b)"
                 touch finderbin\${bin2}.fits
             done

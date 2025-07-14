@@ -81,19 +81,38 @@ process create_calcfiles {
 
         # Run processTimeStep.py with the --calconly flag to stop once calcfile is 
         # written
-        python3 $localise_dir/processTimeStep.py -t=$data \
-            --ra=\$ra \
-            --dec=\$dec \
-            -f=$fcm \
-            -b=$params.nbits \
-            --card=1 \
-            -k \
-            --name=$label \
-            -o . \
-            --freqlabel c1_f0 \
-            --dir=$projectDir/../difx \
-            --calconly \
-            --startmjd=\$startmjd        
+        # This is a clunky if statement to handle TLEs if needed, I'm sure this could be streamlined
+        if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ]; then
+          python3 $localise_dir/processTimeStep.py -t=$data \
+              --ra=\$ra \
+              --dec=\$dec \
+              --tlefile=$params.tle_file \
+              --tleobject=$params.tle_object \
+              -f=$fcm \
+              -b=$params.nbits \
+              --card=1 \
+              -k \
+              --name=$label \
+              -o . \
+              --freqlabel c1_f0 \
+              --dir=$projectDir/../difx \
+              --calconly \
+              --startmjd=\$startmjd
+        else
+          python3 $localise_dir/processTimeStep.py -t=$data \
+              --ra=\$ra \
+              --dec=\$dec \
+              -f=$fcm \
+              -b=$params.nbits \
+              --card=1 \
+              -k \
+              --name=$label \
+              -o . \
+              --freqlabel c1_f0 \
+              --dir=$projectDir/../difx \
+              --calconly \
+              --startmjd=\$startmjd        
+        fi
         """    
     
     stub:
