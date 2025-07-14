@@ -1,0 +1,922 @@
+/*
+    Processes for calibration and imaging
+*/
+
+nextflow.enable.dsl=2
+nextflow.enable.strict=true // be less generous
+
+utils_dir    = "${projectDir}/../utils/"
+beamform_dir = "${projectDir}/../beamform/"
+localise_dir = "${projectDir}/../localise/"
+
+
+if ( params.centre_freq_frb < 1000 ) {
+	params.fieldpixelsize = 2.5
+}
+else if ( params.centre_freq_frb < 1200 ) {
+	params.fieldpixelsize = 2
+}
+else {
+	params.fieldpixelsize = 1.5
+}
+
+
+
+process determine_flux_cal_solns {
+    /*
+        Determine flux calibration solutions
+
+        Input
+            cal_fits: path
+                Flux calibrator visibilities in a FITS file
+            flagfile: val
+                Absolute path to AIPS flag file for flux calibrator
+            fcm: path
+                fcm file to update, unless already updated
+            
+        Output
+            solns: path
+                Tarball containing calibration solutions
+            ms: path
+                Calibrated flux calibrator measurement set
+            plot: path
+                AIPS postscript plots of calibration solutions
+    */
+    publishDir "${params.out_dir}/fluxcal", mode: "copy"
+
+    label 'celebi'
+    label 'aips'
+
+    input:
+        path cal_fits
+        val flagfile
+        path fcm
+
+    output:
+        path "calibration_noxpol_${params.target}.tar.gz", emit: solns
+        path "*_calibrated_uv.ms", emit: ms
+        path "*ps", emit: plots
+        path "fcm_delayfix.txt", emit: fcm_delayfix
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        args=""
+        if [ "$flagfile" != "" ]; then
+            args="\$args --flagfile=$flagfile"
+        fi
+        # update fcm if not aready updated
+        if [ "$fcm" != "fcm_delayfix.txt" ]; then
+            cp $fcm fcm_delayfix.txt
+            args="\$args --updatefcmfile=fcm_delayfix.txt"
+        else
+            touch fcm_delayfix.txt
+        fi
+        if [ "$params.nopossm" == "true" ]; then
+            args="\$args --skipplot"
+        fi
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --calibrateonly \
+            -c $cal_fits \
+            --uvsrt \
+            -u \$aipsid \
+            --src=$params.target \
+            --maskpeakonly \
+            --cpasspoly=$params.cpasspoly \
+            --fluxcalfluxcoeffs=$params.fluxcalflux_c0,$params.fluxcalflux_c1,$params.fluxcalflux_c2,$params.fluxcalflux_c3,$params.fluxcalflux_c4 \
+            --refant=$params.refant \
+            \$args 
+        """
+    
+    stub:
+        """
+        touch calibration_noxpol_${params.target}.tar.gz
+        touch stub_calibrated_uv.ms
+        touch stub.ps
+        touch fcm_delayfix.txt
+        """
+}
+
+process image_finder {
+    /*
+        For a single finder bin:
+            - Flux calibrate
+            - Image
+            - Find and fit a single source
+
+        Input
+            target_fits: path
+                Finder bin visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+        
+        Output
+            jmfit: path
+                JMFIT outputs for this finder bin
+            fits_image: path
+                FITS-format image of this bin
+            reg: path
+                DS9 region file of source fit in this bin
+            ms: path
+                Calibrated bin measurement set
+    */
+    publishDir "${params.out_dir}/finder", mode: "copy"
+    maxForks 1
+
+    label 'celebi'
+    label 'aips_tempfs'
+
+    input:
+        each path(target_fits)
+        path cal_solns
+
+    output:
+        path "fbin*.jmfit", emit: jmfit
+        path "fbin*.fits", emit: fits_image
+        path "fbin*.reg", emit: reg
+        path "*_calibrated_uv.ms.tar", emit: mstar
+        path "fbin*.png", emit: png
+
+    script:
+        """
+        source /opt/setup_proc_container 
+        set -xu
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        cp $target_fits /JOBFS/.
+        cp $cal_solns /JOBFS/.
+        cd /JOBFS
+
+        tar -xzvf $cal_solns
+        #create a bash variable that mirrors the nextflow variable
+        # since nextflow doesn't do fancy string operations like slicing.
+        target_fits=$target_fits
+        bin=\${target_fits:9:2}
+
+        if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
+            args=" --tarflagfile=$params.finderflagfile"
+        else
+            args=""
+        fi
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -i \
+            --maskpeakonly \
+            -j \
+            --cleanmfs \
+            --exportfits \
+            --pols=I \
+            --imagename=fbin\${bin} \
+            --imagesize=$params.finderimagesize \
+            --pixelsize=$params.finderpixelsize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --refant=$params.refant \
+            \$args
+
+        python3 $localise_dir/export_png.py fbin\${bin} 1
+
+        python3 $localise_dir/export_png.py fbin\${bin}_mask 0
+
+        python3 $localise_dir/export_png.py fbin\${bin}_psf 1
+
+        ls -lh
+        tar -cvf ${target_fits}_calibrated_uv.ms.tar \${target_fits%.fits}_calibrated_uv.ms
+        
+        cd - 
+        cp -r /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+        cp /JOBFS/fbin*.fits .
+        cp /JOBFS/fbin*.jmfit .
+        cp /JOBFS/fbin*.png .
+
+        for f in `ls fbin\${bin}*jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f FRB >> fbin\${bin}_sources.reg
+        done
+
+        """
+        
+    stub:
+        """
+        target_fits=$target_fits
+        bin=\${target_fits:9:2}
+        touch fbin\${bin}.jmfit
+        touch fbin\${bin}.fits
+        touch fbin\${bin}.reg
+        touch fbin\${bin}.png
+        touch fbin\${bin}_calibrated_uv.ms
+        """
+}
+
+process get_peak {
+    /*
+        Find the bin in which the S/N of the single fit source is highest,
+        and return its related files. All outputs are renamed to [FRB name].*
+
+        Input
+            jmfit: path
+                All JMFIT output files from finder bins
+            fits_image: path
+                All finder bin FITS images
+            reg: path
+                All finder bin DS9 region files
+            ms: path
+                All finder bin calibrated visibility measurement sets
+        
+        Output
+            peak_jmfit: path
+                JMFIT output file of peak bin
+            peak_fits_image: path
+                FITS image of peak bin
+            peak_reg: path
+                DS9 region file of peak bin
+            peak_ms: path
+                Calibrated visibility measurement set of peak bin    
+    */
+    publishDir "${params.out_dir}/finder", mode: "copy"
+    
+    label 'celebi'
+    label 'tempfs'
+
+    input:
+        path jmfit
+        path fits_image
+        path reg
+        path ms_tar
+    
+    output:
+        path "${params.label}.jmfit", emit: peak_jmfit
+        path "${params.label}.fits", emit: peak_fits_image
+        path "${params.label}.reg", emit: peak_reg
+        path "${params.label}_calibrated_uv.ms.tar", emit: peak_ms_tar
+
+    script:
+        """
+        source /opt/setup_proc_container 
+        set -xu
+
+        # Remove empty .jmfit and .reg files
+        find *jmfit -type f -empty -print -delete
+        find *reg -type f -empty -print -delete
+
+        #filter out jmfit files that have a large beam size
+        BMINs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$1}'`
+        BMAXs=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$2}'`
+        beamBMIN=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$4}'`
+        beamBMAX=`grep --no-filename "Fit:" *jmfit | tr "x" " " | tr -d [:alpha:] | tr -d ':' | tr -d ';' | awk '{print \$5}'`
+
+        python3 $localise_dir/argBeamExceed.py \
+                "\$(echo \$BMINs)" \
+                "\$(echo \$BMAXs)" \
+                "\$(echo \$beamBMIN)" \
+                "\$(echo \$beamBMAX)" \
+                "\$(ls *jmfit)" \
+                >> largebeam_ind.txt
+
+        echo "files to be removed:"
+        cat largebeam_ind.txt
+
+        for file in \$(cat "largebeam_ind.txt")
+        do
+            mv \${file} \${file}REJECT
+        done
+
+        # parse jmfits for S/N then find index of maximum
+        SNs=`grep --no-filename "S/N" *jmfit | tr "S/N:" " "`
+
+        python3 $localise_dir/argmax.py \
+                "\$(echo \$SNs)" \
+                "\$(ls *jmfit)" \
+                >>peak_jmfit.txt
+
+        peak_jmfit=\$(cat "peak_jmfit.txt")
+
+        peak="\${peak_jmfit%.*}"
+        peakbin=\${peak:4:2}
+
+
+        echo "\$peak determined to be peak bin"
+        cp \$peak_jmfit ${params.label}.jmfit
+        cp \${peak}.fits ${params.label}.fits
+        cp \${peak}_sources.reg ${params.label}.reg
+        
+        # expand the ms
+        cp *.ms.tar /JOBFS/.
+        cd /JOBFS
+        tar -xvf *bin\${peakbin}*calibrated_uv.ms.tar
+
+        # copy the required files
+        cp -r *bin\${peakbin}*calibrated_uv.ms ${params.label}_calibrated_uv.ms
+
+        # recompress the output ms and copy back to our work dir
+        tar -cf ${params.label}_calibrated_uv.ms.tar ${params.label}_calibrated_uv.ms
+        cd -
+        cp /JOBFS/${params.label}_calibrated_uv.ms.tar .
+        """    
+
+    stub:
+        """
+        touch ${params.label}.jmfit
+        touch ${params.label}.fits
+        touch ${params.label}.reg
+        touch ${params.label}_calibrated_uv.ms
+        """
+}
+
+process image_field {
+    /*
+        Apply flux calibration to field visibilties and create field image,
+        unless we have an already-made deep field image, then find and fit
+        sources.
+
+        Input
+            target_fits: path
+                Field visibilities in FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+            flagfile: val
+                Absolute path to AIPS flag file for field data
+            dummy: val
+                A dummy variable used to force field calibration to wait for
+                finder calibration (otherwise calibrateFRB.py steps on itself)
+        
+        Output
+            fitsimage: path, optional
+                FITS format field image. Won't be output if using a deep field
+                image
+            ms: path, optional
+                Calibrated field visibility measurement set. Won't be output if
+                using a deep field image
+            jmfit: path
+                JMFIT output files for all sources found in image
+            regions: path
+                DS9 region file containing regions for all sources fit.
+    */
+    publishDir "${params.out_dir}/field", mode: "copy"
+
+    label 'celebi'
+    label 'aips_tempfs'
+
+    input:
+        path target_fits
+        path cal_solns
+        val flagfile
+        val dummy
+
+    output:
+        path "f*.fits", emit: fitsimage, optional: true
+        // path "*_calibrated_uv.ms", emit: ms, optional: true
+        path "*_calibrated_uv.ms.tar", emit: mstar, optional: true
+        path "*jmfit", emit: jmfit
+        path "*.reg", emit: regions
+		path "cutouts", emit: cutouts
+		
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu 
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        # if we have an already-made field image, skip imaging
+        if [ "$params.usefield" = "false" ]; then
+            args="--targetonly -t $target_fits"
+            args="\$args --cleanmfs -a 16 --skipplot --pixelsize=$params.fieldpixelsize"
+
+            if [ "$flagfile" != "" ]; then
+                args="\$args --tarflagfile=$flagfile"
+            fi
+        else
+            args="--image=$params.fieldimage"
+            cp $params.fieldimage /JOBFS/.
+        fi
+        
+        cp $target_fits /JOBFS/.
+        cp $cal_solns /JOBFS/.
+        cd /JOBFS
+
+        tar -xzvf $cal_solns
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --imagename=field \
+            -j \
+            -i \
+            --pols=I \
+            -u \$aipsid \
+            --imagesize=$params.fieldimagesize \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --nmaxsources=$params.nfieldsources \
+            --src=$params.target \
+            --refant=$params.refant \
+            --minbeamfrac=$params.minbeamfrac \
+            \$args
+
+        if [[ -e "${target_fits}_calibrated_uv.ms" ]]; then
+            tar -cvf ${target_fits}_calibrated_uv.ms.tar ${target_fits}_calibrated_uv.ms
+        fi
+
+
+        i=1
+        for f in `ls *jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            i=\$((i+1))
+        done
+        
+        ParselTongue $localise_dir/makefieldcutouts.py
+
+        cd - 
+        cp /JOBFS/f*.fits .
+        cp -r /JOBFS/f*.image .
+        cp -r /JOBFS/cutouts .
+
+        if [ "$params.usefield" = "false" ]; then
+            cp /JOBFS/${target_fits}_calibrated_uv.ms.tar .
+        fi
+        
+        cp /JOBFS/*.reg .
+        cp /JOBFS/*jmfit .
+        """    
+    
+    stub:
+        """
+        touch f0.fits
+        touch stub_calibrated_uv.ms
+        touch stub.jmfit
+        touch stub.reg
+        """
+}
+
+process image_polcal {
+    /*
+        Apply flux calibration to and image polarisation calibrator
+        visbilities, then fit a single source
+
+        Input
+            target_fits: path
+                Polarisation calibrator visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+            flagfile: val
+                Absolute path to AIPS flag file for polarisation calibrator
+        
+        Output
+            fitsimage: path
+                FITS format image of polarisation calibrator
+            ms: path
+                Calibrated polarisation calibrator visibility measurement set
+            jmfit: path
+                JMFIT output for source fit
+            regions: path
+                DS9 region of source fit    
+    */
+    publishDir "${params.out_dir}/polcal", mode: "copy"
+    label 'celebi'
+    label 'aips'
+
+    input:
+        path target_fits
+        path cal_solns
+        val flagfile
+
+    output:
+        path "p*.fits", emit: fitsimage
+        path "*_calibrated_uv.ms", emit: ms
+        path "*jmfit", emit: jmfit
+        path "*.reg", emit: regions
+        path "*.png", emit: png
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu 
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        tar -xzvf $cal_solns
+        
+        if [ "$flagfile" != "" ]; then
+            args="--tarflagfile=$flagfile"
+        else
+            args=""
+        fi
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -i \
+            --maskpeakonly \
+            -j \
+            --cleanmfs \
+            --exportfits \
+            --pols=I \
+            --imagename=polcal \
+            --imagesize=$params.polcalimagesize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --refant=$params.refant \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            \$args
+
+        i=1
+        for f in `ls *jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            i=\$((i+1))
+        done
+
+        python3 $localise_dir/export_png.py polcal 1
+
+        python3 $localise_dir/export_png.py polcal_mask 0
+
+        python3 $localise_dir/export_png.py polcal_psf 1
+
+        """
+
+    stub:
+        """
+        touch p0.fits
+        touch stub_calibrated_uv.ms
+        touch stub.jmfit
+        touch stub.reg
+        touch stub.png
+        """    
+}
+
+process image_fluxcal {
+    /*
+        Apply flux calibration to and image flux calibrator
+        visbilities, then fit a single source
+
+        Input
+            target_fits: path
+                Flux calibrator visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+            flagfile: val
+                Absolute path to AIPS flag file for Flux calibrator
+        
+        Output
+            fitsimage: path
+                FITS format image of flux calibrator
+            ms: path
+                Calibrated flux calibrator visibility measurement set
+            jmfit: path
+                JMFIT output for source fit
+            regions: path
+                DS9 region of source fit    
+    */
+    publishDir "${params.out_dir}/fluxcal", mode: "copy"
+    label 'celebi'
+    label 'aips'
+
+    input:
+        path target_fits
+        path cal_solns
+        val flagfile
+
+    output:
+        path "f*.fits", emit: fitsimage
+        path "*_calibrated_uv.ms", emit: ms
+        path "*jmfit", emit: jmfit
+        path "*.reg", emit: regions
+        path "*.png", emit: png
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu 
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        tar -xzvf $cal_solns
+        
+        if [ "$flagfile" != "" ]; then
+            args="--tarflagfile=$flagfile"
+        else
+            args=""
+        fi
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t $target_fits \
+            -i \
+            --maskpeakonly \
+            -j \
+            --cleanmfs \
+            --exportfits \
+            --pols=I \
+            --imagename=fluxcal \
+            --imagesize=$params.polcalimagesize \
+            -a 16 \
+            -u \$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --refant=$params.refant \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            \$args
+
+        i=1
+        for f in `ls *jmfit`; do
+            echo \$f
+            python3 $localise_dir/get_region_str.py \$f \$i >> sources.reg
+            i=\$((i+1))
+        done
+
+        python3 $localise_dir/export_png.py fluxcal 1
+
+        python3 $localise_dir/export_png.py fluxcal_mask 0
+ 
+        python3 $localise_dir/export_png.py fluxcal_psf 1
+
+        """
+
+    stub:
+        """
+        touch f0.fits
+        touch stub_calibrated_uv.ms
+        touch stub.jmfit
+        touch stub.reg
+        touch stub.png
+        """    
+}
+
+process image_htrgate {
+    /*
+        For a htrgate fits:
+            - Flux calibrate
+            - Image
+            - Find and fit a single source
+
+        Input
+            target_fits: path
+                htrgate bin visibilities in a FITS file
+            cal_solns: path
+                Tarball containing calibration solutions
+        
+        Output
+            jmfit: path
+                JMFIT output
+            fits_image: path
+                FITS-format image
+            reg: path
+                DS9 region file
+            ms: path
+                Calibrated measurement set
+    */
+    publishDir "${params.out_dir}/htrgate", mode: "copy"
+    maxForks 1
+    
+    label 'celebi'
+    label 'aips'
+
+    input:
+        each path(target_fits)
+        path cal_solns
+
+    output:
+        path "*.jmfit", emit: jmfit
+        path "*.fits", emit: fits_image
+        path "*.reg", emit: reg
+        path "*_calibrated_uv.ms", emit: ms
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        export PATH=\$PATH:$params.casapath
+
+        aipsid="\$((RANDOM%8192))"
+
+        tar -xzvf $cal_solns
+        target_fits=$target_fits
+
+        export LC_CTYPE=C
+        export LC_ALL=C
+        export LANGUAGE=C
+        ParselTongue $localise_dir/calibrateFRB.py \
+            --targetonly \
+            -t=$target_fits \
+            -r 3 \
+            -i \
+            --maskpeakonly \
+            -j \
+            --cleanmfs \
+            --pols=I \
+            --imagename=gate \
+            --imagesize=$params.finderimagesize \
+            --pixelsize=$params.finderpixelsize \
+            -a 16 \
+            -u=\$aipsid \
+            --skipplot \
+            --src=$params.target \
+            --nmaxsources=1 \
+            --findsourcescript=$localise_dir/get_pixels_from_field.py \
+            --findsourcescript2=$localise_dir/get_pixels_from_field2.py \
+            --refant=$params.refant
+
+        python3 $localise_dir/get_region_str.py gate.jmfit FRB >> gate_sources.reg
+
+        """
+        
+    stub:
+        """
+        touch gate.jmfit
+        touch gate.fits
+        touch gate_sources.reg
+        touch stub_calibrated_uv.ms
+        """
+}
+
+process determine_pol_cal_solns {
+    /*
+        Determine polarisation calibration solutions.
+
+        Input
+            htr_data: path
+                Stokes I, Q, U, V dynamic spectra of polarisation calibrator
+                beamformed data as numpy files
+        
+        Output
+            pol_cal_solns: path
+                A file containing the delay (in ns) and phase offset solutions
+                with errors
+            plots: path
+                A set of .png plots generated at various stages of polcal.py
+                for troubleshooting/verifying solutions
+    */
+    publishDir "${params.out_dir}/polcal", mode: "copy"
+
+    label 'celebi'
+
+    input:
+        path htr_data
+
+    output:
+        path "${params.label}_polcal_solutions.txt", emit: pol_cal_solns
+        path "*.png", emit: plots
+        path "polcal_name.txt"
+    
+    script:
+        """
+        source /opt/setup_proc_container 
+        set -xu
+
+        elipse=''
+        if [ '$params.polcal_ellipse' == 'true' ]; then
+            elipse="--ellipse"
+        fi
+		
+		#	Find DM of polcal by maximizing S/N 
+		
+		python3 $beamform_dir/getpolcaldm.py \
+				${params.label} \
+				${params.dm_polcal} \
+				1.00 \
+				0.01 \
+				${params.centre_freq_polcal} \
+				${params.bw}
+		
+		#	Find pol cal solutions using the S/N maximizing synamic spectra		
+
+        python3 $beamform_dir/polcal.py \
+                -i ${params.label}_polcal_I_dynspec_snmax.npy \
+                -q ${params.label}_polcal_Q_dynspec_snmax.npy \
+                -u ${params.label}_polcal_U_dynspec_snmax.npy \
+                -v ${params.label}_polcal_V_dynspec_snmax.npy \
+                --l_model=$params.polcal_l_model \
+                --v_model=$params.polcal_v_model \
+                --priors=$params.polcal_priors \
+                --peak_w=$params.polcal_peak_w \
+                --rms_w=$params.polcal_rms_w \
+                --tN=$params.polcal_tN \
+                --fN=$params.polcal_fN \
+                --RFIguard=$params.polcal_guard \
+                --chanflag '$params.polcal_chanflag' \
+                --pa0=$params.polcal_pa0 \
+                --f0=$params.polcal_f0 \
+                --cfreq=$params.centre_freq_polcal \
+                --bw=$params.bw \
+                --cpus=$params.polcal_cpus \
+                --live=$params.polcal_live \
+                --ofile=${params.label}_polcal_solutions.txt \
+                \$elipse 
+        
+        cp polcal_sampler/polcal_corner.png .
+        
+        # make name txt file
+        echo "${params.polcal_name}" > polcal_name.txt
+        """
+    
+    stub:
+        """
+        touch ${params.label}_polcal_solutions.txt
+        touch stub.png
+        """
+}
+
+
+process apply_pol_cal_solns {
+    /*
+        
+        Apply polcal solutions to FRB data
+        
+        Input:
+            htr_path: path
+                path to X and Y polarisation data for FRB
+            polcal_solns: path
+                full file path to polcal solutions
+
+        Output:
+            New X and Y data products with full polcal solutions applied
+
+
+    */
+
+    publishDir "${params.out_dir}/htr", mode: "copy"
+    
+    label 'celebi'
+
+    input: 
+        val label
+        path pol_time_series
+        path pol_cal_solns
+        val cfreq
+        val dm
+
+    output:
+        path "*_calib_*.npy", emit: calib_data
+
+    script:
+        """
+        source /opt/setup_proc_container
+        set -xu
+
+        fast=' '
+        if [ '$params.polcal_fast' == 'true' ]; then
+            fast="--fast"
+        fi
+
+        python3 $beamform_dir/apply_polcal.py \
+                -x ${label}_X_t_${dm}.npy \
+                -y ${label}_Y_t_${dm}.npy \
+                --soln $pol_cal_solns \
+                --cfreq $cfreq \
+                --bw $params.bw \
+                --xout ${label}_calib_X_t_${dm}.npy \
+                --yout ${label}_calib_Y_t_${dm}.npy \
+                \$fast
+        """
+    
+    stub:
+        """
+        touch stub_calib_.npy
+        """
+
+}
