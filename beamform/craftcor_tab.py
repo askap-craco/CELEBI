@@ -278,11 +278,8 @@ class AntennaSource:
         old_sampoff = sampoff
         if (sampoff % 32) != 0:
             sampoff = round(sampoff / 32) * 32 #+ 32 # extra 32 to ensure we are within all antenna -- Removed as TD suggested
-        sampoff_skip = sampoff +32 - old_sampoff    # in the case that we have to slightly change the initial sampoff bound, this 
+        sampoff_skip = sampoff + 32 - old_sampoff    # in the case that we have to slightly change the initial sampoff bound, this 
         # difference can be used to skip ahead in the geometric delays.
-
-        #if (sampoff_skip < 0):
-        #    sampoff_skip = sampoff_skip + 32 
         
         nsamp = (nsamp // 32) * 32 #
         nsamp -= 64             # insurance
