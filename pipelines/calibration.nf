@@ -29,8 +29,6 @@ process determine_flux_cal_solns {
         Input
             cal_fits: path
                 Flux calibrator visibilities in a FITS file
-            flagfile: val
-                Absolute path to AIPS flag file for flux calibrator
             fcm: path
                 fcm file to update, unless already updated
             
@@ -49,7 +47,6 @@ process determine_flux_cal_solns {
 
     input:
         path cal_fits
-        val flagfile
         path fcm
 
     output:
@@ -68,8 +65,10 @@ process determine_flux_cal_solns {
         aipsid="\$((RANDOM%8192))"
 
         args=""
-        if [ "$flagfile" != "" ]; then
-            args="\$args --flagfile=$flagfile"
+        if [ "${params.fluxflagfile}" != "" ]; then
+            args="\$args --flagfile=${params.fluxflagfile}"
+        else
+            args="\$args --flagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
         # update fcm if not aready updated
         if [ "$fcm" != "fcm_delayfix.txt" ]; then
@@ -169,7 +168,7 @@ process image_finder {
         if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
             args=" --tarflagfile=$params.finderflagfile"
         else
-            args=""
+            args=" --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
 
         export LC_CTYPE=C
@@ -410,6 +409,8 @@ process image_field {
 
             if [ "$flagfile" != "" ]; then
                 args="\$args --tarflagfile=$flagfile"
+            else
+                args="\$args --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
             fi
         else
             args="--image=$params.fieldimage"
@@ -529,7 +530,7 @@ process image_polcal {
         if [ "$flagfile" != "" ]; then
             args="--tarflagfile=$flagfile"
         else
-            args=""
+            args="--tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
 
         export LC_CTYPE=C
@@ -634,7 +635,7 @@ process image_fluxcal {
         if [ "$flagfile" != "" ]; then
             args="--tarflagfile=$flagfile"
         else
-            args=""
+            args="--tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
 
         export LC_CTYPE=C

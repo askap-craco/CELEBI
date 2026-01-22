@@ -120,6 +120,67 @@ process compile_summary {
         """
 }
 
+process make_default_flags {
+
+    publishDir "${params.out_dir}", mode: "copy"
+
+    output:
+        path "${params.label}_good_ants.txt", emit: goodants
+        path "${params.label}_antcount_fcal_pcal_frb_common.txt", emit: antcounts        
+        path "${params.label}_exants.txt", emit: flaggedants
+
+    script:
+        """
+        set -xu
+
+        if [ "$params.nopolcal" == "true" ]; then
+            args=""
+        else
+            args="--pcaldata ${params.data_polcal}"
+        fi
+
+        python3 $utils_dir/makedefaultflagfile.py \
+        	--fcaldata ${params.data_fluxcal} \
+        	--frbdata ${params.data_frb} \
+        	--exclants "${params.exclants}" \
+        	--outname ${params.label} \
+            --maxants 36 \
+            \$args
+        """
+}
+
+process usable_ants {
+    /*
+        Create a channel of good antennas    
+    */
+
+    publishDir "${params.out_dir}", mode: "copy"
+
+    input:
+        path goodantfile
+        path antcountfile
+
+    output:
+        env fcalants, emit: antsfcal
+        env pcalants, emit: antspcal
+        env frbants, emit: antsfrb
+        env commants, emit: antscomm
+
+    script:
+        """
+        set -xu
+        
+        mapfile -t antcounts < $antcountfile
+        
+        echo \${antcounts[@]}
+
+        fcalants=\$(seq -s "," 0 \$((\${antcounts[0]} - 1)))
+        pcalants=\$(seq -s "," 0 \$((\${antcounts[1]} - 1)))
+        frbants=\$(seq -s "," 0 \$((\${antcounts[2]} - 1)))
+        commants=\$(seq -s "," 0 \$((\${antcounts[3]} - 1)))
+        """
+}
+
 process print_params {
     /*
         Prints the values of parameters used for this particular run    
@@ -150,10 +211,6 @@ process print_params {
         echo "fpgas                   = $params.fpgas" >> parameters.txt 
 
         echo "refant                  = $params.refant" >> parameters.txt
-        echo "nants                   = $params.nants" >> parameters.txt
-        echo "nants_fcal              = $params.nants" >> parameters.txt
-        echo "nants_pcal              = $params.nants" >> parameters.txt
-        echo "nants_frb               = $params.nants" >> parameters.txt
 
         echo "\n****Calibrators****\n" >> parameters.txt
         echo "data_fluxcal            = $params.data_fluxcal" >> parameters.txt

@@ -25,9 +25,6 @@ search_dir   = "${projectDir}/../search/"
 polarisations = Channel
     .fromList(params.pols)
 
-antennas = Channel
-    .of(0..params.nants_frb-1)
-
 process load_coarse_dynspec {
     /*
         Incoherently create a 1 ms dynamic spectrum from voltages for a given
@@ -626,16 +623,22 @@ workflow process_frb {
                 Flux calibrator solutions tarball
             pol_cal_solns: path
                 Polarisation calibration solutions in a text file
+            nantsfrb: val
+                Number of antennas
     */
     take:
         flux_cal_solns
         pol_cal_solns
         fcm
+        nantsfrb
 
     main:
+
+        antennas = Channel
+            .of(0..10-1)
     	
         if ( !params.skip_ics && params.nbits > 1 ) {
-            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, antennas,fcm)
+            coarse_ds = load_coarse_dynspec(params.label, params.data_frb, polarisations, antennas, fcm)
             refined_candidate_path = "${params.publish_dir}/${params.label}/ics/${params.label}.cand"            
             refine_candidate(params.label, coarse_ds.data.collect(), coarse_ds.time.first(), params.snoopy)
             refined_candidate = refine_candidate.out.cand           
@@ -812,9 +815,6 @@ workflow process_frb {
         	finalres = apply_offset(offset, doffset, askap_frb_pos, exlabel)
             final_position = finalres.final_position
         	// finalmap = finalres.hpmap
-        }
-
-        if( params.localize || params.findbeaminfo) {
 
             frbeamdetails = getbeaminfo(askap_frb_pos, field_img_fits)
         }
@@ -829,7 +829,7 @@ workflow process_frb {
             bfout = bform_frb(
                 params.label, params.data_frb, askap_frb_pos, flux_cal_solns, 
                 pol_cal_solns, params.dm_frb, params.centre_freq_frb,
-                params.nants_frb, fcm, params.snoopy
+                nantsfrb, fcm, params.snoopy
             )
             xy = bfout.xy
         }
@@ -927,6 +927,8 @@ workflow process_frb {
         	mfinalres = apply_offset(offset, doffset, mf_frb_pos, exlabel)
             mf_final_position = mfinalres.final_position
         	// finalmap = finalres.hpmap
+
+            frbeamdetails = getbeaminfo(mf_frb_pos, fldfits)
         }
 
 

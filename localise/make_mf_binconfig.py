@@ -254,7 +254,7 @@ def crop_frb(args):
         burst_nsamp = burst_end_samp - burst_start_samp
 
         # calculate number of bins that will be correlated
-        rfi_nsamp = int(args.rfi_w * 1000 / args.tN)
+        rfi_nsamp = int(max(args.rfi_w * 1000 / args.tN, 0))       # AB, 31 Oct 25
         guard_nsamp = int(args.rfi_g * 1000 / args.tN)
 
         if (burst_nsamp + 2*rfi_nsamp + 2*guard_nsamp) < MAX_BINS:
@@ -340,9 +340,10 @@ def make_binconfig(ds, args):
     diagouts.ds = ds.copy()
 
     # create rfi-subtracted crop of data
-    mean_rfi = (np.mean(ds[:,:args.rfi_nsamp], axis = 1) 
-                + np.mean(ds[:,args.finder_end + args.guard_nsamp:], axis = 1))/2
-    ds -= mean_rfi[:, None]
+    if (args.rfi_nsamp > 0):
+        mean_rfi = (np.mean(ds[:,:args.rfi_nsamp], axis = 1) 
+                    + np.mean(ds[:,args.finder_end + args.guard_nsamp:], axis = 1))/2
+        ds -= mean_rfi[:, None]
     diagouts.ds_rfisub = ds.copy()
 
     # Get time(freq-)dependent weights

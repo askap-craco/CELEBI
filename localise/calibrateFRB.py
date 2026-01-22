@@ -485,22 +485,18 @@ def _main():
                     run("python3 imagescript.py")
 
                 # Identify point sources in image
-                if args.maskpeakonly:
-                    print("Using the already-identified peak pixels")
-                    source_pixs = np.array(peakpix)
-                else:
-                    print("Identifying point sources")
-                    run(
-                        f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | python {args.findsourcescript}"
-                    )
-                    run(
-                        f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
-                    )
-                    source_pixs = np.loadtxt(
-                        f"{args.imagename}_sources.txt", delimiter=","
-                    )
-                    print(source_pixs)
-                    print(source_pixs.shape)
+                print("Identifying point sources")
+                run(
+                    f"echo \"{casaimagename},{args.nmaxsources},{args.sourcecutoff},{args.imagename}_sources_hmsdms.txt\" | python {args.findsourcescript}"
+                )
+                run(
+                    f"echo \"{fitsimagename},{args.imagename}_sources_hmsdms.txt,{args.imagename}_sources.txt\" | python {args.findsourcescript2}"
+                )
+                source_pixs = np.loadtxt(
+                    f"{args.imagename}_sources.txt", delimiter=","
+                )
+                print(source_pixs)
+                print(source_pixs.shape)
                 if source_pixs.shape == (0,):
                     print(
                         f"No sources identified in {casaimagename}"
@@ -960,6 +956,7 @@ def flag_data(data, flagfile: str, shadow: "list[str]") -> None:
     :rtype: [type]
     """
     vlbatasks.userflag(data, 1, flagfile)
+    print("Flagging with file " + flagfile)
 
     if shadow:
         shadowdiameter = float(shadow[0])

@@ -8,7 +8,8 @@ include { process_flux_cal as fcal1; process_flux_cal as fcal2 } from './process
 include { image_fluxcal } from './calibration'
 include { process_pol_cal as pcal } from './process_pol_cal'
 include { process_frb as frb } from './process_frb'
-include { create_empty_file as empty1; create_empty_file as empty2; print_params as printpar } from './utils'
+include { create_empty_file as empty1; create_empty_file as empty2; print_params as printpar;
+    make_default_flags as makedefaultflgs; usable_ants as good_ants } from './utils'
 
 utils_dir    = "${projectDir}/../utils/"
 beamform_dir = "${projectDir}/../beamform/"
@@ -19,7 +20,17 @@ localise_dir = "${projectDir}/../localise/"
 workflow {
 
     printpar()    
-    
+
+    makedefaultflgs()
+    goodantfile = makedefaultflgs.out.goodants
+    flgantfile = makedefaultflgs.out.flaggedants
+    antcountfile = makedefaultflgs.out.antcounts
+    antcnts = good_ants(goodantfile, antcountfile)
+    antsfcal = antcnts.antsfcal.splitCsv(sep:",").flatten()
+    antspcal = antcnts.antspcal.splitCsv(sep:",").flatten()
+    antsfrb = antcnts.antsfrb.splitCsv(sep:",").flatten()
+    antscomm = antcnts.antscomm.splitCsv(sep:",").flatten()
+
     if( params.localize || params.fcal ) {
         fcm_delayfix = fcal1(params.fcm).fcm_delayfix
         
@@ -55,7 +66,7 @@ workflow {
     }
     else {
         pol_cal_solns = pcal(
-            flux_cal_solns, fcm_delayfix
+            flux_cal_solns, fcm_delayfix, antspcal
         )
     }
 
@@ -63,7 +74,8 @@ workflow {
         frb(
             flux_cal_solns,
             pol_cal_solns,
-            fcm_delayfix
+            fcm_delayfix,
+            antsfrb
         )
     }
 }

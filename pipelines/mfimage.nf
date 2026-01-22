@@ -255,8 +255,6 @@ process mf_calibrate_and_image {
                 .FITS file to image
             flux_cal_solns: path
                 flux calibration solutions
-
-
     */
 
     publishDir "${params.publish_dir}/${params.label}/mf/image", mode: "copy"
@@ -295,7 +293,7 @@ process mf_calibrate_and_image {
 		if [ "$params.finderflagfile" != "" ] && [ "$params.finderflagfile" != "null" ]; then
             args=" --tarflagfile=$params.finderflagfile"
         else
-            args=""
+            args=" --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
 		
         export LC_CTYPE=C
@@ -328,7 +326,8 @@ process mf_calibrate_and_image {
         cp -r /JOBFS/${mf_fits}_calibrated_uv.ms.tar .
 		
         cp -r /JOBFS/mf.image .
-        cp /JOBFS/mf.jmfit .		
+        cp /JOBFS/mf.jmfit .
+        cp /JOBFS/mf.fits .		
 		
         """
 
@@ -377,7 +376,6 @@ workflow mf_image {
                 flux calibration solutions
             fcm:
                 fcm to use, ideally with delayfix
-
     */
     take:
         stk_i
@@ -386,6 +384,7 @@ workflow mf_image {
         summary
         flux_cal_solns
         fcm
+
     main:
         // MAIN SCRIPT
 

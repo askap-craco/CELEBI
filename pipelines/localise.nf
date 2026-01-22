@@ -267,9 +267,13 @@ process apply_offset {
             radecsys="--framerauncertainty=\$rasys --framedecuncertainty=\$decsys"
         fi
         
-        python3 $localise_dir/apply_rotated_offset.py --frbname=${params.label} --frb=${askap_frb_pos} --offset=$offset --doffset=$doffset \
-                --frbfits=${params.out_dir}/finder/${params.label}.fits \$radecsys > ${params.label}_${exlabel}_final_position.txt
-
+        if [ "$exlabel" != "mf" ]; then        
+            python3 $localise_dir/apply_rotated_offset.py --frbname=${params.label} --frb=${askap_frb_pos} --offset=$offset --doffset=$doffset \
+                    --frbfits=${params.out_dir}/finder/${params.label}.fits \$radecsys > ${params.label}_${exlabel}_final_position.txt
+        else
+            python3 $localise_dir/apply_rotated_offset.py --frbname=${params.label} --frb=${askap_frb_pos} --offset=$offset --doffset=$doffset \
+                    --frbfits=${params.out_dir}/mf/image/mf.fits \$radecsys > ${params.label}_${exlabel}_final_position.txt
+        fi
         """
     
     stub:

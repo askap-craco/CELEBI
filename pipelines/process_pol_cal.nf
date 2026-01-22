@@ -22,6 +22,8 @@ workflow process_pol_cal {
                 Flux calibrator solutions tarball
             fcm: path
                 fcm file to use in correlation
+            antspcal: val
+                List of antennas
         
         Emit
             pol_cal_solns: val/path
@@ -33,6 +35,7 @@ workflow process_pol_cal {
     take:
         flux_cal_solns
         fcm
+        antspcal
 
     main:
         label = "${params.label}_polcal"
@@ -58,7 +61,7 @@ workflow process_pol_cal {
                 outfits = flagdat(fits,polcal_fits_flagged, "cal").outfile                
                 fits = outfits
             }
-
+            
             pos = image_polcal(
                 fits, flux_cal_solns, params.polflagfile
             ).jmfit            
@@ -66,7 +69,6 @@ workflow process_pol_cal {
         else {
             pos = file(polcal_jmfit_path)
         }
-        
 
 		// Beamforming
         polcal_solns_path = "${params.out_dir}/polcal/${params.label}_polcal_solutions.txt"
@@ -75,7 +77,7 @@ workflow process_pol_cal {
             bform_pcal(
                 label, params.data_polcal, pos, flux_cal_solns, empty_file, 
                 params.dm_polcal, params.centre_freq_polcal,
-                params.nants_pcal, fcm, "NONE"
+                antspcal, fcm, "NONE"
             )
             xy = bform_pcal.out.xy
         }

@@ -676,8 +676,8 @@ workflow beamform {
                 String containing arguments to be passed to dynspecs.py. Use
                 this to specify which Stokes parameters and data types (time
                 series or dynamic spectrum) to generate.
-            nants: val
-                Number of antennas available in the data
+            antcount: val
+                Number of antennas
             fcm: path
                 fcm to use
             cand: val
@@ -701,7 +701,7 @@ workflow beamform {
         pol_cal_solns       // pol cal solutions
         dm                  // DM
         centre_freq         // central frequency
-        nants               // number of antennas
+        antennas            // List of antennas
         fcm                 // fcm file
         cand                // path to cand file
     
@@ -709,13 +709,10 @@ workflow beamform {
         // preliminaries
         calcfiles = create_calcfiles(label, data, pos, fcm)
 
-        antennas = Channel
-            .of(0..nants-1)
-
         //antennas.view()
 
         // processing
-        
+
         // apply delays and calibration solutions to each antenna/pol fine spectra, align each antenna
         do_beamform(
             label, data, calcfiles, polarisations, antennas, flux_cal_solns, fcm, cand, dm

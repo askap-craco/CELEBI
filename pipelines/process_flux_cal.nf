@@ -68,7 +68,7 @@ workflow process_flux_cal {
         }
 
 		// Calibration         
-        cal_fcal(fits, params.fluxflagfile, fcm)
+        cal_fcal(fits, fcm)
         flux_cal_solns = cal_fcal.out.solns
         fcm_delayfix = cal_fcal.out.fcm_delayfix
         
