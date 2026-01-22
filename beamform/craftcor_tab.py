@@ -215,6 +215,8 @@ class AntennaSource:
         self.trigger_frame = self.vfile.start_frameid
         self.hdr = self.vfile.hdr
         self.init_geom_delay_us = None
+        self.all_geom_delays = []
+        self.all_mjds = []
         self.pol = self.vfile.pol.lower()
         print(f"antenna {self.antname} {self.vfile.freqconfig}")
 
@@ -228,10 +230,15 @@ class AntennaSource:
 
         # iant is the number of the antenna in the AIPS AN table, minus 1 (i.e., a zero based index from the 36 antennas)
         start = timer()
+        self.frparams = FringeRotParams(corr, self)
         # calculate sample start
         framediff_samp = corr.refant.trigger_frame - self.trigger_frame
+        geom_delay_us, geom_delay_rate_us = corr.get_geometric_delay_delayrate_us(
+            self)
+
+        self.all_geom_delays.append(geom_delay_us)
+        self.all_mjds.append(corr.curr_mjd_mid)
         fixed_delay_us = corr.get_fixed_delay_usec(self.antno)
-        refant_fixed_delay_us = corr.get_fixed_delay_usec(corr.refant.antno)
         total_delay_samp = framediff_samp
         whole_delay = int(np.round(total_delay_samp))
 
@@ -243,18 +250,12 @@ class AntennaSource:
         sampoff = whole_delay + corr.abs_delay      # starting sample used in cropping antenna buffers, this is the earliest
                                                     # sample for which there is data for all the antennas
 
-
-        calcinterpolator = corr.get_calc_interpolator(corr.curr_mjd_start)
-        frseconds, antenna_geom_delays = calcinterpolator.getDelays(self.antname, corr.curr_mjd_start, corr.curr_mjd_end, nsamp+1)
-        antenna_geom_delays -= fixed_delay_us # Incorporate the fixed delay into the delay model for this antenna
-        #print("Antenna delays begin, middle, end:", antenna_geom_delays[0], antenna_geom_delays[len(antenna_geom_delays)//2], antenna_geom_delays[-1])
-        frseconds, refantenna_geom_delays = calcinterpolator.getDelays(corr.refant.antname, corr.curr_mjd_start, corr.curr_mjd_end, nsamp+1)
-        refantenna_geom_delays -= refant_fixed_delay_us # Incorporate the fixed delay into the delay model for the reference antenna
-        # Now get the delays to the reference antenna and trim to be the same length array as nsamp which is the max possible number of samples to beamform
-        geom_delays_us = antenna_geom_delays - refantenna_geom_delays
-        geom_delays_us = geom_delays_us[:-1] 
-        self.init_geom_delay_us = geom_delays_us[0]
-
+        # time-dependent geometric delays, these will be used to beamform the antennas
+        geom_delays_us = (
+            geom_delay_us
+            + geom_delay_rate_us * np.linspace(0, 1, nsamp)
+            - fixed_delay_us
+        )
 
         # do a bunch of printing
         print(f"corr.refant.trigger_frame: {corr.refant.trigger_frame}")
@@ -274,16 +275,23 @@ class AntennaSource:
         # a crop outside the antenna buffer bounds, we can simply snap to these bounds safely knowing we aren't
         # introducing any fractional delay.
         # NOTE: under the assumption that the non-multiple of 32 error comes from a precision error, we are going to assume 
-        # this error is only 1 or 2 samples, hence we will round to the nearest multiple of 32
+        # this error is only 1 or 2 samples, hence we will round to the nearest multiple of 32, then add 32
+                
         old_sampoff = sampoff
         if (sampoff % 32) != 0:
-            sampoff = round(sampoff / 32) * 32 #+ 32 # extra 32 to ensure we are within all antenna -- Removed as TD suggested
+            sampoff = round(sampoff / 32) * 32 
         sampoff_skip = sampoff + 32 - old_sampoff    # in the case that we have to slightly change the initial sampoff bound, this 
         # difference can be used to skip ahead in the geometric delays.
-        
+
         nsamp = (nsamp // 32) * 32 #
         nsamp -= 64             # insurance
         old_nsamp = nsamp
+        # print(f"nsamp 1: {nsamp}")
+        # if sampoff + nsamp > self.vfile.nsamps:
+        #     # make sure these bounds are defined
+        #     nsamp -= (((sampoff + nsamp) - self.vfile.nsamps)//32 + 1)*32
+
+        #     print(f"nsamp 2: {nsamp}")
 
         ### Now do cropping ###
         if (mjd is not None) and (DM is not None):
@@ -300,16 +308,17 @@ class AntennaSource:
             
             #   AB: Allowing longer crop for FRBs
             #   Using the same width for FRB -- Needs to be passed properly from the NF script
-            if (width_s > 0.0): # Width has been explicitly specified, so take a window exactly that wide
-                crop_window_samp = int(1e6 * width_s * 32/27)
+            if (width_s > 0.0):
+                DM_sweep_samp = int(1e6 * width_s * 32/27)
                 
-                print(f"Crop window of {crop_window_samp} samples with cand offset of {cand_offset_samp} samples")
+                print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
+                print(f"Allowing a DM_sweep padding of 1.2x{DM_sweep_samp} = {int(1.2*DM_sweep_samp)} samples")
 
-                # calculate sampoff and nsamp based on crop window size and cand position
-                requested_sampoff = cand_offset_samp - int(crop_window_samp * 0.5) # 1.1 is extra buffer length
-                requested_nsamp = (int(crop_window_samp * 1.0) // nchan_coarse) * nchan_coarse
+                # calculate sampoff and nsamp based on DM sweep and cand position
+                requested_sampoff = cand_offset_samp - int(DM_sweep_samp * 0.5) # 1.1 is extra buffer length
+                requested_nsamp = (int(DM_sweep_samp * 1.0) // nchan_coarse) * nchan_coarse
                 
-            else: # Width was not explicitly specified, so take a window that is a bit longer than the DM sweep
+            else:
                 DM_sweep_samp = int(abs(kDM * DM * 1e6 * (1/(min(corr.freqs)**2) - 1/(max(corr.freqs)**2))) * 32/27)
             
                 print(f"DM sweep of {DM_sweep_samp} samples with cand offset of {cand_offset_samp} samples")
@@ -378,11 +387,8 @@ class AntennaSource:
             print(f"geom delays crop start: {sampoff - buffer_start}")
             print(f"geom delays crop end: {sampoff - buffer_start + nsamp}")
 
-            # we need to crop the geometric delays to provide an array that matches the samples that will be selected for this antenna
-            geom_delay_startindex = sampoff_skip + sampoff - buffer_start
-            mean_refant_delay_us = np.mean(refantenna_geom_delays[geom_delay_startindex:geom_delay_startindex+nsamp])
-            mean_refant_delay_sample = int(np.round(32*mean_refant_delay_us/27))
-            geom_delays_us = geom_delays_us[geom_delay_startindex+mean_refant_delay_sample : geom_delay_startindex+mean_refant_delay_sample+nsamp]
+            # we need to crop the geometric delays since we have changed sampoff and nsamp 
+            geom_delays_us = geom_delays_us[sampoff_skip + sampoff - buffer_start:sampoff_skip + sampoff - buffer_start + nsamp]
 
             # save crop MJD to txt file
             crop_MJD = corr.refant.mjdstart + ((sampoff - buffer_start) * 27/32)/8.64e10
@@ -396,6 +402,7 @@ class AntennaSource:
             # that crop is larger than 3.21529s, in which case we will take a crop of 3.21529s. Doesn't matter where the crop starts
             # since the generate_dynspec script will crop the sides anyway, so we will always get a good integer number
             # of pulses for polcal. NOTE: 3.21529s is arbitrarily chosen
+            
             print("POLCAL cropping\n")
             old_nsamp = nsamp
             nsamp = int(1e6 * width_s * 32/27)
@@ -412,9 +419,7 @@ class AntennaSource:
             corr.fine_chanbw = 1.0/float(nfine)
 
             # # crop geom delays
-            mean_refant_delay_us = np.mean(refantenna_geom_delays[sampoff_skip:sampoff_skip + nsamp])
-            mean_refant_delay_sample = int(np.round(32*mean_refant_delay_us/27))
-            geom_delays_us = geom_delays_us[mean_refant_delay_sample + sampoff_skip : mean_refant_delay_sample + sampoff_skip + nsamp]
+            geom_delays_us = geom_delays_us[sampoff_skip:sampoff_skip + nsamp]
 
             print(f"Old nsamp: {old_nsamp}, New nsamp: {nsamp}")
             print(f"New nfine: {nfine}")
@@ -441,7 +446,7 @@ class AntennaSource:
         print("corr.sideband is ", corr.sideband)
 
         # save corrected MJD to txt file
-        corrected_MJD = corr.refant.mjdstart + (self.init_geom_delay_us)/(1e6*24*3600)
+        corrected_MJD = corr.refant.mjdstart + (geom_delay_us - fixed_delay_us)/(1e6*24*3600)
         with open("corrected_start_MJD.txt", "w") as file:
             file.write(f"{corrected_MJD}")
 
@@ -617,29 +622,25 @@ class AntennaSource:
 class FringeRotParams:
     cols = ("U (m)", "V (m)", "W (m)", "DELAY (us)")
 
-    def __init__(self, corr, poly, refmjd):
-        self.interpolators = {}
-        self.refmjd = refmjd
-        self.secoff = poly['secoff']
+    def __init__(self, corr, ant):
+        print("frdata_mid keys:", corr.frdata_mid.keys())
+        mid_data = corr.frdata_mid[ant.antname]
+        self.u, self.v, self.w, self.delay = list(
+            map(float, [mid_data[c] for c in FringeRotParams.cols])
+        )
+        self.delay_start = float(corr.frdata_start[ant.antname]["DELAY (us)"])
+        self.delay_end = float(corr.frdata_end[ant.antname]["DELAY (us)"])
+        self.delay_rate = (self.delay_end - self.delay_start) / float(
+            corr.nint
+        )
+        self.ant = ant
+        self.corr = corr
 
-        for ant, polys in poly['poly'].source0antpolys.items():
-            antname = corr.calcresults.scans[0].resfile.telnames[ant]
-            self.interpolators[antname] = {}
-            for polyname, pcoeff in polys.items():
-                self.interpolators[antname][polyname] = np.polynomial.polynomial.Polynomial(pcoeff)
+    def __str__(self):
+        s = f"FR {self.ant.antname} uvw=({self.u},{self.v},{self.w}) m = {self.delay} us"
+        return s
 
-    # This returns an array of delays between mjdstart and mjdend
-    # Could expose U, V, W by similar methods if needed
-    def getDelays(self, ant, mjdstart, mjdend, npoints):
-        startoffset = (mjdstart - self.refmjd)*86400 + self.secoff
-        endoffset   = (mjdend - self.refmjd)*86400 + self.secoff
-        return self.interpolators[ant]["DELAY (us)"].linspace(npoints, [startoffset, endoffset])
-
-#    def __str__(self):
-#        s = f"FR {self.ant.antname} uvw=({self.u},{self.v},{self.w}) m = {self.delay} us"
-#        return s
-#
-#    __repr__ = __str__
+    __repr__ = __str__
 
 
 class Correlator:
@@ -656,10 +657,9 @@ class Correlator:
             a.ia = ia
             a.antpos = self.get_ant_location(a.antno)
 
-        #### Below was never used and is not necessarily our refant?
-        ###refantname = self.parset[
-        ###    "cp.ingest.tasks.FringeRotationTask.params.refant"
-        ###].lower()
+        refantname = self.parset[
+            "cp.ingest.tasks.FringeRotationTask.params.refant"
+        ].lower()
         self.abs_delay = abs_delay
 
         # Set reference antenna to be one with latest trigger_frame so
@@ -731,7 +731,9 @@ class Correlator:
         self.inttime_secs = float(self.nint * self.nfft) / (self.fs * 1e6)
         self.inttime_days = self.inttime_secs / 86400.0
         self.curr_intno = 0
+        self.curr_samp = self.curr_intno * self.nint + 1000
         self.calcmjd()
+        self.get_fr_data()
         self.pol = self.ants[0].pol
         if not values.ics:
             self.parse_aips_calibration()
@@ -786,6 +788,28 @@ class Correlator:
 
         return delayus
 
+    def get_geometric_delay_delayrate_us(self, ant):
+        fr1 = FringeRotParams(self, ant)
+        fr2 = FringeRotParams(self, self.refant)
+
+        # TODO: There is a discrepancy here, below comment says fr1 is ref ant,
+        # but above suggests fr2 is?
+
+        # fr1: reference antenna
+        # Account for effects of Earth's rotation
+        # delay = fr1.delay - fr2.delay
+        # delayrate = fr1.delay_rate - fr2.delay_rate
+        delay = fr1.delay_start - fr2.delay_start
+        delayrate = fr1.delay_rate - fr2.delay_rate
+
+        with open(f"delays/{ant.antno}_ant_delays.dat", "w") as f:
+            f.write(f"#field fr1({ant}) fr2({self.refant})\n")
+            f.write(f"delay_start {fr1.delay_start} {fr2.delay_start}\n")
+            f.write(f"delay {fr1.delay} {fr2.delay}\n")
+            f.write(f"delay_end {fr1.delay_end} {fr2.delay_end}\n")
+            f.write(f"delay_rate {fr1.delay_rate} {fr2.delay_rate}\n")
+
+        return (delay, delayrate)
 
     def calcmjd(self):
         i = float(self.curr_intno)
@@ -800,11 +824,15 @@ class Correlator:
             self.mjd0 + self.inttime_days * (i + 1.0) + abs_delay_days
         )
 
-    def get_calc_interpolator(self, mjd):
+    def get_calc_results(self, mjd):
         res = self.calcresults.scans[0].eval_src0_poly(mjd)
-        interpolator = FringeRotParams(self, res, mjd)
 
-        return interpolator
+        return res
+
+    def get_fr_data(self):
+        self.frdata_start = self.get_calc_results(self.curr_mjd_start)
+        self.frdata_mid = self.get_calc_results(self.curr_mjd_mid)
+        self.frdata_end = self.get_calc_results(self.curr_mjd_end)
 
     def do_tab(self, an=None, mjd = None, DM = None, width_s = -1.0):
         # Tied-array beamforming

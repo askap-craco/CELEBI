@@ -433,8 +433,8 @@ def flag_chan(ds, flag_thresh, tN, args, rbounds = None):
     else:
         
         # rough baseline correction to help channel flagging
-        rms_mean = np.mean(ds, axis = 1)[:, None]
-        rms_std = np.std(ds, axis = 1)[:, None]
+        rms_mean = np.nanmedian(ds, axis = 1)[:, None]
+        rms_std = np.nanstd(ds, axis = 1)[:, None]
         ds_avg = (ds - rms_mean) / rms_std
 
         # average
@@ -540,8 +540,8 @@ def baseline_correction(ds, sigma: float = 5.0, guard: float = 1.0,
     if rbounds is None:
         ## Rough normalize 
         ds_r = average(ds, axis = 1, N = tN)
-        rmean = np.mean(ds_r, axis = 1)
-        rstd = np.std(ds_r, axis = 1)
+        rmean = np.nanmedian(ds_r, axis = 1)
+        rstd = np.nanstd(ds_r, axis = 1)
 
         ds_rn = ds_r - rmean[:, None]
         ds_rn /= rstd[:, None]
