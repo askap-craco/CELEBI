@@ -295,6 +295,10 @@ process mf_calibrate_and_image {
         else
             args=" --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
+        fi
 		
         export LC_CTYPE=C
         export LC_ALL=C
