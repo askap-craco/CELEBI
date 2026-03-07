@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from scipy import io
 import os
 import sys
+import re
 from astropy.io import fits
 
 import glob
@@ -33,11 +34,29 @@ class aipscor(object):
             print('FRB190608: ignore ak13, 19, 20, and 28')
         if self.vcraft_dr is not None and self.imfile is not None:
             self.get_basic_info()
+            
+            
+    def _seek_to_pattern(self, filehandle, pattern):
+        """
+        Helper function to robustly search for a regex pattern in the file and 
+        seek to its location. This gracefully handles AIPS whitespace variations.
+        """
+        filehandle.seek(0)
+        content = filehandle.read()
+        match = re.search(pattern, content)
+        if not match:
+            raise ValueError(f"CRITICAL: Pattern '{pattern}' not found in AIPS file '{filehandle.name}'. Check if expected polarisation is present in the table.")
+        filehandle.seek(match.start(), 0)
         
         
     def mapRowToAntenna(self, filehandle, antennacolumn):
         mapping = {}
-        filehandle.seek(filehandle.read().find("***BEGIN*PASS***"),0)
+        filehandle.seek(0)
+        pos = filehandle.read().find("***BEGIN*PASS***")
+        if pos == -1:
+            raise ValueError(f"Could not find ***BEGIN*PASS*** in {filehandle.name}")
+        
+        filehandle.seek(pos, 0)
         filehandle.readline() # Skip this header line
         row = filehandle.readline()
         while not "***END" in row:
@@ -151,16 +170,14 @@ class aipscor(object):
             print('WARNING: Failed to map antenna names')
         return an_names
     
-    def map_anname_nosta(self): # TODO! later make every get_delay/phase functions check the annames instead of iant and read in the correct calibration solutions from bandpass/fring/selfcal.
+    def map_anname_nosta(self): 
         an_dict = {}
-        #hdul = fits.open(fits)
         with fits.open(self.fits) as hdul:
             data = hdul['AIPS AN'].data
             anname = data['ANNAME']
             nosta = data['NOSTA']
             for i, an in enumerate(anname):
                 an_dict[an] = nosta[i]
-        #fits.close()
         return an_dict
     
     def get_hwdelay(self, an_ind, pol, an_check=0, incards=False):
@@ -170,7 +187,6 @@ class aipscor(object):
 
         search_keyword = "CLOCK COEFF "+str(an_ind)+"/0"
 
-        
         if not incards:
             delays_offset = np.full((self.nfreq),np.nan,dtype=[('frequency',int),('hwdelay', int)])
         else:
@@ -198,7 +214,6 @@ class aipscor(object):
                         fl.seek(fl.read().find('FREQ (MHZ) '+str(nu)),0)
                         data = fl.readline()
                         frequency = int(round(float(data.split()[-1])))
-                        #print(frequency)
                         where = np.argwhere(freqs==(frequency-1))[0,0]
                         if where != nu:
                             print("WARNING: the frequency order is different from the vcraft file")
@@ -260,7 +275,6 @@ class aipscor(object):
         
         # delays_coeff = CLOCK COEFF (microsec) -> unit is seconds
 
-
         search_keyword = "CLOCK COEFF "+str(an_ind)+"/0"
 
         # only for one FPGA
@@ -290,20 +304,30 @@ class aipscor(object):
         # delays_fring : fine time delay measured by FRING
         # sign is different from delays_geo and delays_clock
 
+        pol = pol.lower() if pol is not None else 'x'
         if pol == 'x':
-            start = "DELAY 1        RATE 1" # Delay 1
+            pattern = r"DELAY\s*1\s+RATE\s*1" # Delay 1, matches 'DELAY1' and 'DELAY 1', same for RATE
             delay_ind = -3 # delay1 location within a line
         else:
-            start = "DELAY 2        RATE 2" # Delay 2
+            pattern = r"DELAY\s*2\s+RATE\s*2" # Delay 2, matches 'DELAY2' and 'DELAY 2', same for RATE
             delay_ind = -2 # delay2 location within a line
         antennacolumn = 4
         delays_fring = np.nan
 
         with open(self.fringfile, 'r') as fl:
+            content = fl.read()
+            if pol == 'y' and not re.search(pattern, content):
+                fallback = r"DELAY\s*1\s+RATE\s*1"
+                if re.search(fallback, content):
+                    print("WARNING: 'DELAY 2' not found for Y pol. Falling back to 'DELAY 1' (Single-pol detected).")
+                    pattern = fallback
+                    delay_ind = -3
+
             fl.seek(0)
             rowmap = self.mapRowToAntenna(fl, antennacolumn)
-            fl.seek(0)
-            fl.seek(fl.read().find(start),0)
+            
+            # Using robust regex search
+            self._seek_to_pattern(fl, pattern)
 
             bool_record = False
             data=fl.readline()
@@ -324,34 +348,38 @@ class aipscor(object):
         return delays_fring
     
     def get_delay_polfring(self, an_ind, pol):
+        pol = pol.lower() if pol is not None else 'x'
         if pol == 'x':
-            start = "DELAY 1        RATE 1" # Delay 1
+            pattern = r"DELAY\s*1\s+RATE\s*1" # Delay 1, matches 'DELAY1' and 'DELAY 1', same for RATE
             delay_ind = -3 # delay1 location within a line
         else:
-            start = "DELAY 2        RATE 2" # Delay 2
+            pattern = r"DELAY\s*2\s+RATE\s*2" # Delay 2, matches 'DELAY2' and 'DELAY 2', same for RATE
             delay_ind = -2 # delay2 location within a line
         antennacolumn = 4
         delays_polfring = np.nan
 
         with open(self.polfringfile, 'r') as fl:
+            content = fl.read()
+            if pol == 'y' and not re.search(pattern, content):
+                fallback = r"DELAY\s*1\s+RATE\s*1"
+                if re.search(fallback, content):
+                    print("WARNING: 'DELAY 2' not found for Y pol. Falling back to 'DELAY 1' (Single-pol detected).")
+                    pattern = fallback
+                    delay_ind = -3
+
             fl.seek(0)
             rowmap = self.mapRowToAntenna(fl, antennacolumn)
-            fl.seek(0)
-            fl.seek(fl.read().find(start),0)
+            
+            # Using robust regex search
+            self._seek_to_pattern(fl, pattern)
 
             bool_record = False
             data=fl.readline()
             while not bool_record and len(data.split()) > 0:
                 if data.split()[0] in rowmap.keys() and rowmap[data.split()[0]] == str(an_ind+1):
                     bool_record = True
-                    if 1:
-                        delays_polfring = float(data.split()[delay_ind]) # Polarization FRING fine time delay
-                        print(("pol delay read from file ",delays_polfring))
-                    else:
-                        if pol == 'y':
-                            delays_polfring = -1.1999699e-09 #-1.122035e-9
-                            print(("pol delay given to ",delays_polfring))
-                    #delays_polfring *= -1
+                    delays_polfring = float(data.split()[delay_ind]) # Polarization FRING fine time delay
+                    print(("pol delay read from file ",delays_polfring))
                 data=fl.readline()
         return delays_polfring
     
@@ -360,20 +388,30 @@ class aipscor(object):
         #%% PHASE 1: FRING PHASE
         # phase_fring : phase measured by FRING
 
+        pol = pol.lower() if pol is not None else 'x'
         if pol == 'x':
-            start = "REAL1          IMAG1" # Phase 1
+            pattern = r"REAL\s*1\s+IMAG\s*1" # Phase 1, matches 'REAL1' and 'REAL 1', same for IMAG
             delay_ind = 4 # real1 location within a line
         else:
-            start = "REAL2          IMAG2" # Phase 2
+            pattern = r"REAL\s*2\s+IMAG\s*2" # Phase 2, matches 'REAL2' and 'REAL 2', same for IMAG
             delay_ind = 5 # real2 location within a line
         antennacolumn = 4
         phase_fring = np.nan + 1j*np.nan
 
         with open(self.fringfile, 'r') as fl:
+            content = fl.read()
+            if pol == 'y' and not re.search(pattern, content):
+                fallback = r"REAL\s*1\s+IMAG\s*1"
+                if re.search(fallback, content):
+                    print("WARNING: 'REAL 2' not found for Y pol. Falling back to 'REAL 1' (Single-pol detected).")
+                    pattern = fallback
+                    delay_ind = 4
+
             fl.seek(0)
             rowmap = self.mapRowToAntenna(fl, antennacolumn)
-            fl.seek(0)
-            fl.seek(fl.read().find(start),0)
+            
+            # Using robust regex search
+            self._seek_to_pattern(fl, pattern)
 
             bool_record = False
             data=fl.readline()
@@ -384,9 +422,11 @@ class aipscor(object):
                     phase_fring_imag = float(data.split()[delay_ind+1]) # FRING imag phase
 
                 data=fl.readline()
-            phase_fring = phase_fring_real + 1j*phase_fring_imag
-            if (abs(phase_fring)-1)>1e-3:
-                print(("WARNING: amplitude of FRING phase is not 1 but "+str(abs(phase_fring))))
+            
+            if bool_record:
+                phase_fring = phase_fring_real + 1j*phase_fring_imag
+                if (abs(phase_fring)-1)>1e-3:
+                    print(("WARNING: amplitude of FRING phase is not 1 but "+str(abs(phase_fring))))
         return phase_fring
     
     def get_phase_selfcal(self, an_ind, pol):
@@ -394,20 +434,30 @@ class aipscor(object):
         # phase_selfcal : phase measured by Selfcal
         # abs_selfcal : amplitude measured by Selfcal
 
+        pol = pol.lower() if pol is not None else 'x'
         if pol == 'x':
-            start = "REAL1          IMAG1" # Phase 1
+            pattern = r"REAL\s*1\s+IMAG\s*1" # Phase 1, matches 'REAL1' and 'REAL 1', same for IMAG
             delay_ind = 4 # real1 location within a line
         else:
-            start = "REAL2          IMAG2" # Phase 2
+            pattern = r"REAL\s*2\s+IMAG\s*2" # Phase 2, matches 'REAL2' and 'REAL 2', same for IMAG
             delay_ind = 5 # real2 location within a line
         antennacolumn = 4
-        phase_fring = np.nan + 1j*np.nan
+        phase_selfcal = np.nan + 1j*np.nan
 
         with open(self.scfile, 'r') as fl:
+            content = fl.read()
+            if pol == 'y' and not re.search(pattern, content):
+                fallback = r"REAL\s*1\s+IMAG\s*1"
+                if re.search(fallback, content):
+                    print("WARNING: 'REAL 2' not found for Y pol. Falling back to 'REAL 1' (Single-pol detected).")
+                    pattern = fallback
+                    delay_ind = 4
+
             fl.seek(0)
             rowmap = self.mapRowToAntenna(fl, antennacolumn)
-            fl.seek(0)
-            fl.seek(fl.read().find(start),0)
+            
+            # Using robust regex search
+            self._seek_to_pattern(fl, pattern)
             
             bool_record = False
             data=fl.readline()
@@ -428,7 +478,9 @@ class aipscor(object):
                         phase_sc_real = float(data.split()[delay_ind]) # selfcal real phase
                         phase_sc_imag = float(data.split()[delay_ind+1]) # selfcal imag phase
                 data=fl.readline()
-            phase_selfcal = phase_sc_real + 1j*phase_sc_imag
+            
+            if bool_record:
+                phase_selfcal = phase_sc_real + 1j*phase_sc_imag
         return phase_selfcal
     
     def get_phase_bandpass(self, an_ind, pol):
@@ -436,11 +488,12 @@ class aipscor(object):
         # phase_bandpass : frequency dependent phase
         # abs_bandpass : frequency dependent amplitude
 
+        pol = pol.lower() if pol is not None else 'x'
         if pol == 'x':
-            start = "REAL 1         IMAG 1" # x pol
+            pattern = r"REAL\s*1\s+IMAG\s*1" # x pol, matches 'REAL1' and 'REAL 1', same for IMAG
             delay_ind = 3 # real1 location within a line
         else:
-            start = "REAL 2         IMAG 2" # y pol
+            pattern = r"REAL\s*2\s+IMAG\s*2" # y pol, matches 'REAL2' and 'REAL 2', same for IMAG
             delay_ind = 7 # real2 location within a line
         antennacolumn = 5
         phase_bandpass = np.nan + 1j*np.nan
@@ -451,10 +504,19 @@ class aipscor(object):
                     nfreq = int(line.split()[2])
 
         with open(self.bpfile, 'r') as fl:
+            content = fl.read()
+            if pol == 'y' and not re.search(pattern, content):
+                fallback = r"REAL\s*1\s+IMAG\s*1"
+                if re.search(fallback, content):
+                    print("WARNING: 'REAL 2' not found for Y pol. Falling back to 'REAL 1' (Single-pol detected).")
+                    pattern = fallback
+                    delay_ind = 3
+
             fl.seek(0)
             rowmap = self.mapRowToAntenna(fl, antennacolumn)
-            fl.seek(0)
-            fl.seek(fl.read().find(start),0)
+            
+            # Using robust regex search
+            self._seek_to_pattern(fl, pattern)
 
             bool_record = False
             phase_bp_real = np.full(nfreq,np.nan)
@@ -484,8 +546,6 @@ class aipscor(object):
                             data = fl.readline()
                 data=fl.readline()
 
-            phase_bandpass = phase_bp_real + 1j*phase_bp_imag
+            if bool_record:
+                phase_bandpass = phase_bp_real + 1j*phase_bp_imag
         return phase_bandpass
-
-
-

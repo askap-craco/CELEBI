@@ -15,31 +15,31 @@ def get_args():
     parser.add_argument("--cfreq", help = "Central frequency", type = float, default = None)
     parser.add_argument("--bw", help = "Bandwidth", type = float, default = None)
     parser.add_argument("--dm", help = "HTR DM (ideally structure maximised)", type = float, default = None)
+    parser.add_argument("--pols", nargs='+', default=['X', 'Y'], help="List of polarisations expected")
 
     return parser.parse_args()
-
-
-
-
 
 
 def _compile(args):
     """
     Compile all output data into a single neat txt file + yaml file
-    
     """
     justlen = 30
     ofile = open(f"{args.l}_summary.txt", "w")
 
+    # Map the number of polarisations to expected Stokes outputs
+    stokes_params = "IQUV" if len(args.pols) > 1 else "I"
 
     # Write filepath for HTR data
     ofile.write("# HTR DATA FILEPATHS #\n")
     htr_file = os.path.join(args.d, f"htr/dynspec_fnames.txt")
     if isfile(htr_file):
         with open(htr_file, "r") as file:
-            lines = file.readlines()
-        for i, S in enumerate("IQUV"):
-            ofile.write(f"ds{S}: ".ljust(justlen) + f"{os.path.join(os.path.join(os.path.abspath(args.d), 'htr'),lines[i])}")
+            lines = [line.strip() for line in file.readlines() if line.strip()]
+            
+        for i, S in enumerate(stokes_params):
+            if i < len(lines):
+                ofile.write(f"ds{S}: ".ljust(justlen) + f"{os.path.join(os.path.abspath(args.d), 'htr', lines[i])}\n")
 
     # General data
     ofile.write("\n# GENERAL DATA #\n")

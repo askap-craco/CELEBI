@@ -19,6 +19,10 @@ localise_dir = "${projectDir}/../localise/"
 
 workflow {
 
+    if (params.askapbeam != "" && params.pols.size() != 1) {
+        exit 1, "Error: --askapbeam is specified for single pol data, but params.pols does not have exactly 1 polarisation."
+    }
+
     printpar()    
 
     makedefaultflgs()
