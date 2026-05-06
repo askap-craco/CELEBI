@@ -39,8 +39,8 @@ class wmask:
         
         #load in wmask and get different weights
         with open(wmaskfilename,"rb") as file:
-            self.tindp = np.load(file)        #time independent weights
-            self.findp = np.load(file)        #freq independent weights
+            self.tw = np.load(file)           #time dependent weights (formed by frequency scrunching)
+            self.fw = np.load(file)           #freq dependent weights (formed by time scrunching)
             self.tmask = np.load(file)        #time mask
             self.findermask = np.load(file)   #finder mask
             self.rfimask = np.load(file)      #rfi mask
@@ -268,16 +268,21 @@ def weight_scrunch(args,wmask):
     #get card fpga indices relative to band of ascending order, used for weighting.
     f_idx = util.get_inverse_sort_index(args.freq)[::-1]
 
-    #get frequency corrections
-    f_correction = np.zeros(args.fbins)
-    print(wmask.findp)
+    #get frequency amplitude corrections and corresponding weight corrections
+    f_amp_corr = np.zeros(args.fbins)
+    f_weight_corr = np.zeros(args.fbins)
+    print(wmask.fw)
     print(wmask.tmask)
-    for i,fweight in enumerate(wmask.findp):
+    for i,fweight in enumerate(wmask.fw):
         if fweight <= 0:
-            f_correction[i] = 0
+            f_amp_corr[i] = 0
+            f_weight_corr[i] = 0
         else:
-            f_correction[i] = 1/fweight**0.5
-
+            # Amplitude correction is 1 / intensity (power domain flattening)
+            f_amp_corr[i] = 1.0 / fweight # This will make the FRB spectrally flat
+            # The visibility weights (representing inverse variance) must scale by 1 / (amplitude_correction)^2
+            f_weight_corr[i] = 1.0 / (f_amp_corr[i] ** 2)
+            # Ultimately, the product of the amplitude correction and the visibility weight leads to effectively multiplying by the original fw
     
     #NOTE: Each card fpga is made of 2 4MHz coarse channels, hence
     #each inputfile iteration will need two sets of varaibles, one 
@@ -433,7 +438,7 @@ def weight_scrunch(args,wmask):
         #do rfi subtraction
         outdifx.vis += rfidifx.vis
 
-        #avearge
+        #average
         if hw_tot[0] > 0:
             outdifx.vis[0::2] /= hw_tot[0]
         
@@ -447,15 +452,13 @@ def weight_scrunch(args,wmask):
         ## do frequency correction ##
         ##=========================##
 
-        #TODO: looking at the math, it will probably be easier to get rid of devsion of sum of weights
+        #apply amplitude correction factor to flatten spectrum
+        outdifx.vis[0::2] *= f_amp_corr[f_idx[i*2]]
+        outdifx.vis[1::2] *= f_amp_corr[f_idx[i*2+1]]
 
-        #apply correction factor
-        outdifx.vis[0::2] *= f_correction[f_idx[i*2]]
-        outdifx.vis[1::2] *= f_correction[f_idx[i*2+1]]
-
-        #update weights in header table
-        outdifx.headerTable.weight[0::2] = hw_tot[0] * wmask.findp[f_idx[i*2]]
-        outdifx.headerTable.weight[1::2] = hw_tot[1] * wmask.findp[f_idx[i*2+1]]
+        #update weights in header table based on amplitude correction factor
+        outdifx.headerTable.weight[0::2] = hw_tot[0] * f_weight_corr[f_idx[i*2]]
+        outdifx.headerTable.weight[1::2] = hw_tot[1] * f_weight_corr[f_idx[i*2+1]]
 
         #remove autocorrelations
         ac_idx = outdifx.headerTable.corr == "A"
@@ -478,7 +481,7 @@ def weight_scrunch(args,wmask):
     print("Weighting and Scrunching completed...")
     print("Execution time: {:.2f} s".format(time() - t1))
 
-    return CAS
+    return CAS                          
 
 
 
@@ -647,7 +650,7 @@ if __name__ == "__main__":
     wmask = wmask(args.weights)
     
     # # for testing
-    # wmask.findp = np.ones(wmask.findp.size)
+    # wmask.fw = np.ones(wmask.fw.size)
     # wmask.tmask[wmask.tmask != 0] = 1.0
 
 
@@ -692,5 +695,3 @@ if __name__ == "__main__":
 
 
     # END OF SCRIPT...
-
-

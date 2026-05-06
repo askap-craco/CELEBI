@@ -381,7 +381,7 @@ def make_binconfig(ds, args):
     # add zeroth bin (field bin)
     tw = np.concatenate(([0],tw))
 
-    # add time(freq-)weights to container, also add zeroth bin for 
+    # add time/freq-dependent weights to container, also add zeroth bin for 
     wmask.tw = tw.copy()
     wmask.fw = fw.copy()
     
@@ -405,8 +405,7 @@ def make_binconfig(ds, args):
 
     # 1. Correction for MJD timestamp, need to account for geometric delay and differences in de-dispersion
     geo_delay_MJD = args.geodelay / 86400
-    DM_delay_MJD = (4149.377593 * args.htr_DM * 
-                            (1/args.DM_ref_freq**2 - 1/args.corr_ref_freq**2)) / 86400
+    DM_delay_MJD = (4149.377593 * args.htr_DM * (1/args.DM_ref_freq**2 - 1/args.corr_ref_freq**2)) / 86400
     
     args.geodelay_ms = args.geodelay * 1000
     args.DM_delay_ms = DM_delay_MJD * 86400 * 1000
@@ -618,3 +617,4 @@ if __name__ == "__main__":
     diagnostics(ds, args, wmask)
 
     # DONE
+
