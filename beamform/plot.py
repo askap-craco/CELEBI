@@ -42,6 +42,8 @@ def get_args():
     # candidate/time bin files for getting burst MJD
     parser.add_argument("-c", type=str, help="Optimal FRB candidate")
     parser.add_argument("-t", type=float, help="MJD start time")
+    
+    parser.add_argument("--pols", nargs='+', required=True, help="List of expected polarisations")
 
     # mosaic options
     parser.add_argument("--t_panels", help = "Time resolutions to process for HTR mosaic",
@@ -95,10 +97,15 @@ def load_data(args):
     # get filenames of stokes dynspec
     with open(args.s) as fnames_file:
         fnames = fnames_file.readlines()
-        fnames = [fname.strip() for fname in fnames]
+        fnames = [fname.strip() for fname in fnames if fname.strip()]
+
+    # Validate expectations
+    expected_stokes = "IQUV" if len(args.pols) > 1 else "I"
+    if len(fnames) != len(expected_stokes):
+        raise ValueError(f"CRITICAL ERROR: Expected {len(expected_stokes)} files in {args.s} based on --pols, but found {len(fnames)}.")
 
     # load dynspec as memory map for memory efficiency
-    for i, S in enumerate("IQUV"):
+    for i, S in enumerate(expected_stokes):
         stk[S] = np.load(fnames[i], mmap_mode = "r")
 
     # # convert us time -> bin
@@ -186,12 +193,20 @@ def plot_htr(args, stk):
     # construct mosaic figure
     num = len(t_arr)
     pmax = max(t_arr)
+    
+    stokes_params = "".join(stk.keys())
 
     # create figure
-    axes_handles = [[f"{S}{t}" for t in t_arr + ["f"]] for S in "tIQUV"]
+    axes_handles = [[f"t{t}" for t in t_arr + ["f"]]]
+    for S in stokes_params:
+        axes_handles.append([f"{S}{t}" for t in t_arr + ["f"]])
+        
     x_plot_w = 2*7/num
-    fig, AX = plt.subplot_mosaic(axes_handles, figsize = (18,12),
-            gridspec_kw = {"height_ratios": [1,2,2,2,2], "width_ratios": [x_plot_w]*num+[1]})
+    height_ratios = [1] + [2]*len(stokes_params)
+    fig_height = 5 + 3*len(stokes_params)
+    
+    fig, AX = plt.subplot_mosaic(axes_handles, figsize = (18, fig_height),
+            gridspec_kw = {"height_ratios": height_ratios, "width_ratios": [x_plot_w]*num+[1]})
 
     # # channel zap 
     # rough_on_pulse = slice(t_burst_bin - int(1.2*1000*nsamp), t_burst_bin + int(1.2*1000*nsamp) + 1)
@@ -203,15 +218,19 @@ def plot_htr(args, stk):
     tI = t_average(tI.reshape(1, tI.size), pmax).flatten()
     peak = np.argmax(tI) * pmax
 
+    # 1. ADD MAX/MIN BOUNDS HERE TO PREVENT WRAP-AROUND
+    global_start = max(0, peak - int(1.2*pmax*nsamp))
+    global_end = min(stk['I'].shape[1], peak + int(1.2*pmax*nsamp) + 1)
+
     # crop data
     stk_data = {}
-    on_pulse = slice(peak - int(1.2*pmax*nsamp), peak + int(1.2*pmax*nsamp) + 1)
-    for S in "IQUV":
+    on_pulse = slice(global_start, global_end)
+    for S in stokes_params:
         stk_data[S] = stk[S][:,on_pulse].copy()
 
     # crop MJD timestamp
-    MJD_offset_to_1stsamp = (peak - int(1.2*pmax*nsamp))/8.64e10
-    MJD_offset_to_peak = peak/8.64e10
+    MJD_offset_to_1stsamp = global_start / 8.64e10
+    MJD_offset_to_peak = peak / 8.64e10
 
     with open("crops/peak_MJD_offset_from_1stsamp.txt", "w") as file:
         file.write(str(MJD_offset_to_peak))
@@ -231,9 +250,9 @@ def plot_htr(args, stk):
     for j, t in enumerate(t_arr):
 
         # loop through stokes IQUV
-        for k,S in enumerate("IQUV"):
+        for k,S in enumerate(stokes_params):
             # diagnostics
-            print(f"Processing: t = {t}, S = {S}: {k+4*j+1}/{4*len(t_arr)}")
+            print(f"Processing: t = {t}, S = {S}: {k + len(stokes_params)*j + 1}/{len(stokes_params)*len(t_arr)}")
 
             # crop and average by factor t
             ds = t_average(stk_data[S], t)
@@ -242,7 +261,19 @@ def plot_htr(args, stk):
             if S == "I":
                 peak = np.argmax(np.nanmean(ds, axis = 0))
 
-            ds = ds[:,peak - nsamp:peak + nsamp + 1]
+            # DYNAMICALLY SHRINK NSAMP IF TOO CLOSE TO AN EDGE
+            # Finds the smallest distance: to the left edge, right edge, or the default nsamp
+            eff_nsamp = int(min(nsamp, peak, ds.shape[1] - 1 - peak))
+            
+            # Catch the edge case where the array is too small to plot anything meaningful
+            if eff_nsamp <= 0:
+                raise ValueError(
+                    f"\n[CRITICAL WARNING] Effective sample size dropped to {eff_nsamp} for t={t} microseconds.\n"
+                    f"Peak found at index {peak} in an array of length {ds.shape[1]}.\n"
+                    f"There is insufficient data to generate a symmetric plot around the peak."
+                )
+
+            ds = ds[:, peak - eff_nsamp : peak + eff_nsamp + 1]
 
             # get time bins of burst in [ms]
             times = np.linspace(0.5*t, t*ds.shape[1] - 0.5*t, ds.shape[1])/1e3
@@ -260,7 +291,7 @@ def plot_htr(args, stk):
             # plot stokes I freq spectra
             if t == t_arr[-1]:
                 # nsamp is our maximum, from the way we cropped the data
-                AX[f"{S}f"].plot(ds[:,nsamp], freqs, color = 'k')
+                AX[f"{S}f"].plot(ds[:,eff_nsamp], freqs, color = 'k')
                 AX[f"{S}f"].plot([0.0]*2, flim, '--k', linewidth = 1.5)
                 AX[f"{S}f"].set_ylim(flim[::-1])
 
@@ -271,7 +302,7 @@ def plot_htr(args, stk):
             else:
                 AX[f"{S}{t}"].get_yaxis().set_visible(False)
             
-            if S == "V":
+            if S == stokes_params[-1]:
                 AX[f"{S}{t}"].set_xlabel("t offset [ms]")
             else:
                 AX[f"{S}{t}"].get_xaxis().set_visible(False)
@@ -291,7 +322,7 @@ def plot_htr(args, stk):
 
 
     # set stokes freq spectra axis properties
-    for S in "IQUV":
+    for S in stokes_params:
         AX[f"{S}f"].get_xaxis().set_visible(False)
         AX[f"{S}f"].set_yticks([])
         AX[f"{S}f"].yaxis.set_label_position("right")
@@ -311,7 +342,7 @@ def plot_htr(args, stk):
 
 
     # save figure
-    plot_filename = f"{args.label}_IQUV_{args.DM}.png"
+    plot_filename = f"{args.label}_{stokes_params}_{args.DM}.png"
     print(f"Saving figure as: {plot_filename}")
     plt.savefig(plot_filename)
 
@@ -321,7 +352,7 @@ def plot_htr(args, stk):
 
 
     # saved cropped data to file
-    for S in "IQUV":
+    for S in stokes_params:
         print(f"Saving crop of Stokes {S} dynspec as: {args.label}_{args.DM}_ds{S}_crop.npy")
         np.save(f"crops/{args.label}_{args.DM}_ds{S}_crop.npy", stk_data[S])
     

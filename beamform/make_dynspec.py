@@ -28,7 +28,8 @@ def stk_I(x,y):
     """
     Make stokes I
     """
-
+    if x is None: return np.abs(y)**2
+    if y is None: return np.abs(x)**2
     return np.abs(x)**2 + np.abs(y)**2
 
 def stk_Q(x,y):
@@ -134,8 +135,9 @@ def get_args():
     )
 
     ## data arguments
-    parser.add_argument("-x", help = "X pol time series", type = str)
-    parser.add_argument("-y", help = "Y pol time series", type = str)
+    parser.add_argument("-x", help = "X pol time series", type = str, default = None)
+    parser.add_argument("-y", help = "Y pol time series", type = str, default = None)
+    parser.add_argument("--pols", nargs='+', required=True, help="List of expected polarisations (e.g., X Y or just X)")
     parser.add_argument("--nFFT", help = "Number of frequency channels for final dynspec", 
                         type = int, default = 336)
     parser.add_argument("--bline", help = "Apply baseline correction", action = "store_true")
@@ -187,7 +189,7 @@ def get_args():
 
 
 
-def load_data(xfile, yfile):
+def load_data(args):
     """
     Info:
         Load in Stokes I, Q, U & V data along with 
@@ -203,10 +205,18 @@ def load_data(xfile, yfile):
     """
 
     ## load in stokes data
-    pol = {}
+    expected_pols = args.pols
+    pol = {'X': None, 'Y': None}
 
-    pol['X'] = np.load(xfile, mmap_mode = 'r')
-    pol['Y'] = np.load(yfile, mmap_mode = 'r')
+    if 'X' in expected_pols:
+        if not args.x or not path.exists(args.x):
+            raise FileNotFoundError("CRITICAL ERROR: 'X' polarisation expected based on --pols, but file is missing or not provided.")
+        pol['X'] = np.load(args.x, mmap_mode = 'r')
+        
+    if 'Y' in expected_pols:
+        if not args.y or not path.exists(args.y):
+            raise FileNotFoundError("CRITICAL ERROR: 'Y' polarisation expected based on --pols, but file is missing or not provided.")
+        pol['Y'] = np.load(args.y, mmap_mode = 'r')
 
 
     return pol
@@ -245,7 +255,8 @@ def make_ds(xpol, ypol, S = "I", nFFT = 336):
     # with specific memory constraints. 
 
     # define parameters
-    nsamps  = xpol.size                  # original number of samples in loaded dataset
+    ref_pol = xpol if xpol is not None else ypol
+    nsamps  = ref_pol.size               # original number of samples in loaded dataset
     fnsamps = (nsamps // nFFT) * nFFT    # number of samples after chopping 
     nwind   = fnsamps // nFFT            # number of fft windows along time series
 
@@ -269,8 +280,11 @@ def make_ds(xpol, ypol, S = "I", nFFT = 336):
     for i, b in enumerate(b_arr): # b is bounds of block in nFFT windows
         sb = b * nFFT
         wind_w = b[1] - b[0]
-        ds[:,b[0]:b[1]] = Stk_Func[S](fft(xpol[sb[0]:sb[1]].copy().reshape(wind_w, nFFT), axis = 1),
-                                 fft(ypol[sb[0]:sb[1]].copy().reshape(wind_w, nFFT), axis = 1)).T
+
+        xp = fft(xpol[sb[0]:sb[1]].copy().reshape(wind_w, nFFT), axis=1) if xpol is not None else None
+        yp = fft(ypol[sb[0]:sb[1]].copy().reshape(wind_w, nFFT), axis=1) if ypol is not None else None
+        
+        ds[:,b[0]:b[1]] = Stk_Func[S](xp, yp).T
         
         # print progress
         print(f"[MAKING DYNSPEC]:    [Progress] = {(i+1)/(nblock+1)*100:3.3f}%:    " + prog_str,
@@ -322,7 +336,7 @@ def pulse_fold(ds, DM, cfreq, bw, MJD0, MJD1, F0, F1, chanflag, sphase = None, )
     fold_n_init = int(ds.shape[1]/fold_w)     # initial number of folds
 
     # get dispersion sweep, calculate number of "broken" pulse periods
-    # due to dipsersion.
+    # due to dispersion.
     top_band = args.cfreq + bw/2
     bot_band = args.cfreq - bw/2
     DM_sweep = 4.14938e3 * DM * (1/bot_band**2 - 1/top_band**2) # DM sweep in seconds
@@ -370,6 +384,7 @@ def flag_chan(ds, flag_thresh, tN, args, rbounds = None):
     """
     Flag channels, this algorithm is not perfect since I'm estimating the RFI across the whole buffer,
     but it should give resonable enough results to find the peak and bounds of the burst.
+
     NOTE: This code is created by [Apurba Bera] and cleaned up by [Tyson Dial]
 
     Parameters
@@ -419,7 +434,7 @@ def flag_chan(ds, flag_thresh, tN, args, rbounds = None):
         # it is assumed that if rbounds is given, proper baseline correction has already been done
         # flagging the on pulse region for better flagging
         onpulse = ds[:, rbounds[0]:rbounds[1]].copy()
-        ds[:, rbounds[0]:rbounds[1]] = np.nan    
+        ds[:, rbounds[0]:rbounds[1]] = np.nan
         
         # average
         ds_avg = average(ds, axis = 1, N = tN, nan = True)
@@ -671,8 +686,10 @@ def _proc(args, pol):
 
     # flagging of channels should be done as soon as possible
     
-    # loop over full stokes suite
-    for S in "IQUV":
+    # loop through expected stokes suite
+    stokes_params = "IQUV" if len(args.pols) > 1 else "I"
+
+    for S in stokes_params:
 
         # make dynamic spectra
         ds = make_ds(pol['X'], pol['Y'], S, args.nFFT)
@@ -708,7 +725,7 @@ def _proc(args, pol):
         
             if args.do_chanflag:
                 bs_mean_raw, bs_std_raw, rbounds = baseline_correction(ds_raw, args.sigma, args.guard,
-                                            args.baseline, args.tN, chanflag_known, rbounds)
+                                             args.baseline, args.tN, chanflag_known, rbounds)
             
             ## Apply baseline corrections
             ds -= bs_mean[:, None]
@@ -757,7 +774,7 @@ if __name__ == "__main__":
 
 
     ## load data
-    pol = load_data(args.x ,args.y)
+    pol = load_data(args)
 
 
     ## make dynamic spectra
@@ -765,7 +782,3 @@ if __name__ == "__main__":
 
 
     print("Completed!")
-
-
-
-
