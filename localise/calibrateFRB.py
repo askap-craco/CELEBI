@@ -140,7 +140,7 @@ def _main():
         )
 
         if do_fcmupdate:
-            update_FCM(caldata, args.updatefcmfile)
+            update_FCM(caldata, args.updatefcmfile, args.npol)
 
     # Load FRING SN table into the target
     if do_target:
@@ -800,6 +800,12 @@ def get_args() -> argparse.Namespace:
         help="The maximum number of sources to return from source finding",
     )
     parser.add_argument(
+        "--npol",
+        type=int,
+        default=2,
+        help="The number of polarisations in the calibration solutions",
+    )
+    parser.add_argument(
         "--sourcecutoff",
         type=float,
         default=0.01,
@@ -990,7 +996,8 @@ def get_ref_freqs(caldata) -> "list[float]":
 
 def update_FCM(
     caldata, 
-    updatefcmfilename: str
+    updatefcmfilename: str,
+    npol: int
 ) -> None:
     """ Look at the output of a FRING SN table and update delays in FCM file
 
@@ -1000,7 +1007,7 @@ def update_FCM(
     :type updatefcmfilename: str
     """
     fcmlines = open(updatefcmfilename).readlines()
-    delaydict = vlbatasks.sntable2delaydict(caldata, snversion, 1, 2) #1 IF, 2 pols
+    delaydict = vlbatasks.sntable2delaydict(caldata, snversion, 1, npol) #1 IF, 2 pols
     fcmmap = {}
     for line in fcmlines:
         if "common.antenna" in line and "name" in line and not "aboriginal" in line:

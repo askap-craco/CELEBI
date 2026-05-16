@@ -38,6 +38,10 @@ workflow process_pol_cal {
         antspcal
 
     main:
+        if (params.askapbeam != "" && !params.nopolcal) {
+            exit 1, "Error: --askapbeam is specified, but nopolcal is false. Single pol requires --nopolcal true."
+        }
+
         label = "${params.label}_polcal"
         empty_file = create_empty_file("file")
 		
@@ -99,8 +103,3 @@ workflow process_pol_cal {
     emit:
         pol_cal_solns
 }
-
-
-
-
-

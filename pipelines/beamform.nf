@@ -347,7 +347,7 @@ process generate_deripple {
         source /opt/setup_proc_container
         set -xu
 
-        python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/.deripple_coeffs/ADE_R6_OSFIR.mat
+        python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/../telescope-data/askap/pfb-coefficients/ADE_R6_OSFIR.mat
 
         """
     
@@ -585,6 +585,15 @@ process generate_dynspecs {
         if [ "$params.pcal_bline" == "true" ]; then
             do_pbline_corr="--bline"
         fi   
+
+        xarg=' '
+        if [ -f "${label}_X_t_${dm}.npy" ]; then
+            xarg="-x=${label}_X_t_${dm}.npy"
+        fi
+        yarg=' '
+        if [ -f "${label}_Y_t_${dm}.npy" ]; then
+            yarg="-y=${label}_Y_t_${dm}.npy"
+        fi
 		
         if [[ $label == "${params.label}_polcal" ]]; then
             type="polcal"
@@ -592,8 +601,9 @@ process generate_dynspecs {
             MJD1=\$(echo \$(<$params.snoopy) | cut -d ' ' -f 21)
 
             python3 $beamform_dir/make_dynspec.py \
-                    -x=${label}_X_t_${dm}.npy \
-                    -y=${label}_Y_t_${dm}.npy \
+                    \$xarg \
+                    \$yarg \
+                    --pols ${params.pols.join(' ')} \
                     \$do_pbline_corr \
                     --ofile=${label}_@_dynspec_${dm}.npy \
                     --chanlists=$projectDir/../flagging \
@@ -613,8 +623,9 @@ process generate_dynspecs {
         else
             type="frb"
             python3 $beamform_dir/make_dynspec.py \
-                    -x=${label}_X_t_${dm}.npy \
-                    -y=${label}_Y_t_${dm}.npy \
+                    \$xarg \
+                    \$yarg \
+                    --pols ${params.pols.join(' ')} \
                     \$do_pbline_corr \
                     --ofile=${label}_@_dynspec_${dm}.npy \
                     --chanlists=$projectDir/../flagging \
@@ -629,9 +640,11 @@ process generate_dynspecs {
         cp flagged_channels.npy ${label}_flagged_channels.npy
 		
         echo "${label}_I_dynspec_${dm}.npy" > dynspec_fnames.txt
-        echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
-        echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        if [[ "\$xarg" != ' ' && "\$yarg" != ' ' ]]; then
+            echo "${label}_Q_dynspec_${dm}.npy" >> dynspec_fnames.txt
+            echo "${label}_U_dynspec_${dm}.npy" >> dynspec_fnames.txt
+            echo "${label}_V_dynspec_${dm}.npy" >> dynspec_fnames.txt
+        fi
         
         # saving files
         if [ -f fail_bline.png ]; then
@@ -753,7 +766,7 @@ workflow beamform {
 workflow gen_dspec {
     /*
         Workflow to produce high-time resolution time series and dynamic
-        spectra across Stokes IQUV 
+        spectra across Stokes IQUV (or only I, for single pol data) 
 
         Take
             label: val

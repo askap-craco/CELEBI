@@ -110,6 +110,7 @@ process generate_mf_binconfig {
         		--rms_w $params.mf_rms_w \
         		--rfi_w $params.mf_rfi_w \
         		--rfi_g $params.mf_rfi_g \
+                --halfpulse_w $params.mf_half_pulse_ms \
                 \$args
 
         """
@@ -294,6 +295,10 @@ process mf_calibrate_and_image {
             args=" --tarflagfile=$params.finderflagfile"
         else
             args=" --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
+        fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
         fi
 		
         export LC_CTYPE=C

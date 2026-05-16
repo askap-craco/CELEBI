@@ -118,6 +118,7 @@ def get_args():
     parser.add_argument("--rms_w", help = "width of off-pulse region in phase units", type = float, default = 0.025)
     parser.add_argument("--rfi_w", help = "Width of rfi region in ms", type = float, default = 4.0)
     parser.add_argument("--rfi_g", help = "Width of guard region between on-pulse and off-pulse in ms", type = float, default = 1.0)
+    parser.add_argument("--halfpulse_w", help = "Half width of the pulse in ms", type = float, default = -1.0)
 
     # weights
     parser.add_argument("--tw", help = "Calculate time-dependent weights to apply", action = "store_true")
@@ -211,6 +212,7 @@ def load_files(args):
 def crop_frb(args):
     """
     Crop FRB using sigma values 
+    Modified by AB on 1 April 2026 to enable forcing the crop window
 
     Parameters
     ----------
@@ -247,10 +249,16 @@ def crop_frb(args):
         # set all data in t < 1.5 t_rms to zero
         t[t < RMS_THRES * t_rms] = 0.0
 
-        # filter out bins with signal
-        t_ind = np.where(np.abs(t/t[t_peak]) > args.thres)
-        burst_start_samp = np.min(t_ind)
-        burst_end_samp = np.max(t_ind)
+        if (args.halfpulse_w > 0.0):
+            # Forced on-pulse region -- Added by AB on 1 April 2026
+            burst_start_samp = t_peak - int(args.halfpulse_w * 1000 / args.tN)
+            burst_end_samp = t_peak + int(args.halfpulse_w * 1000 / args.tN)
+        else:
+            # filter out bins with signal
+            t_ind = np.where(np.abs(t/t[t_peak]) > args.thres)
+            burst_start_samp = np.min(t_ind)
+            burst_end_samp = np.max(t_ind)
+
         burst_nsamp = burst_end_samp - burst_start_samp
 
         # calculate number of bins that will be correlated

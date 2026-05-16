@@ -33,15 +33,14 @@ process create_empty_file {
 }
 
 process do_filter_antenna {
-
     /*
-        Check if each antenna has an X and Y pol with non-zero data, if not, filter out
+        Check if each antenna has the expected pols with non-zero data, if not, filter out
 
         input:
             full list of antenna/pol dependant fine spectra with proper delays and calibrations,
             outputs of craftcor_tab.py
         output:
-            list of antenna/pol files but only with antennas where both X and Y polarisations are present
+            list of antenna/pol files but only with antennas where requested polarisations are present
             and non-zero
 
     */	
@@ -58,7 +57,7 @@ process do_filter_antenna {
         """
         set -xu
         
-        python3 $utils_dir/filter_antenna.py
+        python3 $utils_dir/filter_antenna.py --pols ${params.pols.join(' ')}
 
         # save txt out file
         cp antenna_filtering.txt ${params.out_dir}/htr/info/${label}_antenna_filtering.txt
@@ -82,11 +81,15 @@ workflow filter_antenna {
         // filter out antenna data, this will give a list of files, both X and Y for each antenna that wasn't filtered
         do_filter_antenna(label, unfiltered_files.map {it[1]}.toList())
 
-        // Need to output filterd files in same tuple format as inputs, we will use regexp
-        filtered_Xfiles = Channel.of('X').combine(do_filter_antenna.out.flatten().filter(~/^.*(X_f_filtered.npy)$/))
-        filtered_Yfiles = Channel.of('Y').combine(do_filter_antenna.out.flatten().filter(~/^.*(Y_f_filtered.npy)$/))
-
-        filtered_files = filtered_Xfiles.concat(filtered_Yfiles)
+        filtered_files = Channel.empty()
+        if (params.pols.contains('X')) {
+            filtered_Xfiles = Channel.of('X').combine(do_filter_antenna.out.flatten().filter(~/^.*(X_f_filtered.npy)$/))
+            filtered_files = filtered_files.concat(filtered_Xfiles)
+        }
+        if (params.pols.contains('Y')) {
+            filtered_Yfiles = Channel.of('Y').combine(do_filter_antenna.out.flatten().filter(~/^.*(Y_f_filtered.npy)$/))
+            filtered_files = filtered_files.concat(filtered_Yfiles)
+        }
 
     emit:
         filtered_ant = filtered_files
@@ -116,7 +119,7 @@ process compile_summary {
         	--cfreq ${params.centre_freq_frb} \
         	--bw ${params.bw} \
         	--dm ${params.dm_frb} \
-        	-d ${params.out_dir}    
+            --pols ${params.pols.join(' ')}
         """
 }
 

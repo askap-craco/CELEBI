@@ -80,6 +80,10 @@ process determine_flux_cal_solns {
         if [ "$params.nopossm" == "true" ]; then
             args="\$args --skipplot"
         fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
+        fi
 
         export LC_CTYPE=C
         export LC_ALL=C
@@ -169,6 +173,10 @@ process image_finder {
             args=" --tarflagfile=$params.finderflagfile"
         else
             args=" --tarflagfile=${params.out_dir}/${params.label}_exants.txt"
+        fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
         fi
 
         export LC_CTYPE=C
@@ -416,6 +424,10 @@ process image_field {
             args="--image=$params.fieldimage"
             cp $params.fieldimage /JOBFS/.
         fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
+        fi
         
         cp $target_fits /JOBFS/.
         cp $cal_solns /JOBFS/.
@@ -532,6 +544,10 @@ process image_polcal {
         else
             args="--tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
+        fi
 
         export LC_CTYPE=C
         export LC_ALL=C
@@ -637,6 +653,10 @@ process image_fluxcal {
         else
             args="--tarflagfile=${params.out_dir}/${params.label}_exants.txt"
         fi
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --npol=1"
+        fi
 
         export LC_CTYPE=C
         export LC_ALL=C
@@ -737,6 +757,11 @@ process image_htrgate {
 
         tar -xzvf $cal_solns
         target_fits=$target_fits
+
+        # If a single pol is being processed, pass that info along
+        if [ "$params.askapbeam" != "" ]; then
+            args="--npol=1"
+        fi
 
         export LC_CTYPE=C
         export LC_ALL=C

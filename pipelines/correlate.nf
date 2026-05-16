@@ -153,6 +153,11 @@ process do_ref_correlation {
         if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ] && [ "$corrtype" != "field" ]; then
             args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
         fi
+
+        # Process a single beam if desired
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --beam=$params.askapbeam"
+        fi
 				
 		python3 $localise_dir/processTimeStep.py -f $fcm -b $params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \
 		        --dir=${projectDir}/../difx \$args --startmjd=$startmjd 
@@ -272,6 +277,11 @@ process do_correlation {
         # Add the TLE info if needed for near-field correlation
         if [ "$params.tle_file" != "" ] && [ "$params.tle_file" != "null" ] && [ "$corrtype" != "fluxcal" ] && [ "$corrtype" != "polcal" ] && [ "$corrtype" != "field" ]; then
             args="\$args --tlefile=$params.tle_file --tleobject=$params.tle_object"
+        fi
+
+        # Process a single beam if desired
+        if [ "$params.askapbeam" != "" ]; then
+            args="\$args --beam=$params.askapbeam"
         fi
 
         python3 $localise_dir/processTimeStep.py -f=$fcm -b=$params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \

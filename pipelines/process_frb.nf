@@ -35,8 +35,7 @@ process load_coarse_dynspec {
                 FRB name and context of process instance as a string (no
                 spaces)
             data: val
-                Absolute path to data base directory (the dir. with the ak* 
-                directories)
+                Absolute path to data base directory (the dir. with the ak* directories)
             pol: val
                 One of "X" or "Y" for the current polarisation being beamformed
             ant_idx: val
@@ -256,7 +255,7 @@ process plot {
         path "*.png"
         path "crops", emit: crops
         path "crops/*.npy", emit: crop_us
-        path "*IQUV*.png", emit: plot_file
+        path "*_${params.pols.size() > 1 ? 'IQUV' : 'I'}_*.png", emit: plot_file
     
     script:
         """
@@ -268,6 +267,7 @@ process plot {
         mkdir crops
 
         python3 $beamform_dir/plot.py \
+                --pols ${params.pols.join(' ')} \
                 -s $fnames_file \
                 -f $centre_freq \
                 -l $label \
@@ -375,9 +375,14 @@ process extract_pulse {
         source /opt/setup_proc_container
         set -xu
         
+        xarg=' '
+        if [ "$x_file" != "NONE" ]; then xarg="-x $x_file"; fi
+        yarg=' '
+        if [ "$y_file" != "NONE" ]; then yarg="-y $y_file"; fi
+
         python3 $search_dir/extractvoltage.py \
-                -x $x_file \
-                -y $y_file \
+                \$xarg \
+                \$yarg \
                 --locfile $candfile \
                 --hlen ${params.zoomlenus} \
                 --bwmhz ${params.bw} \
@@ -428,6 +433,7 @@ process find_DM_opt {
         python3 $beamform_dir/opt_DM.py \
                 -x $crops/${params.label}_${dm}_X.npy \
                 -y $crops/${params.label}_${dm}_Y.npy \
+                --pols ${params.pols.join(' ')} \
                 -d $params.minDM \
                 -D $params.maxDM \
                 -s $params.DMstep \
@@ -868,12 +874,12 @@ workflow process_frb {
             candfile  =   file("${params.out_dir}/search/candfile.txt")
 
             if( params.nopolcal ) {
-                x_file  =   channel.of("${params.out_dir}/htr/${params.label}_X_t_${params.dm_frb}") 
-                y_file  =   channel.of("${params.out_dir}/htr/${params.label}_Y_t_${params.dm_frb}")  
+                x_file  =   params.pols.contains('X') ? channel.of("${params.out_dir}/htr/${params.label}_X_t_${params.dm_frb}") : channel.of("NONE")
+                y_file  =   params.pols.contains('Y') ? channel.of("${params.out_dir}/htr/${params.label}_Y_t_${params.dm_frb}") : channel.of("NONE")
             }
             else {
-                x_file  =   channel.of("${params.out_dir}/htr/${params.label}_calib_X_t_${params.dm_frb}") 
-                y_file  =   channel.of("${params.out_dir}/htr/${params.label}_calib_Y_t_${params.dm_frb}") 
+                x_file  =   params.pols.contains('X') ? channel.of("${params.out_dir}/htr/${params.label}_calib_X_t_${params.dm_frb}") : channel.of("NONE")
+                y_file  =   params.pols.contains('Y') ? channel.of("${params.out_dir}/htr/${params.label}_calib_Y_t_${params.dm_frb}") : channel.of("NONE")
             }
 
             extract_pulse(
@@ -901,6 +907,7 @@ workflow process_frb {
             else {
                 ids_path = file("${params.out_dir}/htr/${params.label}_calib_I_dynspec_${params.dm_frb}.npy") 
             }
+        
             binconfig = file("${params.out_dir}/binconfigs/craftfrb.finder.binconfig")
             polyco = file("${params.out_dir}/binconfigs/craftfrb.polyco")
             summary = file("${params.out_dir}/${params.label}_summary.txt")
