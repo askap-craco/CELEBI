@@ -547,5 +547,4 @@ class aipscor(object):
                 data=fl.readline()
 
             phase_bandpass = phase_bp_real + 1j*phase_bp_imag
-                
         return phase_bandpass

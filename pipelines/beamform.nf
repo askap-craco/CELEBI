@@ -44,6 +44,7 @@ process create_calcfiles {
     */
 
     label 'celebi'
+    label 'usescratch'
 
     input:
         val label
@@ -55,9 +56,11 @@ process create_calcfiles {
         tuple path("c1_f0/craftfrb*.im"), path("c1_f0/craftfrb*.calc")
 
     script:
+        // Create the argument string conditionally
+        def exclants_arg = params.exclants ? "--exclants \"${params.exclants}\"" : ""
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
         startmjd=`python3 $localise_dir/get_start_mjd.py $data` 
 
@@ -96,6 +99,7 @@ process create_calcfiles {
               -o . \
               --freqlabel c1_f0 \
               --dir=$projectDir/../difx \
+              $exclants_arg \
               --calconly \
               --startmjd=\$startmjd
         else
@@ -110,6 +114,7 @@ process create_calcfiles {
               -o . \
               --freqlabel c1_f0 \
               --dir=$projectDir/../difx \
+              $exclants_arg \
               --calconly \
               --startmjd=\$startmjd        
         fi
@@ -162,6 +167,7 @@ process do_beamform {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -182,9 +188,9 @@ process do_beamform {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
-        mkdir delays    # needed by craftcor_tab.py
+        mkdir -p delays    # needed by craftcor_tab.py
         tar xvf $flux_cal_solns
 
         # High band FRBs need --uppersideband
@@ -230,7 +236,7 @@ process do_beamform {
             --crop_width_s=\$cropwins \
             \$candm \$uppersideband \$hwfile
 
-        rm TEMP*
+        rm -f TEMP*
 
         export FFTLEN=`cat fftlen`
         
@@ -293,6 +299,7 @@ process sum_antennas {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -304,7 +311,7 @@ process sum_antennas {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
         python3 $beamform_dir/sum.py \
                 --f_dir . \
@@ -335,6 +342,7 @@ process generate_deripple {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         env FFTLEN
@@ -345,7 +353,7 @@ process generate_deripple {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
         python3 $beamform_dir/generate_deripple.py \$FFTLEN $beamform_dir/../telescope-data/askap/pfb-coefficients/ADE_R6_OSFIR.mat
 
@@ -383,6 +391,7 @@ process deripple {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -396,7 +405,7 @@ process deripple {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
         python3 $beamform_dir/deripple.py \
                 -f=$spectrum \
@@ -438,6 +447,7 @@ process dedisperse {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -451,7 +461,7 @@ process dedisperse {
     script:
         """
         source /opt/setup_proc_container 
-        set -xu
+        set -exu
 
         python3 $beamform_dir/dedisperse.py \
                 -f=$spectrum \
@@ -486,6 +496,7 @@ process ifft {
     */
 
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -498,7 +509,7 @@ process ifft {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 
         python3 $beamform_dir/ifft.py \
                 -f=$spectrum \
@@ -551,6 +562,7 @@ process generate_dynspecs {
     publishDir "${params.out_dir}/htr", mode: "copy"
     cpus 16
     label 'celebi'
+    label 'uselargescratch'
 
     input:
         val label
@@ -567,7 +579,7 @@ process generate_dynspecs {
     script:
         """
         source /opt/setup_proc_container
-        set -xu
+        set -exu
 		
 		touch dummy.png
 		

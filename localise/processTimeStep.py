@@ -27,7 +27,10 @@ def _main():
         os.mkdir(outdir)
     os.chdir(outdir)
 
-    beamdirs = find_vcraft(datadir, beam=args.beam, card=args.card)
+    # Convert comma-separated exclants string into a list
+    excluded_ants = ['ak' + ant.strip() for ant in args.exclants.split(',')] if args.exclants else []
+
+    beamdirs = find_vcraft(datadir, exclants=excluded_ants, beam=args.beam, card=args.card)
 
     # select specific card/FPGA to process and process it
     freqlabel = args.freqlabel
@@ -245,6 +248,12 @@ def get_args() -> argparse.Namespace:
         help="Force upper sideband for all channels"
     )
     parser.add_argument(
+        "--exclants", 
+        type=str, 
+        default="", 
+        help="Comma-separated list of antennas to exclude"
+    )
+    parser.add_argument(
         "--ref", help="Reference correlation directory", default=None
     )
     parser.add_argument(
@@ -324,7 +333,7 @@ def get_nbins(polyco: str) -> int:
     return nbins
 
 
-def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
+def find_vcraft(datadir: str, exclants: "list[str]" = None, beam: str = None, card: str = "") -> "list[str]":
     """Determine beam directories containing data to be processed.
 
     Searches within the provided datadir for vcraft files. If none are
@@ -333,6 +342,8 @@ def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
 
     :param datadir: Directory containing the per-antenna directories
     :type datadir: str
+    :param exclants: List of antennas to exclude
+    :type exclants: list[str]
     :param beam: Beam subdirectory to return. If None, both beams are
         returned. [Default = None]
     :type beam: str, optional
@@ -342,15 +353,21 @@ def find_vcraft(datadir: str, beam: str = None, card: str = "") -> "list[str]":
     :return: List of paths to beam directories to process
     :rtype: list[str]
     """
+    if exclants is None:
+        exclants = []
+        
     examplefiles = []
 
     # find all antenna subdirectories
     antennadirs = sorted(glob.glob(f"{datadir}/ak*"))
+    
+    # Filter out excluded antennas so we don't accidentally select one 
+    # as our "representative" antenna to extract beam paths from.
+    antennadirs = [a for a in antennadirs if os.path.basename(a) not in exclants]
 
     # For each antenna subdir, get the beam subdir(s) and look for vcraft
     # files inside of them, stopping once we've verified that any vcraft
     # files exist.
-
     for a in antennadirs:
         if beam is None:
             beamdirs = sorted(glob.glob(f"{a}/*"))
@@ -449,6 +466,8 @@ def create_v2oargs(
         v2oargs += f" --tlefile={args.tlefile}"
     if args.tleobject is not None:
         v2oargs += f" --tleobject={args.tleobject}"
+    if args.exclants:
+        v2oargs += f" --exclants {args.exclants}"
 
     v2oargs += f" --fpga {args.freqlabel}"
 

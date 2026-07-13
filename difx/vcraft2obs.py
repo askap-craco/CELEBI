@@ -25,7 +25,8 @@ def _main():
     elif args.bits == 16:
         correlateseconds = 5 # Was 3
 
-    vcraftfiles = find_vcraft(args.fileglob)
+    excluded_ants = ['ak' + ant.strip() for ant in args.exclants.split(',')] if args.exclants else []
+    vcraftfiles = find_vcraft(args.fileglob, exclants=excluded_ants)
 
     npol = len(vcraftfiles)
     nant = len(vcraftfiles[0])
@@ -245,6 +246,12 @@ def get_args() -> argparse.Namespace:
         help="Force upper sideband for all channels"
     )
     parser.add_argument(
+        "--exclants", 
+        type=str, 
+        default="", 
+        help="Comma-separated list of antennas to exclude"
+    )
+    parser.add_argument(
         "--ref", help="Reference correlation directory", default=None
     )
     parser.add_argument(
@@ -306,20 +313,35 @@ def posradians2string(rarad: float, decrad: float) -> "tuple[str]":
     return rastring, decstring
 
 
-def find_vcraft(fileglobs: "list[str]") -> "list[list[str]]":
-    """Find vcraft files based on the provided glob strings.
+def find_vcraft(fileglobs: "list[str]", exclants: "list[str]" = None) -> "list[list[str]]":
+    """Find vcraft files based on the provided glob strings, ignoring excluded antennas.
 
     :param fileglobs: Strings to glob to find vcraft files.
     :type fileglobs: list[str]
+    :param exclants: List of antennas to exclude
+    :type exclants: list[str]
     :return: A list of paths to files as strs for every glob string
         provided
     :rtype: list[str[str]]
     """
+    if exclants is None:
+        exclants = []
+        
     vcraftfiles = []
     for g in fileglobs:
-        vcraftfiles.append(glob.glob(g))
+        files = glob.glob(g)
+        valid_files = []
+        for f in files:
+            # Extract antenna name (e.g. ak01) from filename format
+            antname = f.split("/")[-1].split("_")[0]
+            if antname not in exclants:
+                valid_files.append(f)
+                
+        vcraftfiles.append(valid_files)
+        
         if len(vcraftfiles[-1]) == 0:
             raise FileNotFoundError("Didn't find any vcraft files!")
+            
     if not len(vcraftfiles[0]) == len(vcraftfiles[-1]):
         raise Exception("Number of vcraft files for X and Y doesn't match")
 

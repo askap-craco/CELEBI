@@ -123,6 +123,7 @@ def get_args():
     # weights
     parser.add_argument("--tw", help = "Calculate time-dependent weights to apply", action = "store_true")
     parser.add_argument("--fw", help = "Calculate freq-dependent weights to apply", action = "store_true")
+    parser.add_argument("--hann_w", help="Width of Hanning window to smooth frequency weights (1 = no smoothing)", type=int, default=1)
 
     return parser.parse_args()
 
@@ -382,6 +383,24 @@ def make_binconfig(ds, args):
     # zero any weights less then 1%
     tw[tw < 0.01] = 0.0
 
+    # -------- NEW SMOOTHING LOGIC --------
+    fw_unsmoothed = fw.copy()
+    
+    if args.hann_w > 1:
+        # np.hanning places zeros at the endpoints. By requesting width + 2 and 
+        # slicing [1:-1], a width of 3 gives [0.5, 1.0, 0.5] instead of [0, 1, 0].
+        window = np.hanning(args.hann_w + 2)[1:-1]
+        window /= window.sum()
+        
+        # Pad the edges so the convolution doesn't truncate the band edges
+        pad_width = args.hann_w // 2
+        fw_padded = np.pad(fw, pad_width, mode='edge')
+        
+        # Convolve and re-normalise
+        fw = np.convolve(fw_padded, window, mode='valid')
+        fw /= np.mean(fw)
+    # -------------------------------------
+
     # add rfi bin weights
     tw[:args.rfi_nsamp] = -1
     tw[args.finder_end + args.guard_nsamp:] = -1
@@ -389,10 +408,11 @@ def make_binconfig(ds, args):
     # add zeroth bin (field bin)
     tw = np.concatenate(([0],tw))
 
-    # add time(freq-)weights to container, also add zeroth bin for 
+    # add time/freq-dependent weights to container
     wmask.tw = tw.copy()
     wmask.fw = fw.copy()
-    
+    wmask.fw_unsmoothed = fw_unsmoothed.copy() # Store the unsmoothed version for diagnostics
+
     # create finder, rfi and field masks
     # just make finder bin the ds with padded zeroth bin (NOTE: may be removed later)
     wmask.findermask = np.pad(ds, ((0,0),(1,0)))
@@ -413,8 +433,7 @@ def make_binconfig(ds, args):
 
     # 1. Correction for MJD timestamp, need to account for geometric delay and differences in de-dispersion
     geo_delay_MJD = args.geodelay / 86400
-    DM_delay_MJD = (4149.377593 * args.htr_DM * 
-                            (1/args.DM_ref_freq**2 - 1/args.corr_ref_freq**2)) / 86400
+    DM_delay_MJD = (4149.377593 * args.htr_DM * (1/args.DM_ref_freq**2 - 1/args.corr_ref_freq**2)) / 86400
     
     args.geodelay_ms = args.geodelay * 1000
     args.DM_delay_ms = DM_delay_MJD * 86400 * 1000
@@ -572,17 +591,42 @@ def diagnostics(ds, args, wmask):
 
     plt.savefig("htr_t.png")
     
+    # -------- NEW DIAGNOSTIC PLOT --------
+    plt.figure(figsize=(10, 6))
+    if args.hann_w > 1:
+        plt.plot(wmask.fw_unsmoothed, label="Original (Unsmoothed)", alpha=0.5, color='gray', linewidth=1.5)
+    plt.plot(wmask.fw, label=f"Smoothed (Hanning w={args.hann_w})", color='blue', linewidth=1.5)
+        
+    plt.xlabel("Frequency Channel Index (Descending)", fontsize=14)
+    plt.ylabel("Frequency Weight (fw)", fontsize=14)
+    plt.title("Matched Filter Frequency Weights", fontsize=16)
+    plt.legend(fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.xlim(0, len(wmask.fw))
+    plt.tight_layout()
+        
+    plt.savefig("mf_freqweights_1d.png", dpi=100)
+    # -------------------------------------
 
     # save data in wmask class
+    # ALWAYS save the active weights (smoothed if active, else unsmoothed) to the main file
     with open("mf_wmask.npy", 'wb') as file:
-
-        np.save(file, wmask.tw)             # time-dependent weights
-        np.save(file, wmask.fw)             # freq-dependent weights
-        np.save(file, wmask.tmask)          # time weight mask
-        np.save(file, wmask.findermask)     # finder mask
-        np.save(file, wmask.rfimask)        # rfi mask
-        np.save(file, wmask.fieldmask)      # field mask
+        np.save(file, wmask.tw)             
+        np.save(file, wmask.fw)             # wmask.fw is already smoothed if hann_w > 1
+        np.save(file, wmask.tmask)          
+        np.save(file, wmask.findermask)     
+        np.save(file, wmask.rfimask)        
+        np.save(file, wmask.fieldmask)      
     
+    # If smoothing is active, save the RAW unsmoothed variant separately for diagnostics/archiving
+    if args.hann_w > 1:
+        with open("mf_wmask_unsmoothed.npy", 'wb') as file:
+            np.save(file, wmask.tw)             # time-dependent weights
+            np.save(file, wmask.fw_unsmoothed)  # freq-dependent weights
+            np.save(file, wmask.tmask)          # time weight mask
+            np.save(file, wmask.findermask)     # finder mask
+            np.save(file, wmask.rfimask)        # rfi mask
+            np.save(file, wmask.fieldmask)      # field mask
 
     # save info file about new files
     with open("mf_info.txt", "w") as file:
@@ -626,3 +670,4 @@ if __name__ == "__main__":
     diagnostics(ds, args, wmask)
 
     # DONE
+

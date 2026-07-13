@@ -112,6 +112,8 @@ process do_ref_correlation {
         path "c${card}_f${fpga}/*D2D.input"
 
     script:
+        // Create the argument string conditionally
+        def exclants_arg = params.exclants ? "--exclants \"${params.exclants}\"" : ""
         """
 		export CRAFTCATDIR="."
 		source /opt/setup_proc_container
@@ -160,7 +162,7 @@ process do_ref_correlation {
         fi
 				
 		python3 $localise_dir/processTimeStep.py -f $fcm -b $params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \
-		        --dir=${projectDir}/../difx \$args --startmjd=$startmjd 
+		        --dir=${projectDir}/../difx \$args $exclants_arg --startmjd=$startmjd
         """
     
     stub:
@@ -238,6 +240,8 @@ process do_correlation {
         path "c${card}_f${fpga}/*D2D.input"
 
     script:
+        // Create the argument string conditionally
+        def exclants_arg = params.exclants ? "--exclants \"${params.exclants}\"" : ""
         """
         export CRAFTCATDIR="."
         source /opt/setup_proc_container 
@@ -285,7 +289,7 @@ process do_correlation {
         fi
 
         python3 $localise_dir/processTimeStep.py -f=$fcm -b=$params.nbits -k --name=$label -o . -t=$data --ra=$ra --dec=$dec --card=$card --freqlabel=\$freqlabel \
-                --dir=$projectDir/../difx --ref=$ref_corr \$args --startmjd=$startmjd
+                --dir=$projectDir/../difx --ref=$ref_corr \$args $exclants_arg --startmjd=$startmjd
                 
         """
     

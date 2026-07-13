@@ -685,6 +685,13 @@ class Correlator:
                     - max(sample_offsets))
 
         self.nfft = nsamp
+        if self.nfft < 0:
+            print(f"nsamp was negative: {nsamp}")
+            print(f"self.refant.vfile.nsamps: {self.refant.vfile.nsamps}")
+            print(" ant: trigger_offset sample_offsets")
+            for i in range(len(trigger_offsets)):
+                print(f" {i}: {trigger_offsets[i]} {sample_offsets[i]}")
+            raise Exception("nsamp was negative")
         self.nguard_chan = int(5 * nsamp // 64)
 
         # with open("fftlen", "w") as f:

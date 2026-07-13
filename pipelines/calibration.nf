@@ -43,7 +43,7 @@ process determine_flux_cal_solns {
     publishDir "${params.out_dir}/fluxcal", mode: "copy"
 
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         path cal_fits
@@ -385,7 +385,10 @@ process image_field {
     publishDir "${params.out_dir}/field", mode: "copy"
 
     label 'celebi'
-    label 'aips_tempfs'
+    label 'aips_tempfs' // This is needed because calibrateFRB runs some AIPS tasks
+    
+    // Force Nextflow to physically copy the inputs to the local NVMe ($JOBFS) instead of symlinking
+    stageInMode 'copy' 
 
     input:
         path target_fits
@@ -399,8 +402,8 @@ process image_field {
         path "*_calibrated_uv.ms.tar", emit: mstar, optional: true
         path "*jmfit", emit: jmfit
         path "*.reg", emit: regions
-		path "cutouts", emit: cutouts
-		
+        path "cutouts", emit: cutouts
+        
     script:
         """
         source /opt/setup_proc_container
@@ -422,22 +425,22 @@ process image_field {
             fi
         else
             args="--image=$params.fieldimage"
-            cp $params.fieldimage /JOBFS/.
+            # Manually copy the external field image to our local working directory
+            cp $params.fieldimage .
         fi
+        
         # If a single pol is being processed, pass that info along
         if [ "$params.askapbeam" != "" ]; then
             args="\$args --npol=1"
         fi
         
-        cp $target_fits /JOBFS/.
-        cp $cal_solns /JOBFS/.
-        cd /JOBFS
-
+        # Extract calibration solutions (these are already local due to stageInMode)
         tar -xzvf $cal_solns
 
         export LC_CTYPE=C
         export LC_ALL=C
         export LANGUAGE=C
+        
         ParselTongue $localise_dir/calibrateFRB.py \
             --imagename=field \
             -j \
@@ -457,7 +460,6 @@ process image_field {
             tar -cvf ${target_fits}_calibrated_uv.ms.tar ${target_fits}_calibrated_uv.ms
         fi
 
-
         i=1
         for f in `ls *jmfit`; do
             echo \$f
@@ -466,18 +468,9 @@ process image_field {
         done
         
         ParselTongue $localise_dir/makefieldcutouts.py
-
-        cd - 
-        cp /JOBFS/f*.fits .
-        cp -r /JOBFS/f*.image .
-        cp -r /JOBFS/cutouts .
-
-        if [ "$params.usefield" = "false" ]; then
-            cp /JOBFS/${target_fits}_calibrated_uv.ms.tar .
-        fi
         
-        cp /JOBFS/*.reg .
-        cp /JOBFS/*jmfit .
+        # We do not need to copy outputs back manually. Nextflow looks for the patterns 
+        # defined in the 'output:' block within this directory and unstages them automatically!
         """    
     
     stub:
@@ -514,7 +507,7 @@ process image_polcal {
     */
     publishDir "${params.out_dir}/polcal", mode: "copy"
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         path target_fits
@@ -623,7 +616,7 @@ process image_fluxcal {
     */
     publishDir "${params.out_dir}/fluxcal", mode: "copy"
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         path target_fits
@@ -734,7 +727,7 @@ process image_htrgate {
     maxForks 1
     
     label 'celebi'
-    label 'aips'
+    label 'aips_tempfs'
 
     input:
         each path(target_fits)
