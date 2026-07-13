@@ -37,7 +37,7 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--exclants",
-        help="Space separated list of bad antennas",
+        help="Comma separated list of bad antennas",
         required=True,
     )    
     parser.add_argument(
@@ -105,10 +105,23 @@ if (args.pcaldata is not None):
 	print("Pol cal antenna count  = ",len(pcalants))
 	commants	= sorted(list(set(pcalants) & set(commants)))
 
-toex		= args.exclants.split(" ")
+#toex		= args.exclants.split(",")
+#for exl in toex:
+#	if (exl in commants):
+#		commants.remove(exl)
+
+# Split and strip whitespace just in case there are spaces between commas
+toex = [x.strip() for x in args.exclants.split(",") if x.strip()]
+
 for exl in toex:
-	if (exl in commants):
-		commants.remove(exl)
+    if exl in commants:
+        commants.remove(exl)
+    if exl in fcalants:
+        fcalants.remove(exl)
+    if exl in frbants:
+        frbants.remove(exl)
+    if exl in pcalants:
+        pcalants.remove(exl)
 
 exants		= []
 for i in range(1,args.maxants+1):
